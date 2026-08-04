@@ -7,3 +7,7 @@ data/parsed_history.json
 
 # Editor
 .DS_Store
+
+# Next.js build/export output
+web/.next/
+web/out/
