@@ -8,6 +8,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
@@ -31,6 +35,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val data by model.data.collectAsState()
     val busy by model.busy.collectAsState()
     val pending by model.pendingRestore.collectAsState()
+    val photoRestore by model.pendingPhotoRestore.collectAsState()
+    var includePhotos by rememberSaveable { mutableStateOf(false) }
     val original by model.pendingImport.collectAsState()
     val already by model.previouslyImported.collectAsState()
     val localSessions = remember(data.workouts) { notebookSessions(AppData(workouts = data.workouts)) }
@@ -45,7 +51,9 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var exerciseKey by rememberSaveable { mutableStateOf<String?>(null) }
     var editableKey by rememberSaveable { mutableStateOf<String?>(null) }
     var restoreRevision by rememberSaveable { mutableIntStateOf(0) }
-    var addingTo by remember { mutableStateOf<String?>(null) }
+    var addingTo by rememberSaveable { mutableStateOf<String?>(null) }
+    var activityEntry by remember { mutableStateOf(false) }
+    var healthImport by remember { mutableStateOf(false) }
     var importMenu by remember { mutableStateOf(false) }
     var native by rememberSaveable { mutableStateOf(true) }
     var backupMenu by remember { mutableStateOf(false) }
@@ -60,7 +68,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         val session = sessions.firstOrNull { it.key == key } ?: return
         loggerKey = null; exerciseKey = null; historyKey = key; historyDay = session.date; tab = 1; editableKey = null
     }
-    fun startWorkout() { model.startOverview { id -> workoutKey = "local:$id"; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null } }
+    fun startWorkout() { activityEntry = true }
     fun chooseSession(key: String?) {
         val session = sessions.firstOrNull { it.key == key }
         if (tab == 0) { workoutKey = key; session?.let { workoutDay = it.date } }
@@ -68,24 +76,27 @@ fun FitNotesApp(model: FitNotesViewModel) {
         editableKey = null
     }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::export) }
+    val photoExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let(model::exportPhotos) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::inspectBackup) }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> model.inspectOriginal(uri, native) } }
     val analysis = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportAnalysis) }
+    LaunchedEffect(backupMenu) { if (backupMenu) includePhotos = false }
     LaunchedEffect(model) { model.messages.collect { snackbar.showSnackbar(it) } }
     LaunchedEffect(data.loading, data.active?.workout?.id, data.active?.workout?.startedAt) {
         if (!data.loading && data.active != null) {
             workoutKey = "local:" + data.active!!.workout.id; workoutDay = localSessions.firstOrNull { it.key == workoutKey }?.date ?: todayDate()
         }
     }
-    BackHandler(enabled = loggerKey != null || historyDay != null) {
-        if (loggerKey != null) { loggerKey = null; exerciseKey = null }
+    BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null) {
+        if (addingTo != null) addingTo = null
+        else if (loggerKey != null) { loggerKey = null; exerciseKey = null }
         else { historyKey = null; historyDay = null; editableKey = null }
     }
     Scaffold(bottomBar = {
-        if (loggerKey == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            NavigationBarItem(selected = tab == 0, onClick = { tab = 0; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.PlayArrow, null) }, label = { Text("Workout") })
-            NavigationBarItem(selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History") })
-            NavigationBarItem(selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body") })
+        if (loggerKey == null && addingTo == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Workout") })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History") })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body") })
         }
     }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
@@ -96,7 +107,15 @@ fun FitNotesApp(model: FitNotesViewModel) {
             } else {
                 val logSession = sessions.firstOrNull { it.key == loggerKey }
                 val logExercise = logSession?.exercises?.firstOrNull { it.key == exerciseKey }
-                if (logSession != null && logExercise != null) holder.SaveableStateProvider("logger:$restoreRevision:${logSession.key}:${logExercise.key}") {
+                val addingWorkout = sessions.firstOrNull { it.key == addingTo }?.local
+                if (addingWorkout != null) {
+                    val recent = sessions.flatMap { it.exercises }.map { it.name.lowercase(Locale.ROOT) }.distinct()
+                    val categories = sessions.flatMap { it.exercises }.filter { it.category.isNotBlank() }.groupBy { it.name.lowercase(Locale.ROOT) }
+                        .mapNotNull { (name, values) -> values.map { it.category }.distinct().singleOrNull()?.let { name to it } }.toMap()
+                    ExercisePicker(data.exercises, addingWorkout.entries.map { it.exercise.id }.toSet(), recent, categories, busy, { addingTo = null },
+                        { ids -> model.addExercises(addingWorkout.workout.id, ids) { addingTo = null } },
+                        { name -> model.createExercise(addingWorkout.workout.id, name) { addingTo = null } })
+                } else if (logSession != null && logExercise != null) holder.SaveableStateProvider("logger:$restoreRevision:${logSession.key}:${logExercise.key}") {
                     ExerciseLogger(logSession, logExercise, sessions, data, model, busy, !logSession.completed || editableKey == logSession.key,
                         onBack = { loggerKey = null; exerciseKey = null }, onSwitch = { exerciseKey = it }, onAdd = { addingTo = logSession.key },
                         onEditWorkout = { editableKey = logSession.key }, onHistory = ::openHistory)
@@ -128,14 +147,18 @@ fun FitNotesApp(model: FitNotesViewModel) {
             }
         }
     }
-    addingTo?.let { key -> sessions.firstOrNull { it.key == key }?.local?.let { workout ->
-        ExercisePicker(data.exercises, workout.entries.map { it.exercise.id }.toSet(), busy, { addingTo = null },
-            { id -> model.addExercise(workout.workout.id, id) { addingTo = null } }, { name -> model.createExercise(workout.workout.id, name) { addingTo = null } })
-    } }
+    if (activityEntry) ActivityEntryDialog(busy, model, { activityEntry = false }) { id ->
+        activityEntry = false; workoutKey = "local:$id"; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null
+        // A manual past activity may have a different date.
+        model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) }
+    }
+    LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) } }
+    if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (rangeMenu) ShareRangeDialog(data, { rangeMenu = false }) { shareText = it; rangeMenu = false }
     if (importMenu) AlertDialog(onDismissRequest = { importMenu = false }, title = { Text("Import history") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Choose an export, review the preview, then confirm.")
+            TextButton(onClick = { importMenu = false; healthImport = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import activities (Health Connect)") }
             TextButton(onClick = { native = true; importMenu = false; importPicker.launch(arrayOf("*/*")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Original FitNotes backup") }
             TextButton(onClick = { native = false; importMenu = false; importPicker.launch(arrayOf("text/*", "application/octet-stream", "application/vnd.ms-excel")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Workout CSV") }
             Text("Body measurements can be imported from the original backup.", style = MaterialTheme.typography.bodySmall)
@@ -145,22 +168,27 @@ fun FitNotesApp(model: FitNotesViewModel) {
         model.confirmImport(plan) { tab = 1; historyKey = null; historyDay = null; loggerKey = null }
     } }
     if (backupMenu) AlertDialog(onDismissRequest = { backupMenu = false }, title = { Text("Backup and restore") }, text = {
-        Column {
-            TextButton(onClick = { backupMenu = false; export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export JSON backup") }
-            TextButton(onClick = { backupMenu = false; restore.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Choose backup to restore") }
+        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(includePhotos, { includePhotos = it }, modifier = Modifier.semantics { contentDescription = "Include progress photos" })
+                Text("Include progress photos", Modifier.weight(1f))
+            }
+            Text(if (includePhotos) "Includes original image files and photo details. Keep this unencrypted ZIP private." else "Progress photos are not in this backup. They remain on this device.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { backupMenu = false; if (includePhotos) photoExport.launch("fitnotes-photos-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".zip") else export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (includePhotos) "Export backup with photos" else "Export JSON backup") }
+            TextButton(onClick = { backupMenu = false; restore.launch(arrayOf("application/json", "application/zip", "application/x-zip-compressed", "text/plain", "application/octet-stream")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Choose backup to restore") }
             TextButton(onClick = { backupMenu = false; analysis.launch("fitnotes-analysis-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export analysis JSON") }
         }
     }, confirmButton = { TextButton(onClick = { backupMenu = false }) { Text("Close") } })
     pending?.let { backup ->
-        val dates = backup.workouts.map { com.example.fitnotes.data.localWorkoutDate(it) } + backup.importedWorkouts.map { it.date } + backup.bodyMeasurements.map { it.date }
+        val dates = backup.workouts.map { com.example.fitnotes.data.localWorkoutDate(it) } + backup.importedWorkouts.map { it.date } + backup.bodyMeasurements.map { it.date } + (photoRestore?.photos?.map { it.date } ?: emptyList())
         NotebookConfirm("Replace all training data?", "Validated backup v${backup.version}\nExported " +
             SimpleDateFormat("EEE d MMM yyyy · HH:mm", Locale.getDefault()).format(Date(backup.exportedAt)) + "\n${backup.exercises.size} exercises\n" +
-            "${backup.workouts.count { it.completedAt != null }} completed workouts · ${backup.workouts.count { it.completedAt == null }} unfinished\n" +
+            "${backup.workouts.count { it.isComplete }} completed workouts · ${backup.workouts.count { !it.isComplete }} unfinished\n" +
             "${backup.sets.size} local sets · ${backup.importedWorkouts.size} imported workouts · ${backup.importedSets.size} imported records\n" +
-            "${backup.bodyMeasurements.size} body measurements\n" + (if (dates.isEmpty()) "No dated records." else dates.min() + " to " + dates.max()) + "\nCurrent data will be replaced.",
+            "${backup.bodyMeasurements.size} body measurements\n" + (photoRestore?.let { "${it.photos.size} progress photos included; existing IDs will be updated.\n" } ?: "Photos are not included; existing photos will be kept.\n") + (if (dates.isEmpty()) "No dated records." else dates.min() + " to " + dates.max()) + "\nCurrent data will be replaced.",
             "Replace & restore", busy, model::cancelRestore) {
             model.confirmRestore {
-                val active = backup.workouts.firstOrNull { it.completedAt == null }
+                val active = backup.workouts.firstOrNull { !it.isComplete }
                 restoreRevision++; workoutKey = active?.let { "local:" + it.id }
                 workoutDay = active?.let { com.example.fitnotes.data.localWorkoutDate(it) } ?: todayDate()
                 historyKey = null; historyDay = null; loggerKey = null; exerciseKey = null; editableKey = null; tab = 0

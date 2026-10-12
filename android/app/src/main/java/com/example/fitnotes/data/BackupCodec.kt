@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 3,
+    val version: Int = 4,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -15,6 +15,8 @@ data class Backup(
     val importedWorkouts: List<ImportedWorkout> = emptyList(),
     val importedSets: List<ImportedSet> = emptyList(),
     val bodyMeasurements: List<BodyMeasurement> = emptyList(),
+    val healthSessions: List<HealthSession> = emptyList(),
+    val healthSamples: List<HealthSample> = emptyList(),
 )
 
 object BackupCodec {
@@ -29,7 +31,11 @@ object BackupCodec {
         root.put("workouts", JSONArray().also { array ->
             backup.workouts.forEach {
                 array.put(JSONObject().put("id", it.id).put("startedAt", it.startedAt)
-                    .put("completedAt", it.completedAt ?: JSONObject.NULL).put("title", it.title).put("notes", it.notes))
+                    .put("completedAt", it.completedAt ?: JSONObject.NULL).put("title", it.title).put("notes", it.notes).also { record ->
+                        if (backup.version >= 4) record.put("activityType", it.activityType).put("activityLabel", it.activityLabel)
+                            .put("sessionDate", it.sessionDate).put("finished", it.finished).put("durationSeconds", it.durationSeconds ?: JSONObject.NULL)
+                            .put("effort", it.effort ?: JSONObject.NULL).put("distance", it.distance ?: JSONObject.NULL).put("distanceUnit", it.distanceUnit ?: JSONObject.NULL)
+                    })
             }
         })
         root.put("entries", JSONArray().also { array ->
@@ -68,6 +74,10 @@ object BackupCodec {
                     .put("unit", it.unit).put("unitName", it.unitName).put("comment", it.comment).put("rawValues", it.rawValues))
             } })
         }
+        if (backup.version >= 4) {
+            root.put("healthSessions", JSONArray().also { array -> backup.healthSessions.forEach { array.put(HealthBackupJson.encode(it)) } })
+            root.put("healthSamples", JSONArray().also { array -> backup.healthSamples.forEach { array.put(HealthBackupJson.encode(it)) } })
+        }
         return root.toString(2).also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Backup exceeds the 50 MB limit." } }
     }
 
@@ -78,10 +88,11 @@ object BackupCodec {
             val root = JSONObject(text)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..3) { "Unsupported backup version." }
+            require(version in 1..4) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
-            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
+            else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
+            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples")
             val backup = Backup(
                 version = root.integer("version"),
                 exportedAt = root.long("exportedAt"),
@@ -90,8 +101,13 @@ object BackupCodec {
                     Exercise(it.long("id"), it.string("name"), it.string("nameKey"))
                 },
                 workouts = root.objects("workouts", 100000).map {
-                    it.keysExactly("id", "startedAt", "completedAt", "title", "notes")
-                    Workout(it.long("id"), it.long("startedAt"), if (it.isNull("completedAt")) null else it.long("completedAt"), it.string("title"), it.string("notes"))
+                    if (version < 4) it.keysExactly("id", "startedAt", "completedAt", "title", "notes")
+                    else it.keysExactly("id", "startedAt", "completedAt", "title", "notes", "activityType", "activityLabel", "sessionDate", "finished", "durationSeconds", "effort", "distance", "distanceUnit")
+                    Workout(it.long("id"), it.long("startedAt"), if (it.isNull("completedAt")) null else it.long("completedAt"), it.string("title"), it.string("notes"),
+                        if (version < 4) "strength" else it.string("activityType"), if (version < 4) "" else it.string("activityLabel"),
+                        if (version < 4) "" else it.string("sessionDate"), if (version < 4) false else it.get("finished").also { value -> require(value is Boolean) }.let { value -> value as Boolean },
+                        if (version < 4) null else it.optionalNumber("durationSeconds"), if (version < 4 || it.isNull("effort")) null else it.string("effort"),
+                        if (version < 4) null else it.optionalNumber("distance"), if (version < 4 || it.isNull("distanceUnit")) null else it.string("distanceUnit"))
                 },
                 entries = root.objects("entries", 200000).map {
                     it.keysExactly("id", "workoutId", "exerciseId", "position")
@@ -132,6 +148,8 @@ object BackupCodec {
                     BodyMeasurement(it.string("id"), it.string("importId"), it.string("sourceRecordId"), it.string("date"), it.string("time"),
                         it.string("name"), requireNotNull(it.optionalNumber("value")), it.string("unit"), it.string("unitName"), it.string("comment"), it.string("rawValues"))
                 },
+                healthSessions = if (version < 4) emptyList() else root.objects("healthSessions", 100000).map(HealthBackupJson::session),
+                healthSamples = if (version < 4) emptyList() else root.objects("healthSamples", 1000000).map(HealthBackupJson::sample),
             )
             validate(backup)
             return backup
@@ -141,11 +159,14 @@ object BackupCodec {
     }
 
     fun validate(backup: Backup) {
-        require(backup.version in 1..3) { "Unsupported backup version." }
+        require(backup.version in 1..4) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
             backup.importedSets.isEmpty() && backup.bodyMeasurements.isEmpty()) { "Version 1 cannot contain imported history." }
+        if (backup.version < 4) require(backup.healthSessions.isEmpty() && backup.healthSamples.isEmpty() && backup.workouts.all {
+            it.activityType == "strength" && it.activityLabel.isEmpty() && it.sessionDate.isEmpty() && !it.finished && it.durationSeconds == null && it.effort == null && it.distance == null
+        }) { "Activity records require backup version 4." }
         require(backup.exportedAt > 0) { "Invalid export date." }
         fun ids(values: List<Long>): Set<Long> {
             require(values.all { it in 1 until Long.MAX_VALUE } && values.toSet().size == values.size) { "Duplicate or invalid IDs." }
@@ -159,9 +180,16 @@ object BackupCodec {
         backup.exercises.forEach {
             require(InputRules.exerciseName(it.name) == it.name && it.nameKey == it.name.lowercase(Locale.ROOT)) { "Invalid exercise name." }
         }
-        require(backup.workouts.count { it.completedAt == null } <= 1) { "Backup contains multiple unfinished sessions." }
+        require(backup.workouts.count { !it.isComplete } <= 1) { "Backup contains multiple unfinished sessions." }
         backup.workouts.forEach {
-            require(it.startedAt > 0 && (it.completedAt == null || it.completedAt >= it.startedAt)) { "Invalid session dates." }
+            require((it.startedAt > 0 || (it.startedAt == 0L && it.finished && validHistoryDate(it.sessionDate))) && (it.completedAt == null || (it.startedAt > 0 && it.completedAt >= it.startedAt))) { "Invalid session dates." }
+            require(ActivityType.entries.any { type -> type.key == it.activityType } && it.activityLabel.length <= 100 &&
+                (it.activityType != "other" || it.activityLabel.isNotBlank())) { "Invalid activity type or label." }
+            require(it.sessionDate.isEmpty() || validHistoryDate(it.sessionDate)) { "Invalid session date." }
+            require(it.durationSeconds == null || (it.durationSeconds.isFinite() && it.durationSeconds >= 0)) { "Invalid duration." }
+            require(it.effort in listOf(null, "Easy", "Okay", "Hard")) { "Invalid effort." }
+            require((it.distance == null) == (it.distanceUnit == null)) { "Incomplete distance." }
+            require(it.distance == null || (it.distance.isFinite() && it.distance >= 0 && it.distanceUnit in listOf("m", "km", "ft", "mi"))) { "Invalid distance." }
             require(it.title.length <= 200 && it.notes.length <= 10000) { "Title or notes are too long." }
         }
         require(backup.entries.map { it.workoutId to it.exerciseId }.toSet().size == backup.entries.size) { "An exercise appears twice in a session." }
@@ -180,6 +208,7 @@ object BackupCodec {
             if (it.durationSeconds != null) require(it.durationSeconds.isFinite() && it.durationSeconds >= 0) { "Invalid duration." }
             require(it.comment.length <= 10000) { "Set comment is too long." }
         }
+        validateHealthBackup(backup.healthSessions, backup.healthSamples, workouts, backup.importedWorkouts.map { it.id }.toSet())
         validateImported(backup.imports, backup.importedWorkouts, backup.importedSets, backup.bodyMeasurements)
     }
 
@@ -219,8 +248,8 @@ object BackupCodec {
         }
     }
 
-    fun analysis(backup: Backup): String = JSONObject(encode(backup.copy(version = 3)))
-        .put("format", "fitnotes-analysis").put("version", 1).put("backupSchemaVersion", 3).toString(2)
+    fun analysis(backup: Backup): String = JSONObject(encode(backup.copy(version = 4)))
+        .put("format", "fitnotes-analysis").put("version", 1).put("backupSchemaVersion", 4).toString(2)
 
     private fun JSONObject.optionalNumber(key: String): Double? {
         if (isNull(key)) return null
@@ -258,7 +287,7 @@ object BackupCodec {
 // Android's JSONObject parser accepts non-JSON syntax. Validate strictly first so
 // malformed documents and duplicate keys cannot silently change training data.
 private val jsonNumberSyntax = Regex("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?")
-private class StrictJson(private val text: String) {
+internal class StrictJson(private val text: String) {
     private var offset = 0
     fun check() {
         value(0)

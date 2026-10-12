@@ -15,16 +15,33 @@ import java.io.ByteArrayOutputStream
 data class ImportedData(val imports: List<HistoryImport> = emptyList(), val workouts: List<ImportedWorkoutDetail> = emptyList(), val body: List<BodyMeasurement> = emptyList(), val loading: Boolean = false)
 data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: List<WorkoutDetail> = emptyList(), val loading: Boolean = true,
     val imported: ImportedData = ImportedData()) {
-    val active get() = workouts.firstOrNull { it.workout.completedAt == null }
-    val history get() = workouts.filter { it.workout.completedAt != null }
+    val active get() = workouts.firstOrNull {  !it.workout.isComplete }
+    val history get() = workouts.filter { it.workout.isComplete }
         .sortedWith(compareByDescending<WorkoutDetail> { it.workout.completedAt }.thenByDescending { it.workout.id })
 }
 
 class FitNotesViewModel(application: Application) : AndroidViewModel(application) {
     private val database = FitDatabase.open(application)
     private val repository = WorkoutRepository(database)
-    private val importer = HistoryImportRepository(database)
     private val notices = Channel<String>(Channel.BUFFERED)
+    val photoRepository = ProgressPhotoRepository(application, database)
+    private val photoBackup = PhotoBackup(photoRepository, repository)
+    val photos = photoRepository.photos.catch { notices.send("Unable to read progress photos. Restart the app to retry."); emit(emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val photoDrafts = MutableStateFlow<List<PhotoDraft>>(emptyList())
+    val pendingPhotoRestore = MutableStateFlow<PhotoRestore?>(null)
+    private val photoRecovery = viewModelScope.launch {
+        try { photoRepository.recover() }
+        catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            notices.send("Unable to check progress photo storage. Restart the app to retry.")
+        }
+    }
+    private val importer = HistoryImportRepository(database)
+    private val healthImporter = HealthImportRepository(database)
+    private var healthReadJob: kotlinx.coroutines.Job? = null
+    val healthCandidates = MutableStateFlow<List<HealthCandidate>>(emptyList())
+    val knownHealth = MutableStateFlow<List<HealthSession>>(emptyList())
+    val healthMessage = MutableStateFlow("Choose a period, grant read permissions, then load a preview.")
     private val localData = combine(repository.exercises, repository.workouts) { exercises, workouts ->
         AppData(exercises, workouts, loading = false)
     }.catch {
@@ -49,11 +66,11 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val previouslyImported = MutableStateFlow<HistoryImport?>(null)
     val messages = notices.receiveAsFlow()
 
-    private fun change(success: String?, done: () -> Unit = {}, block: suspend () -> Unit) {
+    private fun change(success: String?, done: () -> Unit = {}, register: ((kotlinx.coroutines.Job) -> Unit)? = null, block: suspend () -> Unit) {
         if (busy.value) return
         // Set synchronously so repeated taps cannot enqueue duplicate writes.
         busy.value = true
-        viewModelScope.launch {
+        val job = viewModelScope.launch {
             try {
                 block()
                 done()
@@ -65,11 +82,14 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
                 busy.value = false
             }
         }
+        register?.invoke(job)
     }
 
     fun start() = change("Session ready.") { repository.start() }
     fun addExercise(workoutId: Long, exerciseId: Long, done: () -> Unit) =
         change("Exercise added.", done) { repository.addExercise(workoutId, exerciseId) }
+    fun addExercises(workoutId: Long, ids: List<Long>, done: () -> Unit) =
+        change("Exercises added.", done) { repository.addExercises(workoutId, ids) }
     fun createExercise(workoutId: Long, name: String, done: () -> Unit) =
         change("Exercise added.", done) { repository.createExercise(workoutId, name) }
     fun saveSet(entryId: Long, weight: String, reps: String, setId: Long? = null, done: () -> Unit = {}) =
@@ -90,6 +110,54 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveImportedNotes(id: String, notes: String) = change("Notes saved.") { importer.saveNotes(id, notes) }
 
     fun startOverview(onReady: (Long) -> Unit) = change(null) { onReady(repository.start()) }
+    fun startActivity(type: String, label: String, title: String, notes: String, effort: String?, onReady: (Long) -> Unit) =
+        change(null) { onReady(repository.startActivity(type, label, title, notes, effort)) }
+    fun logPastActivity(type: String, label: String, date: String, start: Long?, seconds: Double, title: String, notes: String,
+        effort: String?, distance: Double?, unit: String?, onReady: (Long) -> Unit) =
+        change(null) { onReady(repository.logPast(type, label, date, start, seconds, title, notes, effort, distance, unit)) }
+    fun saveActivityDetails(id: Long, title: String, notes: String, effort: String?, distance: Double?, unit: String?, done: () -> Unit) =
+        change(null, done) { repository.saveActivityDetails(id, title, notes, effort, distance, unit) }
+
+    fun cancelHealthRead() {
+        if (healthReadJob?.isActive == true) {
+            healthReadJob?.cancel()
+            healthMessage.value = "Read stopped after leaving the foreground. Return and load the preview again; saved sessions were retained."
+        }
+    }
+    fun inspectHealth(days: Int) = change(null, register = { healthReadJob = it }) {
+        healthCandidates.value = emptyList()
+        if (android.os.Build.VERSION.SDK_INT < 28) { healthMessage.value = "Health Connect requires Android 9 or later."; return@change }
+        require(days == 7 || days == 30)
+        val context = getApplication<Application>()
+        if (androidx.health.connect.client.HealthConnectClient.getSdkStatus(context) != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+            healthMessage.value = "Health Connect is unavailable. Install or update it, then retry."; return@change
+        }
+        try {
+            val reader = HealthConnectReader(context)
+            val access = reader.access()
+            if (!access.exercise) { healthMessage.value = access.message; return@change }
+            healthMessage.value = "Reading activities and available samples…"
+            val end = java.time.Instant.now(); val start = end.minusSeconds(days * 86400L)
+            val candidates = reader.sessions(start, end)
+            val enriched = candidates.map { reader.enrich(it) }
+            // Only a fully successful exercise scan may mark an old source as missing.
+            val missing = healthImporter.noteMissing(start.toEpochMilli(), end.toEpochMilli(), candidates.map { it.session.key }.toSet())
+            knownHealth.value = healthImporter.known()
+            healthCandidates.value = enriched
+            healthMessage.value = access.message + "\n${enriched.size} available activities in the selected window." +
+                if (missing > 0) "\n$missing previously imported records were not returned; local sessions retained. See session information." else ""
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            healthCandidates.value = emptyList()
+            healthMessage.value = if (error is SecurityException) "Health Connect permission was denied or revoked. Grant exercise access, then retry." else
+                "Health Connect could not complete the read. Check permissions, availability and sync, then retry. The result is incomplete; saved sessions were retained."
+        }
+    }
+    fun importHealth(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null, done: () -> Unit) = change(null, done) {
+        val id = healthImporter.import(candidate, attachTo, attachImported)
+        knownHealth.value = healthImporter.known()
+        notices.send(if (id == null) "Already imported; the deleted local session was not recreated." else "Activity saved. Local notes, sets and timing preserved.")
+    }
     fun logStrength(entryId: Long, weight: String, reps: String, setId: Long?, comment: String, done: () -> Unit,
         distance: String? = null, unit: String? = null, seconds: String? = null) =
         change(null, done) { repository.saveSet(entryId, weight, reps, setId, comment, distance, unit, seconds) }
@@ -104,7 +172,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         change(null, done) { importer.saveMeasurement(id, name, value, unit, unitName, date, time, comment) }
     fun deleteMeasurement(id: String, done: () -> Unit) = change(null, done) { importer.deleteMeasurement(id) }
 
-    fun export(uri: Uri) = change("Backup exported.") {
+    fun export(uri: Uri) = change("Backup exported. Progress photos are not included.") {
         withContext(Dispatchers.IO) {
             val json = BackupCodec.encode(repository.backup())
             val resolver = getApplication<Application>().contentResolver
@@ -112,6 +180,32 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
                 .bufferedWriter(Charsets.UTF_8).use { it.write(json) }
         }
     }
+    fun preparePhotos(uris: List<Uri>) = change(null) {
+        photoRecovery.join()
+        val drafts = mutableListOf<PhotoDraft>()
+        try {
+            for (uri in uris.take(20)) drafts.add(photoRepository.prepare(uri))
+            photoDrafts.value = drafts
+        } catch (error: Throwable) { photoRepository.discard(drafts); throw error }
+    }
+    fun savePhotoDraft(date: String, angle: String, note: String) {
+        val draft = photoDrafts.value.firstOrNull() ?: return
+        change("Photo saved.") {
+            photoRepository.save(draft, date, angle, note)
+            photoDrafts.value = photoDrafts.value.drop(1)
+        }
+    }
+    fun cancelPhotos() = change(null) {
+        photoRepository.discard(photoDrafts.value)
+        photoDrafts.value = emptyList()
+    }
+    fun editPhoto(id: String, date: String, angle: String, note: String, done: () -> Unit) =
+        change("Photo details saved.", done) { photoRepository.edit(id, date, angle, note) }
+    fun deletePhoto(id: String, done: () -> Unit) = change("App copy deleted.", done) { photoRepository.delete(id) }
+    fun exportPhotos(uri: Uri) = change("Backup exported with progress photos.") {
+        photoRecovery.join(); photoBackup.export(uri)
+    }
+
     fun exportAnalysis(uri: Uri) = change("Analysis JSON exported.") {
         withContext(Dispatchers.IO) {
             val json = BackupCodec.analysis(repository.backup())
@@ -163,21 +257,36 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun cancelImport() { if (!busy.value) { pendingImport.value = null; previouslyImported.value = null } }
 
     fun inspectBackup(uri: Uri) = change("Backup validated. Review before restoring.") {
-        val backup = withContext(Dispatchers.IO) {
-            BackupCodec.decode(readUtf8(uri, BackupCodec.MAX_BYTES))
+        photoRecovery.join()
+        pendingRestore.value = null
+        photoBackup.discard(pendingPhotoRestore.value)
+        pendingPhotoRestore.value = null
+        val isArchive = withContext(Dispatchers.IO) {
+            getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.read() == 80 && it.read() == 75 } ?: false
         }
-        pendingRestore.value = backup
+        if (isArchive) {
+            val preview = photoBackup.inspect(uri)
+            pendingPhotoRestore.value = preview
+            pendingRestore.value = preview.backup
+        } else pendingRestore.value = withContext(Dispatchers.IO) { BackupCodec.decode(readUtf8(uri, BackupCodec.MAX_BYTES)) }
     }
 
     fun confirmRestore(done: () -> Unit) {
         val backup = pendingRestore.value ?: return
         change("Backup restored.", {
             pendingRestore.value = null
+            pendingPhotoRestore.value = null
             done()
-        }) { repository.restore(backup) }
+        }) {
+            val photos = pendingPhotoRestore.value
+            if (photos == null) repository.restore(backup) else photoBackup.restore(photos)
+        }
     }
 
-    fun cancelRestore() { if (!busy.value) pendingRestore.value = null }
+    fun cancelRestore() = change(null) {
+        photoBackup.discard(pendingPhotoRestore.value)
+        pendingRestore.value = null; pendingPhotoRestore.value = null
+    }
 
     private fun readUtf8(uri: Uri, maxBytes: Int): String {
         val bytes = ByteArrayOutputStream()

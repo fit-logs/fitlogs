@@ -7,33 +7,51 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
+import com.example.fitnotes.data.*
 
 @Composable
 fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit) {
+    val dateWidth = (48 * LocalDensity.current.fontScale).dp
     Column(Modifier.fillMaxSize()) {
         NotebookBar("History") {
-            if (!data.imported.loading) TextButton(onClick = onShare, modifier = Modifier.heightIn(min = 48.dp)) { Text("Share") }
+            if (!data.imported.loading) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share") }
             OverflowMenu { close ->
                 MenuAction("Import history") { close(); onImport() }
                 MenuAction("Backup and restore") { close(); onBackup() }
             }
         }
-        LazyColumn(state = state, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
             if (data.imported.loading) item { Text("Loading imported history…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             val completed = sessions.filter { it.completed }
             if (completed.isEmpty() && !data.imported.loading) item { Text("No completed workouts yet.", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             completed.groupBy { it.date.take(7) }.forEach { (month, rows) ->
                 item(key = "month:$month") { Text(prettyDay(month + "-01", "MMMM yyyy"), Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(rows, key = { it.key }) { session ->
-                    Surface(onClick = { onOpen(session.key) }, shape = MaterialTheme.shapes.medium) {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(prettyDay(session.date) + if (session.title.isNotBlank()) " — " + session.title else "", style = MaterialTheme.typography.titleMedium)
-                            Text(session.exercises.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                            Text("${session.exercises.size} exercises · ${session.count} sets" + if (session.dateOnly) " · Date-only" else "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(onClick = { onOpen(session.key) }) {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.width(dateWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(prettyDay(session.date, "dd"), style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
+                                Text(prettyDay(session.date, "EEE").uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(ActivityType.from(session.activity).symbol + " " + session.title.ifBlank { if (session.activity == "strength") "Workout" else session.activityTitle }, style = MaterialTheme.typography.titleMedium)
+                                Text(if (session.activity == "strength") session.exercises.joinToString(", ") { it.name } else session.notes.ifBlank { session.local?.health?.firstOrNull()?.session?.title.orEmpty() }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (session.activity == "strength") "${session.exercises.size} exercises · ${session.count} sets" else durationText(session.duration) +
+                                    (session.local?.workout?.distance?.let { " · " + weightText(it) + " " + session.local.workout.distanceUnit }
+                                        ?: session.local?.health?.firstOrNull()?.session?.distanceMeters?.let { " · " + weightText(it / 1000) + " km" }.orEmpty()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    HorizontalDivider()
+
                 }
             }
         }

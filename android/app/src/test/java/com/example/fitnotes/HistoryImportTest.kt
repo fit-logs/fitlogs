@@ -126,7 +126,7 @@ class HistoryImportTest {
         val analysis = JSONObject(BackupCodec.analysis(original))
         assertEquals(3, analysis.getJSONArray("bodyMeasurements").length())
         assertEquals(1, analysis.getInt("version"))
-        assertEquals(3, analysis.getInt("backupSchemaVersion"))
+        assertEquals(4, analysis.getInt("backupSchemaVersion"))
         db.importedDao().clear()
         WorkoutRepository(db).restore(BackupCodec.decode(json))
         assertEquals(3, db.importedDao().body().size)
@@ -196,7 +196,7 @@ class HistoryImportTest {
             old.execSQL("INSERT INTO workout_sets VALUES(1,1,50,8,0)")
             old.version = 1
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6).build()
         try {
             assertEquals(50.0, migrated.dao().entrySets(1).single().weightKg, 0.0)
             assertNull(migrated.dao().workout(1)!!.completedAt)

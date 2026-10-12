@@ -38,6 +38,18 @@ class WorkoutRepositoryTest {
         context.deleteDatabase(name)
     }
 
+    @Test fun multiSelectIsAtomicOrderedAndIdempotent() = runBlocking {
+        val workout = repo.start()
+        val first = db.dao().insertExercise(Exercise(name = "One", nameKey = "one"))
+        val second = db.dao().insertExercise(Exercise(name = "Two", nameKey = "two"))
+        expectFailure { repo.addExercises(workout, listOf(first, Long.MAX_VALUE)) }
+        assertTrue(db.dao().workoutEntries(workout).isEmpty())
+        repo.addExercises(workout, listOf(second, first, second))
+        repo.addExercises(workout, listOf(first))
+        assertEquals(listOf(second, first), db.dao().workoutEntries(workout).map { it.exerciseId })
+        assertTrue(db.dao().sets().isEmpty())
+    }
+
     @Test fun threeSetsAndMetadataSurviveReopenAndResume() = runBlocking {
         val id = repo.start()
         repo.createExercise(id, "Squat")

@@ -23,8 +23,8 @@ class InputRulesTest {
         assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode("{}") }
         val json = BackupCodec.encode(backup)
-        listOf(json + " trailing", json.replace("\"version\": 3", "\"version\": 3, \"version\": 3"),
-            json.replace("\"version\"", "'version'"), json.replace("\"version\": 3", "\"version\": 03"))
+        listOf(json + " trailing", json.replace("\"version\": 4", "\"version\": 4, \"version\": 4"),
+            json.replace("\"version\"", "'version'"), json.replace("\"version\": 4", "\"version\": 04"))
             .forEach { assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(it) } }
     }
 }

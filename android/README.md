@@ -8,7 +8,9 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 - **Workout:** an unfinished session resumes automatically. Otherwise tap
   **Start workout**. Date arrows and the date picker browse existing sessions;
   they never create a workout. A selector appears when a day has multiple sessions.
-- Tap **+** to select or create an exercise. The overview contains compact saved
+- Tap **Add exercise** to search Recent / Favourites / All, select multiple exercises,
+  and confirm **Add N exercises**. Stars save favourites; selections survive filter
+  and search changes. **Create custom exercise** adds a named exercise. The overview contains compact saved
   set rows; tap an exercise for its focused **Log / History** screen. Back returns
   to the overview, preserving scroll and draft state where practical.
 - The logger shows the latest completed session before the viewed workout.
@@ -26,7 +28,7 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 - Switch exercises using **Switch**. Confirmed records remain persisted; drafts
   are kept separately for each exercise while navigating within the app.
 - Edit session title/notes through the overview menu. Notes appear only when
-  present, as a collapsed preview. **Finish** completes an active workout.
+  present, as a collapsed preview. **Finish workout** completes an active workout.
 - **History:** compact sessions grouped by month. Completed workouts open in
   viewing mode; choose **Edit workout** explicitly to enable logging/editing.
   **Repeat exercises** starts a new workout with no sets or notes copied.
@@ -40,13 +42,17 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
   otherwise use HH:mm:ss. Editing preserves its ID, type, unit and original fields.
   Different measurement types/units remain separate. There are no charts.
 - **Import history** and **Backup and restore** are available in overflow menus.
+- **Settings → Appearance:** System / Light / Dark. An explicit choice persists
+  across restarts and overrides the system appearance. Theme and favourites are
+  device preferences; training backups continue to contain the complete training
+  library and records.
 
 ## Backup and restore
 
 Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 3 file contains the entire exercise library, local session
+file picker. The version 4 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
-original fields, and import fingerprints. Version 1 and 2 backups remain readable. Store it outside this repository
+original fields, and import fingerprints. Versions 1, 2 and 3 remain readable. Store it outside this repository
 in a private location. Backups are readable JSON and are not encrypted.
 
 Use **Choose backup to restore** to validate a file and see its export date,
@@ -105,7 +111,7 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
 - The **Body** tab lists dated measurements. Graphs are deferred.
   Period sharing includes body measurements. **Backup and restore → Export analysis JSON**
   exports the complete dataset with format `fitnotes-analysis`, version 1 and
-  `backupSchemaVersion: 3`. Analysis JSON is not a restore file.
+  `backupSchemaVersion: 4`. Analysis JSON is not a restore file.
 - Local workouts can open while imported history loads in the background. A loading
   label appears for imported references/history; period sharing stays disabled until
   the full history is ready, so no partial training context is shared.
@@ -240,6 +246,28 @@ Build reports are under `app/build/reports/`.
 - Before/after screenshots and additional verification outputs stay outside Git.
   No uninstall, app-data clearing, push or merge was performed.
 
+### Visual polish verification on 12 October 2026
+
+- 28 local tests pass with no skips, including the supplied native backup fixture,
+  legacy backups, precision preservation, existing migrations and atomic multi-select.
+- Guarded emulator interaction tests pass for three identical saves, update, cancel,
+  switching, finish/repeat/date navigation and selection across filters/search.
+- Actual rendered screens were inspected at 1080 × 2400, font scales 1.0 and 1.5,
+  in light/dark themes. Matched before/after images and additional keyboard, long-name,
+  imported-history and measurement-detail captures are in the ignored
+  `captures/polish-20261012` directory, with a verification report.
+- A decimal weight was entered and saved with a normal docked keyboard. Save remains
+  reachable with large text and long names by scrolling. The unfinished synthetic
+  workout, saved records and explicit appearance survived a process restart.
+- An actual SAF export produced valid v3 JSON with local sessions/sets, imported
+  records and measurements; original `kgs` units and 70.125 precision were retained
+  while the UI displays `kg`. Import date-only information remains in details.
+- No schema/dependency changes, uninstall, storage clearing, push or merge. Runtime
+  checks used isolated synthetic preview packages; the physical phone was unchanged.
+- Equipment is absent from the library schema, so the picker uses a consistent generic
+  vector icon and displays only unambiguous stored categories. No metadata is inferred
+  or silently written from names.
+
 ## Install
 
 On your phone, enable Developer options and USB debugging, connect it by USB,
@@ -268,3 +296,150 @@ that source. Use the same APK/signing key for later updates.
 - [KSP releases](https://github.com/google/ksp/releases)
 
 - [AndroidX Test releases and input API fix](https://developer.android.com/jetpack/androidx/releases/test#espresso-3.7.0)
+
+
+## Activities and Health Connect
+
+- **Start workout** opens the activity selector. Choose Strength training for the
+  existing exercises/sets flow, or Running, Walking/hiking, Climbing/bouldering,
+  Soccer, Martial arts or Other (custom label). The current unfinished session
+  must be resumed, finished or deleted before another session is created.
+- **Start session** saves a real timestamp. Non-strength sessions show elapsed
+  wall time from that persisted timestamp; navigation, rotation and process
+  restart preserve it. Finish saves the end and elapsed duration. Notes and effort
+  are saved through **Edit activity details**. There is no timer background service.
+- **Log past activity** accepts a date, reported duration in minutes, optional
+  start time, title, notes and effort. Running/walking can also have distance in
+  m/km/ft/mi. An unknown start remains unknown; no midnight timestamp is invented.
+  An optional start plus reported duration determines the end. Timer duration is
+  elapsed wall time, while imported duration is the source start/end interval;
+  neither assumes Garmin's active/moving time.
+- **Import history → Import activities (Health Connect)** offers the last 7 or
+  30 days. Grant read permissions through Android's Health Connect UI, then load
+  a preview. Exercise access is required; heart rate and distance are optional.
+  Missing/revoked permissions and unavailable/setup states explain the next step.
+  Leaving the foreground stops an in-progress read.
+- Preview sources include their real origin package. Garmin Connect is selected
+  when records from `com.garmin.android.apps.connectmobile` are present. Other
+  sources remain inspectable. Import as new, explicitly attach to any saved
+  session, or skip. Only matching activity types with known overlapping local
+  times are suggested; date-only history can be attached by explicit selection.
+- Attachments preserve local IDs, sets, notes, titles and timing. Source timing,
+  title, notes, record/client IDs, offsets, device, origin, last modification and
+  import time remain separate. Re-import or **Refresh imported data** updates the
+  same source link and atomically replaces the sample snapshot. Deleted local
+  sessions retain source tombstones and are not recreated by repeated imports.
+- Heart-rate samples are filtered to the session interval (end excluded), with
+  the exercise source preferred. When unavailable, another source is explicitly
+  identified. Only one source's samples are summarized. Sample count, covered
+  timestamp range and sample min/max/average are shown; sparse samples do not
+  establish continuous coverage or official Garmin workout statistics.
+- Distance is the sum of fully contained records from a preferred source.
+  Boundary-crossing distance is not apportioned; overlapping distance records are
+  reported as ambiguous. Missing distance remains null. Its source and limitations
+  appear in details and sharing.
+- A previously imported source record not returned by a later complete scan is
+  flagged as potentially changed, moved or unavailable; the local session stays.
+  Updated source fields are marked on refresh. No local workout is silently deleted.
+- All activities appear in History and the existing date-range text preview.
+  Imported summaries, origins and missing-data context are included before copy/share.
+  There is no automatic upload.
+
+Record on your watch separately. Garmin data can be attached after sync. The app
+never starts or controls the watch, records GPS, receives live heart rate, logs
+into Garmin, or performs background sync. A query result does not establish that
+Garmin finished syncing or that no activity occurred.
+
+The integration uses the official stable Health Connect SDK 1.1.0. Offline
+logging retains API 24 support; all Health Connect entry points are guarded for
+API 28+. API 24 has a synthetic offline persistence check. Default history access
+starts 30 days before the first permission grant; this app requests neither
+extended history nor background permissions. Older/batched data outside the
+accessible lookback can be incomplete. Garmin must first write data to Health
+Connect on the phone; install/update and enable its sharing there as needed.
+
+Official references checked for this implementation:
+
+- [SDK setup, availability and permissions](https://developer.android.com/health-and-fitness/health-connect/get-started)
+- [Pagination and history access](https://developer.android.com/health-and-fitness/health-connect/read-data)
+- [Stable SDK release](https://developer.android.com/jetpack/androidx/releases/health-connect)
+- [Garmin Connect package identity](https://play.google.com/store/apps/details?id=com.garmin.android.apps.connectmobile)
+
+Room 3 → 4 is additive. Existing IDs and date-only imported records are preserved.
+Backup v4 includes activity fields, Health Connect source links and samples;
+restore validates all references and replaces the complete dataset atomically.
+In the legacy local `startedAt` column, zero now explicitly denotes an unknown
+start; `sessionDate` and `finished` carry date/completion independently. All timer,
+matching and export code uses `knownStart` rather than interpreting zero as time.
+
+Automated checks use synthetic records and private test databases. The SDK reader
+is exercised with the official FakeHealthConnectClient, including >500 records,
+permissions, source preference and batched samples crossing boundaries. UI tests
+must use the isolated package `com.example.fitnotes.preview.activities` on an
+emulator. Never run synthetic fixtures against the personal application ID.
+
+## Progress photos
+
+**Body → Measurements / Photos** keeps measurements separate from optional photos.
+In Photos, choose Front / Side / Back / Other. The grid lists newest dates first.
+**Add photos** opens Android's system photo picker (up to 20 at a time, with a
+system document-picker fallback on older devices). No photo-library permission
+is requested. Each image gets a preview, editable date, angle and optional note.
+**Cancel import** discards remaining unsaved copies; previously saved photos stay.
+
+Only EXIF DateTimeOriginal is used as a capture date. If absent or invalid, the
+default is today with a visible explanation. File modification times are ignored.
+Multiple photos can share a date. Tap a thumbnail to view/edit details or confirm
+deletion of only the app's copy. Missing/damaged copies remain manageable.
+
+Select two checkboxes in one angle and tap **Compare**. The slider has a visible
+drag handle and an accessible slider below it; endpoints reveal either photo.
+**Side by side** shows both complete images. Both modes preserve aspect ratio and
+retain selections. Slider mode supports per-photo pinch zoom and drag reposition,
+plus **Reset**. These adjustments never change stored files. Same-day comparisons
+use Photo 1 / Photo 2 labels because within-day capture order is unknown.
+
+Original bytes are copied into private `files/progress-photos/`; the Room version
+5 → 6 migration only adds the photo table and date index. UUID metadata IDs and
+relative file references are independent of measurements. Processing runs on IO,
+with thumbnails bounded to 384 pixels and viewing images to 2048 pixels on the
+long edge. Each original is limited to 60 MB and 400 million decoded pixels.
+Interrupted unsaved imports/orphan copies are removed on the next app start.
+
+### Manual photo backup
+
+**Backup and restore → Include progress photos** starts off each time the menu
+opens. With it off, the existing v4 JSON format excludes all photo files and photo
+metadata and clearly says so. Versions 1–4 still restore; JSON restoration leaves
+existing photos alone. Analysis exports and workout text sharing exclude photos.
+
+With the option on, export creates an unencrypted ZIP containing the training
+JSON, a version-1 photo manifest and actual original image bytes (including any
+original embedded metadata). Store it privately outside this repository. It uses
+portable archive references and SHA-256 checksums, never device-specific paths.
+Archives support up to 1000 photos / 512 MB total. Missing/corrupt copies stop the
+export with an explanation. Choose the ZIP in the existing restore picker to
+validate and preview it before the replacement confirmation. Photo IDs are
+upserted, so repeated restores do not duplicate records; photos absent from the
+archive are retained. Files are prepared before the database transaction, using
+new private locations so an interruption cannot replace an existing image early.
+
+Photos stay local, with no upload. The existing manifest disables Android backup,
+and both legacy backup rules and Android 12+ cloud/device-transfer rules explicitly
+exclude all private files and the database, including photos and their metadata.
+No camera, reminder, cloud sync, collage export, alignment or body analysis is added.
+
+### Synthetic photo verification
+
+`ProgressPhotoTest` covers import/cancel/edit/delete, duplicate dates, restart
+persistence, original deletion, missing/corrupt files, EXIF capture date and all
+eight orientations (including mirrored pixel checks), large-image bounds,
+archive round trips, repeated restore, old JSON restore, traversal rejection,
+and rollback after a database failure. Tests use synthetic files/private databases.
+
+`ProgressPhotoInteractionTest` requires the isolated verification package. Build
+with `-PphotoVerification=true` to use `com.example.fitnotes.preview.photos`; normal
+builds keep `com.example.fitnotes` and the existing signing configuration. Never
+run synthetic fixtures on the personal application ID. Actual emulator screenshots
+and the detailed verification record are kept in ignored
+`captures/progress-photos-20261013/`. The physical phone is not modified.
