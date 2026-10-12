@@ -10,6 +10,16 @@ import com.example.fitnotes.ui.FitNotesApp
 import com.example.fitnotes.ui.theme.FitNotesTheme
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        androidx.lifecycle.ViewModelProvider(this)[FitNotesViewModel::class.java].healthForeground()
+    }
+
+    override fun onPause() {
+        androidx.lifecycle.ViewModelProvider(this)[FitNotesViewModel::class.java].healthBackground()
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(

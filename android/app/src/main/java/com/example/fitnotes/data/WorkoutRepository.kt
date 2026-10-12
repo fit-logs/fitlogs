@@ -234,13 +234,16 @@ class WorkoutRepository(val database: FitDatabase) {
         val imported = database.importedDao()
         Backup(exercises = dao.exercises(), workouts = dao.workouts(), entries = dao.entries(), sets = dao.sets(),
             imports = imported.imports(), importedWorkouts = imported.workouts(), importedSets = imported.sets(), bodyMeasurements = imported.body(),
-            healthSessions = database.healthDao().sessions(), healthSamples = database.healthDao().samples())
+            healthSessions = database.healthDao().sessions(), healthSamples = database.healthDao().samples(),
+            plannedWorkouts = database.planDao().plans(), plannedExercises = database.planDao().exercises(), handoffPreferences = database.planDao().preferences())
     }
 
     suspend fun restore(backup: Backup) {
         // Validate again at the mutation boundary, including programmatic callers.
         BackupCodec.validate(backup)
         database.withTransaction {
+            database.planDao().clearPlans()
+            if (backup.version >= 5) database.planDao().clearPreferences()
             database.healthDao().clear()
             database.importedDao().clear()
             dao.clearSets()
@@ -258,6 +261,9 @@ class WorkoutRepository(val database: FitDatabase) {
             imported.insertBody(backup.bodyMeasurements)
             backup.healthSessions.forEach { database.healthDao().putSession(it) }
             database.healthDao().putSamples(backup.healthSamples)
+            backup.plannedWorkouts.forEach { database.planDao().insert(it) }
+            database.planDao().insertTargets(backup.plannedExercises)
+            backup.handoffPreferences?.let { database.planDao().putPreferences(it) }
         }
     }
 }

@@ -3,16 +3,23 @@ package com.example.fitnotes.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.FitNotesViewModel
 import com.example.fitnotes.data.*
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.Date
 
 const val WATCH_NOTE = "Record on your watch separately. Garmin data can be attached after sync."
 @Composable
@@ -87,14 +94,16 @@ fun ActivityPanel(session: NotebookSession, editable: Boolean, model: FitNotesVi
         Text(session.activityTitle, style = MaterialTheme.typography.titleMedium)
         if (!workout.isComplete && workout.knownStart != null) {
             Text(durationText((now - workout.startedAt).coerceAtLeast(0) / 1000.0), style = MaterialTheme.typography.headlineMedium)
-            Text("Elapsed since " + timestampText(workout.startedAt), style = MaterialTheme.typography.bodySmall)
+            Text("Started " + shortTime(workout.startedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            Text((if (localDuration(workout) == null && local.health.isNotEmpty()) "Source interval: " else if (workout.sessionDate.isNotBlank()) "Reported duration: " else "Elapsed wall time: ") + durationText(session.duration), style = MaterialTheme.typography.titleMedium)
-            Text(if (workout.knownStart == null) "Local start time unknown" else "Local start: " + timestampText(workout.startedAt), style = MaterialTheme.typography.bodySmall)
-            workout.completedAt?.let { Text("Local end: " + timestampText(it), style = MaterialTheme.typography.bodySmall) }
+            Text(compactActivityDuration(session.duration), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(if (localDuration(workout) == null && local.health.isNotEmpty()) "Imported duration" else if (workout.sessionDate.isNotBlank()) "Reported duration" else "Elapsed time",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (workout.knownStart == null) "Local start time unknown" else "Logged time · " + compactTimeRange(workout.startedAt, workout.completedAt, includeDate = false),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        workout.effort?.let { Text("Effort: $it") }
-        workout.distance?.let { Text(weightText(it) + " " + workout.distanceUnit) }
+        workout.effort?.let { Text("Effort · $it", style = MaterialTheme.typography.bodyMedium) }
+        workout.distance?.let { Text(weightText(it) + " " + workout.distanceUnit, style = MaterialTheme.typography.titleMedium) }
         if (!workout.isComplete) Text(WATCH_NOTE, style = MaterialTheme.typography.bodySmall)
         if (editable) {
             var details by remember { mutableStateOf(false) }
@@ -129,23 +138,140 @@ fun ActivityDetailsDialog(workout: Workout, busy: Boolean, onCancel: () -> Unit,
 }
 
 @Composable
+fun MissingHeartRateInfo(busy: Boolean, onImport: () -> Unit) {
+    Surface(shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Heart rate", style = MaterialTheme.typography.titleMedium)
+            Text("No heart-rate data imported for this session.", style = MaterialTheme.typography.bodyMedium)
+            Text("Sync your watch, then reopen FitNotes or review imports.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onImport, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import activities") }
+        }
+    }
+}
+
+@Composable
 fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
     healthDetails.forEach { health ->
         val s = health.session
-        Surface(shape = MaterialTheme.shapes.medium) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Imported from ${s.sourceName}", style = MaterialTheme.typography.titleMedium)
-                Text(s.originPackage, style = MaterialTheme.typography.bodySmall)
-                if (s.title.isNotBlank()) Text("Source title: ${s.title}")
-                Text("Source start: " + timestampText(s.start) + "\nSource end: " + timestampText(s.end))
-                Text("Source interval: " + durationText((s.end - s.start) / 1000.0))
-                if (s.notes.isNotBlank()) Text("Source notes: " + s.notes)
-                s.distanceMeters?.let { Text("Imported distance: " + weightText(it / 1000) + " km · " + s.distanceOrigins) }
-                Text(s.distanceStatus, style = MaterialTheme.typography.bodySmall)
-                Text(heartRateText(health))
-                Text("Last import: " + timestampText(s.importedAt), style = MaterialTheme.typography.bodySmall)
-                Text(s.sourceStatus, style = MaterialTheme.typography.bodySmall)
+        val samples = remember(health.samples) { health.samples.sortedBy { it.time } }
+        var expanded by rememberSaveable(s.key) { mutableStateOf(false) }
+        Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Heart rate", style = MaterialTheme.typography.titleMedium)
+                Text(s.sourceName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (samples.any { it.originPackage != s.originPackage }) Text("Heart-rate samples from another app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val heartIssue = when {
+                    s.hrStatus.contains("permission", ignoreCase = true) -> if (samples.isEmpty()) "Heart-rate access is off." else "Heart-rate access is off; showing saved samples."
+                    s.hrStatus.contains("failed", ignoreCase = true) -> if (samples.isEmpty()) "Heart-rate import needs a retry." else "Refresh failed; showing saved samples."
+                    else -> null
+                }
+                heartIssue?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                if (s.sourceStatus.startsWith("Not returned")) Text("Source not returned at last sync; showing saved data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                if (samples.isEmpty()) {
+                    Text("No heart-rate samples found for this session", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text("Imported sample summary", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val metrics = listOf("Average" to weightText(kotlin.math.round(samples.map { it.bpm }.average() * 10) / 10),
+                        "Minimum" to samples.minOf { it.bpm }.toString(), "Maximum" to samples.maxOf { it.bpm }.toString())
+                    val fontScale = LocalDensity.current.fontScale
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        if (fontScale > 1.35f || maxWidth < 300.dp) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                metrics.forEachIndexed { index, (label, value) ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                        HeartRateMetric(value, index == 0, Alignment.End)
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                metrics.forEachIndexed { index, (label, value) ->
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        HeartRateMetric(value, index == 0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text("${samples.size} samples · " + compactTimeRange(samples.first().time, samples.last().time, includeDate = true),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Coverage may be sparse.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                s.distanceMeters?.let { Text("Imported distance · " + weightText(it / 1000) + " km", style = MaterialTheme.typography.bodyMedium) }
+                Text("Imported time · " + compactTimeRange(s.start, s.end, includeDate = true) + " · " + compactActivityDuration((s.end - s.start) / 1000.0),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Updated " + shortImportTime(s.importedAt), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(if (expanded) "Hide details" else "Import details")
+                        Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.size(18.dp))
+                    }
+                }
+                if (expanded) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ImportDetail("Source app", "${s.sourceName}\n${s.originPackage}")
+                    if (s.title.isNotBlank()) ImportDetail("Source title", s.title)
+                    ImportDetail("Source start", timestampText(s.start))
+                    ImportDetail("Source end", timestampText(s.end))
+                    ImportDetail("Source duration", durationText((s.end - s.start) / 1000.0))
+                    if (s.notes.isNotBlank()) ImportDetail("Source notes", s.notes)
+                    if (samples.isNotEmpty()) {
+                        ImportDetail("Sample coverage", "${samples.size} samples\nFirst: ${timestampText(samples.first().time)}\nLast: ${timestampText(samples.last().time)}")
+                        ImportDetail("Heart-rate source", samples.map { it.originPackage }.distinct().joinToString("\n"))
+                    }
+                    ImportDetail("Heart-rate import", s.hrStatus)
+                    ImportDetail("Distance import", s.distanceStatus)
+                    if (s.distanceOrigins.isNotBlank()) ImportDetail("Distance source", s.distanceOrigins)
+                    ImportDetail("Last import", timestampText(s.importedAt))
+                    ImportDetail("Sync status", s.sourceStatus)
+                    Text("Summaries use imported samples and may have gaps. They are not official Garmin workout statistics. Times are shown in your phone’s timezone.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun HeartRateMetric(value: String, primary: Boolean, alignment: Alignment.Horizontal = Alignment.Start) {
+    Column(horizontalAlignment = alignment) {
+        Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.SemiBold,
+            color = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        Text("bpm", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun ImportDetail(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun shortTime(time: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(time))
+private fun shortDate(time: Long): String {
+    val year = SimpleDateFormat("yyyy", Locale.ROOT)
+    val pattern = if (year.format(Date(time)) == year.format(Date())) "d MMM" else "d MMM yyyy"
+    return SimpleDateFormat(pattern, Locale.getDefault()).format(Date(time))
+}
+private fun shortImportTime(time: Long): String = if (SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).let { it.format(Date(time)) == it.format(Date()) }) shortTime(time)
+    else shortDate(time) + " · " + shortTime(time)
+private fun compactTimeRange(start: Long, end: Long?, includeDate: Boolean): String {
+    val day = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
+    val startText = (if (includeDate) shortDate(start) + " · " else "") + shortTime(start)
+    return if (end == null) startText else startText + "–" +
+        (if (day.format(Date(start)) != day.format(Date(end))) shortDate(end) + " · " else "") + shortTime(end)
+}
+private fun compactActivityDuration(seconds: Double?): String {
+    if (seconds == null) return "Duration unknown"
+    val total = seconds.toLong(); val hours = total / 3600; val minutes = total % 3600 / 60; val remaining = total % 60
+    return buildList {
+        if (hours > 0) add("$hours h")
+        if (minutes > 0) add("$minutes min")
+        if (remaining > 0 || total == 0L) add("$remaining s")
+    }.joinToString(" ")
 }

@@ -7,10 +7,12 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,12 +20,14 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
+import com.example.fitnotes.data.SESSION_PLAN_PREFIX
 
 @Composable
 fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<NotebookSession>, data: AppData, model: FitNotesViewModel,
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
-    onImport: () -> Unit, onBackup: () -> Unit, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
+    onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
@@ -31,8 +35,12 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     var finish by remember { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(false) }
     var provenance by remember { mutableStateOf(false) }
+    val showShareIcon = session != null && (session.completed || LocalDensity.current.fontScale <= 1.35f)
+    val plans by model.plans.collectAsState()
+    val reference = session?.local?.workout?.id?.let { id -> plans.firstOrNull { it.plan.startedWorkoutId == id } }
     Column(Modifier.fillMaxSize()) {
         NotebookBar("Workout", onBack) {
+            if (showShareIcon && session != null) IconButton(onClick = { onShare(sessionContext(session, data)) }) { Icon(Icons.Filled.Share, "Copy or share workout") }
             if (session?.local != null && !session.completed) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
             OverflowMenu { close ->
                 if (session != null) {
@@ -43,6 +51,9 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                     if (session.completed && session.activity == "strength" && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
                     MenuAction("Delete workout") { close(); delete = true }
                 }
+                MenuAction("Ask ChatGPT") { close(); onChatGPT() }
+                MenuAction("Paste plan") { close(); onPastePlan() }
+                MenuAction("Planned workouts") { close(); onPlans() }
                 MenuAction("Import history") { close(); onImport() }
                 MenuAction("Backup and restore") { close(); onBackup() }
             }
@@ -54,6 +65,13 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             if (day != todayDate()) TextButton(onClick = { onDay(todayDate()) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Today") }
         }
         LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onChatGPT, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
+                    TextButton(onClick = onPastePlan, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
+                    TextButton(onClick = onPlans, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Plans (${plans.count { it.plan.startedWorkoutId == null }})") }
+                }
+            }
             val sameDay = sessions.filter { it.date == day }
             if (sameDay.size > 1 || (session == null && sameDay.isNotEmpty())) item {
                 TextButton(onClick = { choosingSession = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -72,14 +90,19 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 if (session.title.isNotBlank()) item {
                     Text(session.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (session.notes.isNotBlank()) item {
+                if (session.notes.startsWith(SESSION_PLAN_PREFIX)) item { SessionPlanCard(session.notes, session.completed) }
+                else if (session.notes.isNotBlank()) item {
                     Text(session.notes, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().clickable { showNotes = true }.padding(vertical = 4.dp))
                 }
+                if (reference != null) item { PlanReference(reference) }
                 if (session.local != null && session.activity != "strength") item { ActivityPanel(session, editable, model, busy) }
                 if (session.local != null && session.local.health.isNotEmpty()) item { ImportedActivityInfo(session.local.health) }
                 if (session.imported != null && session.imported.health.isNotEmpty()) item { ImportedActivityInfo(session.imported.health) }
+                if (session.local?.health.isNullOrEmpty() && session.imported?.health.isNullOrEmpty()) item {
+                    MissingHeartRateInfo(busy, onHealthImport)
+                }
                 items(session.exercises, key = { it.key }) { exercise ->
                     Surface(shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onExercise(exercise.key) }) {

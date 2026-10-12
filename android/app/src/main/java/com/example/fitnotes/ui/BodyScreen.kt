@@ -20,8 +20,31 @@ import com.example.fitnotes.data.*
 
 @Composable
 fun BodyScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, state: LazyListState, onImport: () -> Unit, onBackup: () -> Unit, onShare: (String) -> Unit) {
-    val types = remember(data.imported.body) { data.imported.body.map { it.name to it.unit }.distinct().sortedWith(compareBy({ it.first }, { it.second })) }
+    var photosTab by rememberSaveable { mutableStateOf(false) }
     var typeKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val types = data.imported.body.map { it.name to it.unit }.distinct().sortedWith(compareBy({ it.first }, { it.second }))
+    val chosen = types.firstOrNull { it.first + "\u001f" + it.second == typeKey } ?: types.firstOrNull()
+    val sharedValues = data.imported.body.filter { it.name == chosen?.first && it.unit == chosen?.second }
+    Column(Modifier.fillMaxSize()) {
+        NotebookBar("Body") {
+            OverflowMenu { close ->
+                MenuAction("Import history") { close(); onImport() }
+                MenuAction("Backup and restore") { close(); onBackup() }
+                if (!photosTab && sharedValues.isNotEmpty()) MenuAction("Share measurements") { close(); onShare(bodyContext(sharedValues)) }
+            }
+        }
+        TabRow(selectedTabIndex = if (photosTab) 1 else 0) {
+            Tab(selected = !photosTab, onClick = { photosTab = false }, text = { Text("Measurements") })
+            Tab(selected = photosTab, onClick = { photosTab = true }, text = { Text("Photos") })
+        }
+        if (photosTab) PhotosScreen(model, busy)
+        else MeasurementsScreen(data, model, busy, state, onImport, typeKey) { typeKey = it }
+    }
+}
+
+@Composable
+private fun MeasurementsScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, state: LazyListState, onImport: () -> Unit, typeKey: String?, onTypeKey: (String?) -> Unit) {
+    val types = remember(data.imported.body) { data.imported.body.map { it.name to it.unit }.distinct().sortedWith(compareBy({ it.first }, { it.second })) }
     val chosen = types.firstOrNull { it.first + "\u001f" + it.second == typeKey } ?: types.firstOrNull()
     val values = data.imported.body.filter { it.name == chosen?.first && it.unit == chosen?.second }
     var choosing by remember { mutableStateOf(false) }
@@ -30,14 +53,6 @@ fun BodyScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, state: La
     var editing by remember { mutableStateOf<BodyMeasurement?>(null) }
     var deleting by remember { mutableStateOf<BodyMeasurement?>(null) }
     Column(Modifier.fillMaxSize()) {
-        NotebookBar("Body") {
-            IconButton(onClick = { adding = true }, enabled = !busy) { Icon(Icons.Filled.Add, "Add measurement") }
-            OverflowMenu { close ->
-                if (values.isNotEmpty()) MenuAction("Share measurements") { close(); onShare(bodyContext(values)) }
-                MenuAction("Import history") { close(); onImport() }
-                MenuAction("Backup and restore") { close(); onBackup() }
-            }
-        }
         LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
             if (chosen != null) item {
                 OutlinedButton(shape = MaterialTheme.shapes.small, onClick = { choosing = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(chosen.first + " ▾") }
@@ -80,7 +95,7 @@ fun BodyScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, state: La
         }
     }
     if (choosing) AlertDialog(onDismissRequest = { choosing = false }, title = { Text("Measurement type") }, text = {
-        LazyColumn { items(types) { type -> TextButton(onClick = { typeKey = type.first + "\u001f" + type.second; choosing = false }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        LazyColumn { items(types) { type -> TextButton(onClick = { onTypeKey(type.first + "\u001f" + type.second); choosing = false }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             Text(type.first + " · " + type.second)
         } } }
     }, confirmButton = { TextButton(onClick = { choosing = false }) { Text("Close") } })
@@ -95,7 +110,7 @@ fun BodyScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, state: La
         dismissButton = { Row { TextButton(onClick = { contextRecord = null; deleting = record }) { Text("Delete") }; TextButton(onClick = { contextRecord = null }) { Text("Close") } } }) }
     if (adding || editing != null) MeasurementDialog(editing, data.imported.body, chosen, busy, { adding = false; editing = null }) { id, name, value, unit, unitName, date, time, note ->
         model.saveMeasurement(id, name, value, unit, unitName, date, time, note) {
-            typeKey = name + "\u001f" + unit; adding = false; editing = null
+            onTypeKey(name + "\u001f" + unit); adding = false; editing = null
         }
     }
     deleting?.let { record -> NotebookConfirm("Delete measurement?", "This removes the saved value from " + prettyDay(record.date) + ".", "Delete", busy, { deleting = null }) {

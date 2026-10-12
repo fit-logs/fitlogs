@@ -22,9 +22,9 @@ import com.example.fitnotes.ui.theme.LocalAppearance
 
 @Composable
 fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<String>, categories: Map<String, String>, busy: Boolean,
-    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit) {
+    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false) {
     var query by rememberSaveable { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf("Recent") }
+    var filter by rememberSaveable { mutableStateOf(if (singleSelection) "All" else "Recent") }
     var selected by rememberSaveable(stateSaver = listSaver(save = { it }, restore = { it.toList() })) { mutableStateOf(emptyList<Long>()) }
     var creating by remember { mutableStateOf(false) }
     var customName by rememberSaveable { mutableStateOf("") }
@@ -38,7 +38,7 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
         }
     }.let { if (filter == "Recent") it.sortedBy { e -> recent.indexOf(e.nameKey) } else it }
     Column(Modifier.fillMaxSize()) {
-        NotebookBar("Add exercise", onCancel)
+        NotebookBar(if (singleSelection) "Resolve exercise" else "Add exercise", onCancel)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(query, { query = it.take(100) }, placeholder = { Text("Search exercises") }, leadingIcon = { Icon(Icons.Filled.Search, null) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small)
@@ -57,7 +57,7 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
             items(filtered, key = { it.id }) { exercise ->
                 val checked = exercise.id in selected
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(enabled = !busy, role = Role.Checkbox) {
-                    selected = if (checked) selected - exercise.id else selected + exercise.id
+                    selected = if (checked) selected - exercise.id else if (singleSelection) listOf(exercise.id) else selected + exercise.id
                 }, verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer) { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { ExerciseSymbol() } }
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp)) {
@@ -77,13 +77,16 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 TextButton(onClick = { customName = query; creating = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Create custom exercise") }
                 Button(onClick = { onSelect(selected.toList()) }, enabled = selected.isNotEmpty() && !busy, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text(if (selected.size == 1) "Add 1 exercise" else "Add ${selected.size} exercises")
+                    Text(if (singleSelection) "Use for strength plan" else if (selected.size == 1) "Add 1 exercise" else "Add ${selected.size} exercises")
                 }
             }
         }
     }
     if (creating) AlertDialog(onDismissRequest = { creating = false }, title = { Text("Custom exercise") }, text = {
-        OutlinedTextField(customName, { customName = it.take(100) }, label = { Text("Exercise name") }, modifier = Modifier.fillMaxWidth())
-    }, confirmButton = { TextButton(onClick = { onCreate(customName) }, enabled = customName.isNotBlank() && !busy) { Text("Create and add") } },
+        Column {
+            if (singleSelection) Text("Create a distinct strength exercise. It will enter the catalogue only when you save the plan.")
+            OutlinedTextField(customName, { customName = it.take(100) }, label = { Text("Exercise name") }, modifier = Modifier.fillMaxWidth())
+        }
+    }, confirmButton = { TextButton(onClick = { onCreate(customName) }, enabled = customName.isNotBlank() && !busy) { Text(if (singleSelection) "Use new exercise" else "Create and add") } },
         dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } })
 }

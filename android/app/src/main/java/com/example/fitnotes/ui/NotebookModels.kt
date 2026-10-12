@@ -86,10 +86,10 @@ fun compactResults(sets: List<NotebookSet>): String {
 }
 fun sessionContext(session: NotebookSession, data: AppData): String = session.local?.let { sessionText(listOf(it)) }
     ?: importedSessionText(session.imported!!, data.imported.imports.firstOrNull { it.id == session.imported.workout.importId })
-fun rangeContext(data: AppData, first: String, last: String): String? {
+fun rangeContext(data: AppData, first: String, last: String, includeBody: Boolean = true): String? {
     require(validHistoryDate(first) && validHistoryDate(last) && first <= last) { "Choose a valid date range." }
     val workouts = notebookSessions(data).filter { it.completed && it.date in first..last }
-    val body = data.imported.body.filter { it.date in first..last }
+    val body = if (includeBody) data.imported.body.filter { it.date in first..last } else emptyList()
     if (workouts.isEmpty() && body.isEmpty()) return null
     return workouts.joinToString("\n\n") { sessionContext(it, data) } + bodyContext(body)
 }

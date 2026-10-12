@@ -28,6 +28,9 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     var remove by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf(false) }
     val previous = remember(all, session.key, exercise.key) { previousExerciseSessions(all, session, exercise) }
+    val plans by model.plans.collectAsState()
+    val reference = session.local?.workout?.id?.let { id -> plans.firstOrNull { it.plan.startedWorkoutId == id } }
+    val exerciseId = session.local?.entries?.firstOrNull { it.entry.id == exercise.entryId }?.exercise?.id
     val seed = exercise.sets.lastOrNull() ?: previous.firstOrNull()?.second?.sets?.lastOrNull()
     var weight by rememberSaveable { mutableStateOf(seed?.weight?.let(::weightText) ?: "") }
     var reps by rememberSaveable { mutableStateOf(seed?.reps?.toString() ?: "") }
@@ -117,6 +120,10 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                 }
             }
         } else LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
+            if (reference != null && exerciseId != null) item { Box(Modifier.padding(bottom = 12.dp)) { PlanReference(reference, exerciseId) } }
+            if (session.notes.startsWith(SESSION_PLAN_PREFIX)) item {
+                Box(Modifier.padding(bottom = 12.dp)) { SessionPlanCard(session.notes, session.completed) }
+            }
             if (exercise.name.length > 45) item {
                 Text(exercise.name, Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.titleMedium)
             }

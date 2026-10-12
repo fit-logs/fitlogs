@@ -4,6 +4,8 @@
    for details.
 -->
 <data-extraction-rules>
+    <!-- Both automatic cloud backup and device transfer exclude photo files
+         (file domain) and photo metadata (database domain). -->
     <cloud-backup>
         <exclude domain="database" path="."/>
         <exclude domain="file" path="."/>

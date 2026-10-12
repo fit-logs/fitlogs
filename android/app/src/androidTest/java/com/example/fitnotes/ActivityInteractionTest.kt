@@ -19,16 +19,35 @@ class ActivityInteractionTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assumeTrue("Run only in the isolated activities preview", context.packageName == "com.example.fitnotes.preview.activities")
         db = FitDatabase.open(context)
-        runBlocking { WorkoutRepository(db).restore(Backup(exercises = emptyList(), workouts = emptyList(), entries = emptyList(), sets = emptyList())) }
+        // Reset through the UI's Room instance so its observers invalidate too.
+        // Clearing through the fixture connection can leave an old active session
+        // visible if the activity's initial query finishes before the reset.
+        val restored = java.util.concurrent.atomic.AtomicBoolean(false)
+        lateinit var model: FitNotesViewModel
+        ui.activityRule.scenario.onActivity { activity ->
+            model = androidx.lifecycle.ViewModelProvider(activity)[FitNotesViewModel::class.java]
+            // Keep this class independent of handoff tests that disable sync.
+            model.setAutomaticHealth(true)
+            model.pendingRestore.value = Backup(exercises = emptyList(), workouts = emptyList(), entries = emptyList(), sets = emptyList())
+            model.confirmRestore { restored.set(true) }
+        }
+        ui.waitUntil(30000) { restored.get() && !model.busy.value && !model.data.value.loading && model.data.value.workouts.isEmpty() && model.data.value.imported.workouts.isEmpty() }
+        // The restore snackbar temporarily covers controls near the bottom.
+        waitFor("Backup restored.")
+        ui.waitUntil(10000) { ui.onAllNodesWithText("Backup restored.").fetchSemanticsNodes().isEmpty() }
     }
     @After fun cleanup() { if (::db.isInitialized) db.close() }
     private fun waitFor(text: String) { ui.waitUntil(30000) { ui.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
     private fun capture(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        // Native dialog transitions run outside Compose's test clock.
+        instrumentation.waitForIdleSync()
+        android.os.SystemClock.sleep(500)
         val image = instrumentation.uiAutomation.takeScreenshot() ?: return
         File(instrumentation.targetContext.filesDir, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
         image.recycle()
     }
+    // The planned V1 handoff is verified in HandoffInteractionTest.
     @Test fun startRotateNotesAndFinishNonStrengthActivity() {
         waitFor("Start workout"); ui.onNodeWithText("Start workout").performClick()
         ui.onNodeWithText("Activity: Strength training ▾").performClick()
@@ -71,6 +90,23 @@ class ActivityInteractionTest {
         ui.onNodeWithText("Training context").assertIsDisplayed()
         capture("sharing-preview")
     }
+    @Test fun unlinkedSessionOpensSyncSettingsAndToggleSurvivesRecreation() {
+        waitFor("Start workout"); ui.onNodeWithText("Start workout").performClick()
+        ui.onNodeWithText("Activity: Strength training ▾").performClick()
+        ui.onNodeWithText("Climbing / bouldering").performClick()
+        ui.onNodeWithText("Start session").performClick()
+        waitFor("No heart-rate data imported for this session.")
+        ui.waitUntil(30000) { ui.onAllNodes(hasText("Import activities") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        ui.onNodeWithText("Import activities").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        ui.onNodeWithTag("health-preview-list").performScrollToNode(hasText("Sync when FitNotes opens"))
+        ui.onNode(isToggleable()).performScrollTo().assertIsOn().performClick().assertIsOff()
+        capture("sync-on-open-settings")
+        ui.activityRule.scenario.recreate()
+        waitFor("No heart-rate data imported for this session.")
+        ui.onNodeWithText("Import activities").performScrollTo().assertIsDisplayed().performClick()
+        ui.onNodeWithTag("health-preview-list").performScrollToNode(hasText("Sync when FitNotes opens"))
+        ui.onNode(isToggleable()).performScrollTo().assertIsOff().performClick().assertIsOn()
+    }
     @Test fun importPermissionStateAndSyntheticSourceDetailsAreReadable() {
         val id = runBlocking {
             val start = System.currentTimeMillis() - 3600000; val end = start + 1800000
@@ -86,16 +122,22 @@ class ActivityInteractionTest {
         }
         ui.onNodeWithText("History", useUnmergedTree = true).performClick()
         waitFor("↗ Running"); ui.onNodeWithText("↗ Running").performClick()
-        waitFor("Imported from Synthetic source")
-        ui.onNodeWithText("Imported from Synthetic source").performScrollTo().assertIsDisplayed()
+        waitFor("Synthetic source")
+        ui.onNodeWithText("Synthetic source").performScrollTo().assertIsDisplayed()
+        ui.onNode(hasText("org.synthetic.source", substring = true)).assertDoesNotExist()
         capture("imported-session")
-        ui.onNodeWithText("No heart-rate samples found for this session\nSynthetic fixture; no samples").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("No heart-rate samples found for this session").performScrollTo().assertIsDisplayed()
         capture("imported-missing-heart-rate")
-        ui.onNodeWithContentDescription("More actions").performClick(); ui.onNodeWithText("Import history").performClick()
+        ui.onNodeWithText("Import details").performScrollTo().performClick()
+        ui.onNodeWithText("Synthetic source\norg.synthetic.source").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Synthetic fixture; no samples").performScrollTo().assertIsDisplayed()
+        capture("imported-expanded-details")
+        ui.onNodeWithContentDescription("More actions").performClick(); ui.onNodeWithText("Import history").performScrollTo().performClick()
         ui.onNodeWithText("Import activities (Health Connect)").performClick()
         waitFor("Load preview"); ui.onNodeWithText("Load preview").performScrollTo().performClick()
         waitFor("Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities.")
-        ui.onNodeWithText("Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities.").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithTag("health-preview-list").performScrollToNode(hasText("Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities."))
+        ui.onNodeWithText("Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities.").assertIsDisplayed()
         capture("health-permission-missing")
     }
     @Test fun syntheticPreviewRequiresAttachConfirmationAndRefreshesWithoutDuplicating() {
@@ -107,7 +149,7 @@ class ActivityInteractionTest {
         val model = androidx.lifecycle.ViewModelProvider(ui.activity)[FitNotesViewModel::class.java]
         ui.activityRule.scenario.onActivity { model.saveDetails(w.id, "Synthetic lifting fixture", "Preserve local notes") }
         ui.waitUntil(30000) { runBlocking { db.dao().workout(w.id)?.notes } == "Preserve local notes" }
-        ui.onNodeWithContentDescription("More actions").performClick(); ui.onNodeWithText("Import history").performClick()
+        ui.onNodeWithContentDescription("More actions").performClick(); ui.onNodeWithText("Import history").performScrollTo().performClick()
         ui.onNodeWithText("Import activities (Health Connect)").performClick()
         val start = w.startedAt - 1000; val end = w.completedAt!! + 1000
         val s = HealthSession(healthKey(GARMIN_PACKAGE, "synthetic-ui-exercise"), null, "synthetic-ui-exercise", GARMIN_PACKAGE,
@@ -128,7 +170,18 @@ class ActivityInteractionTest {
         assertEquals("Preserve local notes", runBlocking { db.dao().workout(w.id)!!.notes })
         ui.runOnIdle { model.healthCandidates.value = listOf(c.copy(samples = c.samples + sample(w.completedAt, 130))) }
         ui.onNodeWithText("Refresh imported data").performScrollTo().performClick()
-        ui.waitUntil(30000) { runBlocking { db.healthDao().samples().size } == 2 }
+        ui.waitUntil(30000) { runBlocking { db.healthDao().samples().size } == 2 && !model.busy.value }
         assertEquals(1, runBlocking { db.healthDao().sessions().size }); assertEquals(w.startedAt, runBlocking { db.dao().workout(w.id)!!.startedAt })
+        ui.onNodeWithContentDescription("Back").assertIsEnabled().performClick()
+        ui.waitUntil(30000) { ui.onAllNodesWithTag("health-preview-list").fetchSemanticsNodes().isEmpty() }
+        ui.onNodeWithText("History", useUnmergedTree = true).performClick()
+        waitFor("◆ Synthetic lifting fixture"); ui.onNodeWithText("◆ Synthetic lifting fixture").performClick()
+        waitFor("Imported sample summary")
+        ui.onNodeWithText("Average").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("120").assertIsDisplayed()
+        ui.onNodeWithText("110").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("130").performScrollTo().assertIsDisplayed()
+        ui.onNode(hasText(GARMIN_PACKAGE, substring = true)).assertDoesNotExist()
+        capture("imported-heart-rate-summary")
     }
 }
