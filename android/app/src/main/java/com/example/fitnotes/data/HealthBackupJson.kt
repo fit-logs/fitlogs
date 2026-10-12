@@ -23,14 +23,14 @@ object HealthBackupJson {
     fun session(j: JSONObject): HealthSession {
         j.fields("key", "workoutId", "recordId", "originPackage", "sourceName", "clientRecordId", "clientRecordVersion", "modifiedAt", "importedAt",
             "start", "end", "startOffsetSeconds", "endOffsetSeconds", "activityType", "exerciseType", "title", "notes", "distanceMeters",
-            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", "importedWorkoutId")
+            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", *if (j.has("importedWorkoutId")) arrayOf("importedWorkoutId") else emptyArray())
         return HealthSession(j.string("key"), j.optionalLong("workoutId"), j.string("recordId"), j.string("originPackage"), j.string("sourceName"),
             j.optionalString("clientRecordId"), j.long("clientRecordVersion"), j.long("modifiedAt"), j.long("importedAt"), j.long("start"), j.long("end"),
             j.optionalLong("startOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.optionalLong("endOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.string("activityType"), j.long("exerciseType").also { require(it in 0..Int.MAX_VALUE) }.toInt(), j.string("title"), j.string("notes"),
             if (j.isNull("distanceMeters")) null else (j.get("distanceMeters") as? Number)?.toDouble() ?: error("Invalid distance"),
-            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), j.optionalString("importedWorkoutId"))
+            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), if (j.has("importedWorkoutId")) j.optionalString("importedWorkoutId") else null)
     }
     fun sample(j: JSONObject): HealthSample {
         j.fields("key", "sessionKey", "recordId", "originPackage", "time", "bpm")

@@ -95,6 +95,20 @@ val ACTIVITY_MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+val ACTIVITY_MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // An earlier installable v4 had local attachments only. Later v4 builds
+        // also had importedWorkoutId. Support both without touching existing rows.
+        val hasImportedLink = db.query("PRAGMA table_info(health_sessions)").use { cursor ->
+            var found = false
+            while (cursor.moveToNext()) if (cursor.getString(1) == "importedWorkoutId") found = true
+            found
+        }
+        if (!hasImportedLink) db.execSQL("ALTER TABLE health_sessions ADD COLUMN importedWorkoutId TEXT REFERENCES imported_workouts(id) ON UPDATE NO ACTION ON DELETE SET NULL")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_health_sessions_importedWorkoutId ON health_sessions(importedWorkoutId)")
+    }
+}
+
 fun heartRateText(detail: HealthDetail): String = buildString {
     val s = detail.samples.sortedBy { it.time }
     if (s.isEmpty()) append("No heart-rate samples found for this session")
