@@ -111,7 +111,7 @@ class NotebookBehaviorTest {
             old.execSQL("INSERT INTO imported_workouts VALUES('original','source','2026-10-11',NULL,NULL,'Imported note')")
             old.version = 2
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6).build()
         try {
             assertEquals(6L, migrated.dao().sets().single().id); assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)
             assertEquals("", migrated.dao().sets().single().comment); assertEquals("original", migrated.importedDao().workouts().single().id)

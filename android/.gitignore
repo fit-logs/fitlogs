@@ -31,3 +31,7 @@ service-account*.json
 *.CSV
 *.fitnotes
 fitnotes-analysis-*.json
+
+# Opt-in progress photo archives and private originals must never enter Git.
+fitnotes-photos-*.zip
+/progress-photos/

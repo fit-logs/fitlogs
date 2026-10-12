@@ -287,7 +287,7 @@ object BackupCodec {
 // Android's JSONObject parser accepts non-JSON syntax. Validate strictly first so
 // malformed documents and duplicate keys cannot silently change training data.
 private val jsonNumberSyntax = Regex("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?")
-private class StrictJson(private val text: String) {
+internal class StrictJson(private val text: String) {
     private var offset = 0
     fun check() {
         value(0)

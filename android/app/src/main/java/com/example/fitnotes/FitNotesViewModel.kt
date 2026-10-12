@@ -23,13 +23,25 @@ data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: Li
 class FitNotesViewModel(application: Application) : AndroidViewModel(application) {
     private val database = FitDatabase.open(application)
     private val repository = WorkoutRepository(database)
+    private val notices = Channel<String>(Channel.BUFFERED)
+    val photoRepository = ProgressPhotoRepository(application, database)
+    private val photoBackup = PhotoBackup(photoRepository, repository)
+    val photos = photoRepository.photos.catch { notices.send("Unable to read progress photos. Restart the app to retry."); emit(emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val photoDrafts = MutableStateFlow<List<PhotoDraft>>(emptyList())
+    val pendingPhotoRestore = MutableStateFlow<PhotoRestore?>(null)
+    private val photoRecovery = viewModelScope.launch {
+        try { photoRepository.recover() }
+        catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            notices.send("Unable to check progress photo storage. Restart the app to retry.")
+        }
+    }
     private val importer = HistoryImportRepository(database)
     private val healthImporter = HealthImportRepository(database)
     private var healthReadJob: kotlinx.coroutines.Job? = null
     val healthCandidates = MutableStateFlow<List<HealthCandidate>>(emptyList())
     val knownHealth = MutableStateFlow<List<HealthSession>>(emptyList())
     val healthMessage = MutableStateFlow("Choose a period, grant read permissions, then load a preview.")
-    private val notices = Channel<String>(Channel.BUFFERED)
     private val localData = combine(repository.exercises, repository.workouts) { exercises, workouts ->
         AppData(exercises, workouts, loading = false)
     }.catch {
@@ -160,7 +172,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         change(null, done) { importer.saveMeasurement(id, name, value, unit, unitName, date, time, comment) }
     fun deleteMeasurement(id: String, done: () -> Unit) = change(null, done) { importer.deleteMeasurement(id) }
 
-    fun export(uri: Uri) = change("Backup exported.") {
+    fun export(uri: Uri) = change("Backup exported. Progress photos are not included.") {
         withContext(Dispatchers.IO) {
             val json = BackupCodec.encode(repository.backup())
             val resolver = getApplication<Application>().contentResolver
@@ -168,6 +180,32 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
                 .bufferedWriter(Charsets.UTF_8).use { it.write(json) }
         }
     }
+    fun preparePhotos(uris: List<Uri>) = change(null) {
+        photoRecovery.join()
+        val drafts = mutableListOf<PhotoDraft>()
+        try {
+            for (uri in uris.take(20)) drafts.add(photoRepository.prepare(uri))
+            photoDrafts.value = drafts
+        } catch (error: Throwable) { photoRepository.discard(drafts); throw error }
+    }
+    fun savePhotoDraft(date: String, angle: String, note: String) {
+        val draft = photoDrafts.value.firstOrNull() ?: return
+        change("Photo saved.") {
+            photoRepository.save(draft, date, angle, note)
+            photoDrafts.value = photoDrafts.value.drop(1)
+        }
+    }
+    fun cancelPhotos() = change(null) {
+        photoRepository.discard(photoDrafts.value)
+        photoDrafts.value = emptyList()
+    }
+    fun editPhoto(id: String, date: String, angle: String, note: String, done: () -> Unit) =
+        change("Photo details saved.", done) { photoRepository.edit(id, date, angle, note) }
+    fun deletePhoto(id: String, done: () -> Unit) = change("App copy deleted.", done) { photoRepository.delete(id) }
+    fun exportPhotos(uri: Uri) = change("Backup exported with progress photos.") {
+        photoRecovery.join(); photoBackup.export(uri)
+    }
+
     fun exportAnalysis(uri: Uri) = change("Analysis JSON exported.") {
         withContext(Dispatchers.IO) {
             val json = BackupCodec.analysis(repository.backup())
@@ -219,21 +257,36 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun cancelImport() { if (!busy.value) { pendingImport.value = null; previouslyImported.value = null } }
 
     fun inspectBackup(uri: Uri) = change("Backup validated. Review before restoring.") {
-        val backup = withContext(Dispatchers.IO) {
-            BackupCodec.decode(readUtf8(uri, BackupCodec.MAX_BYTES))
+        photoRecovery.join()
+        pendingRestore.value = null
+        photoBackup.discard(pendingPhotoRestore.value)
+        pendingPhotoRestore.value = null
+        val isArchive = withContext(Dispatchers.IO) {
+            getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.read() == 80 && it.read() == 75 } ?: false
         }
-        pendingRestore.value = backup
+        if (isArchive) {
+            val preview = photoBackup.inspect(uri)
+            pendingPhotoRestore.value = preview
+            pendingRestore.value = preview.backup
+        } else pendingRestore.value = withContext(Dispatchers.IO) { BackupCodec.decode(readUtf8(uri, BackupCodec.MAX_BYTES)) }
     }
 
     fun confirmRestore(done: () -> Unit) {
         val backup = pendingRestore.value ?: return
         change("Backup restored.", {
             pendingRestore.value = null
+            pendingPhotoRestore.value = null
             done()
-        }) { repository.restore(backup) }
+        }) {
+            val photos = pendingPhotoRestore.value
+            if (photos == null) repository.restore(backup) else photoBackup.restore(photos)
+        }
     }
 
-    fun cancelRestore() { if (!busy.value) pendingRestore.value = null }
+    fun cancelRestore() = change(null) {
+        photoBackup.discard(pendingPhotoRestore.value)
+        pendingRestore.value = null; pendingPhotoRestore.value = null
+    }
 
     private fun readUtf8(uri: Uri, maxBytes: Int): String {
         val bytes = ByteArrayOutputStream()

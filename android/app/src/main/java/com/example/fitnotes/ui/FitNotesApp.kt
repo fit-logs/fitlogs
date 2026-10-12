@@ -8,6 +8,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
@@ -31,6 +35,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val data by model.data.collectAsState()
     val busy by model.busy.collectAsState()
     val pending by model.pendingRestore.collectAsState()
+    val photoRestore by model.pendingPhotoRestore.collectAsState()
+    var includePhotos by rememberSaveable { mutableStateOf(false) }
     val original by model.pendingImport.collectAsState()
     val already by model.previouslyImported.collectAsState()
     val localSessions = remember(data.workouts) { notebookSessions(AppData(workouts = data.workouts)) }
@@ -70,9 +76,11 @@ fun FitNotesApp(model: FitNotesViewModel) {
         editableKey = null
     }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::export) }
+    val photoExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let(model::exportPhotos) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::inspectBackup) }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> model.inspectOriginal(uri, native) } }
     val analysis = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportAnalysis) }
+    LaunchedEffect(backupMenu) { if (backupMenu) includePhotos = false }
     LaunchedEffect(model) { model.messages.collect { snackbar.showSnackbar(it) } }
     LaunchedEffect(data.loading, data.active?.workout?.id, data.active?.workout?.startedAt) {
         if (!data.loading && data.active != null) {
@@ -160,9 +168,14 @@ fun FitNotesApp(model: FitNotesViewModel) {
         model.confirmImport(plan) { tab = 1; historyKey = null; historyDay = null; loggerKey = null }
     } }
     if (backupMenu) AlertDialog(onDismissRequest = { backupMenu = false }, title = { Text("Backup and restore") }, text = {
-        Column {
-            TextButton(onClick = { backupMenu = false; export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export JSON backup") }
-            TextButton(onClick = { backupMenu = false; restore.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Choose backup to restore") }
+        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(includePhotos, { includePhotos = it }, modifier = Modifier.semantics { contentDescription = "Include progress photos" })
+                Text("Include progress photos", Modifier.weight(1f))
+            }
+            Text(if (includePhotos) "Includes original image files and photo details. Keep this unencrypted ZIP private." else "Progress photos are not in this backup. They remain on this device.", style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { backupMenu = false; if (includePhotos) photoExport.launch("fitnotes-photos-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".zip") else export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (includePhotos) "Export backup with photos" else "Export JSON backup") }
+            TextButton(onClick = { backupMenu = false; restore.launch(arrayOf("application/json", "application/zip", "application/x-zip-compressed", "text/plain", "application/octet-stream")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Choose backup to restore") }
             TextButton(onClick = { backupMenu = false; analysis.launch("fitnotes-analysis-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export analysis JSON") }
         }
     }, confirmButton = { TextButton(onClick = { backupMenu = false }) { Text("Close") } })
@@ -172,7 +185,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
             SimpleDateFormat("EEE d MMM yyyy · HH:mm", Locale.getDefault()).format(Date(backup.exportedAt)) + "\n${backup.exercises.size} exercises\n" +
             "${backup.workouts.count { it.isComplete }} completed workouts · ${backup.workouts.count { !it.isComplete }} unfinished\n" +
             "${backup.sets.size} local sets · ${backup.importedWorkouts.size} imported workouts · ${backup.importedSets.size} imported records\n" +
-            "${backup.bodyMeasurements.size} body measurements\n" + (if (dates.isEmpty()) "No dated records." else dates.min() + " to " + dates.max()) + "\nCurrent data will be replaced.",
+            "${backup.bodyMeasurements.size} body measurements\n" + (photoRestore?.let { "${it.photos.size} progress photos included; existing IDs will be updated.\n" } ?: "Photos are not included; existing photos will be kept.\n") + (if (dates.isEmpty()) "No dated records." else dates.min() + " to " + dates.max()) + "\nCurrent data will be replaced.",
             "Replace & restore", busy, model::cancelRestore) {
             model.confirmRestore {
                 val active = backup.workouts.firstOrNull { !it.isComplete }

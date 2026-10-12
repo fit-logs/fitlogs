@@ -6,7 +6,9 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- Includes progress-photo metadata; manual backup is explicit. -->
     <exclude domain="database" path="."/>
+    <!-- Excludes private progress-photo originals, thumbnails and pending imports. -->
     <exclude domain="file" path="."/>
     <exclude domain="sharedpref" path="."/>
 </full-backup-content>

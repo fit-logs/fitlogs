@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.fitnotes"
+        applicationId = if (providers.gradleProperty("photoVerification").orNull == "true") "com.example.fitnotes.preview.photos" else "com.example.fitnotes"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
@@ -45,6 +45,7 @@ ksp {
 }
 
 dependencies {
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

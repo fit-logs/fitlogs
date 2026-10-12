@@ -377,3 +377,69 @@ is exercised with the official FakeHealthConnectClient, including >500 records,
 permissions, source preference and batched samples crossing boundaries. UI tests
 must use the isolated package `com.example.fitnotes.preview.activities` on an
 emulator. Never run synthetic fixtures against the personal application ID.
+
+## Progress photos
+
+**Body → Measurements / Photos** keeps measurements separate from optional photos.
+In Photos, choose Front / Side / Back / Other. The grid lists newest dates first.
+**Add photos** opens Android's system photo picker (up to 20 at a time, with a
+system document-picker fallback on older devices). No photo-library permission
+is requested. Each image gets a preview, editable date, angle and optional note.
+**Cancel import** discards remaining unsaved copies; previously saved photos stay.
+
+Only EXIF DateTimeOriginal is used as a capture date. If absent or invalid, the
+default is today with a visible explanation. File modification times are ignored.
+Multiple photos can share a date. Tap a thumbnail to view/edit details or confirm
+deletion of only the app's copy. Missing/damaged copies remain manageable.
+
+Select two checkboxes in one angle and tap **Compare**. The slider has a visible
+drag handle and an accessible slider below it; endpoints reveal either photo.
+**Side by side** shows both complete images. Both modes preserve aspect ratio and
+retain selections. Slider mode supports per-photo pinch zoom and drag reposition,
+plus **Reset**. These adjustments never change stored files. Same-day comparisons
+use Photo 1 / Photo 2 labels because within-day capture order is unknown.
+
+Original bytes are copied into private `files/progress-photos/`; the Room version
+5 → 6 migration only adds the photo table and date index. UUID metadata IDs and
+relative file references are independent of measurements. Processing runs on IO,
+with thumbnails bounded to 384 pixels and viewing images to 2048 pixels on the
+long edge. Each original is limited to 60 MB and 400 million decoded pixels.
+Interrupted unsaved imports/orphan copies are removed on the next app start.
+
+### Manual photo backup
+
+**Backup and restore → Include progress photos** starts off each time the menu
+opens. With it off, the existing v4 JSON format excludes all photo files and photo
+metadata and clearly says so. Versions 1–4 still restore; JSON restoration leaves
+existing photos alone. Analysis exports and workout text sharing exclude photos.
+
+With the option on, export creates an unencrypted ZIP containing the training
+JSON, a version-1 photo manifest and actual original image bytes (including any
+original embedded metadata). Store it privately outside this repository. It uses
+portable archive references and SHA-256 checksums, never device-specific paths.
+Archives support up to 1000 photos / 512 MB total. Missing/corrupt copies stop the
+export with an explanation. Choose the ZIP in the existing restore picker to
+validate and preview it before the replacement confirmation. Photo IDs are
+upserted, so repeated restores do not duplicate records; photos absent from the
+archive are retained. Files are prepared before the database transaction, using
+new private locations so an interruption cannot replace an existing image early.
+
+Photos stay local, with no upload. The existing manifest disables Android backup,
+and both legacy backup rules and Android 12+ cloud/device-transfer rules explicitly
+exclude all private files and the database, including photos and their metadata.
+No camera, reminder, cloud sync, collage export, alignment or body analysis is added.
+
+### Synthetic photo verification
+
+`ProgressPhotoTest` covers import/cancel/edit/delete, duplicate dates, restart
+persistence, original deletion, missing/corrupt files, EXIF capture date and all
+eight orientations (including mirrored pixel checks), large-image bounds,
+archive round trips, repeated restore, old JSON restore, traversal rejection,
+and rollback after a database failure. Tests use synthetic files/private databases.
+
+`ProgressPhotoInteractionTest` requires the isolated verification package. Build
+with `-PphotoVerification=true` to use `com.example.fitnotes.preview.photos`; normal
+builds keep `com.example.fitnotes` and the existing signing configuration. Never
+run synthetic fixtures on the personal application ID. Actual emulator screenshots
+and the detailed verification record are kept in ignored
+`captures/progress-photos-20261013/`. The physical phone is not modified.
