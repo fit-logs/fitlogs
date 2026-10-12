@@ -7,6 +7,8 @@ data/parsed_history.json
 
 # Editor
 .DS_Store
+.idea/
+.codex/
 
 # Next.js build/export output
 web/.next/
