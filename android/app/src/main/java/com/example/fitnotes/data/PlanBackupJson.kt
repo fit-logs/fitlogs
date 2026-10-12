@@ -8,7 +8,9 @@ internal object PlanBackupJson {
         root.put("plannedWorkouts", JSONArray().also { array -> backup.plannedWorkouts.forEach { p ->
             array.put(JSONObject().put("id", p.id).put("title", p.title).put("scheduledDate", p.scheduledDate)
                 .put("durationMinutes", p.durationMinutes).put("notes", p.notes).put("createdAt", p.createdAt)
-                .put("sourceFingerprint", p.sourceFingerprint).put("startedWorkoutId", p.startedWorkoutId ?: JSONObject.NULL))
+                .put("sourceFingerprint", p.sourceFingerprint).put("startedWorkoutId", p.startedWorkoutId ?: JSONObject.NULL).also { row ->
+                    if (backup.version >= 6) row.put("warmUp", p.warmUp).put("legacyGuidance", p.legacyGuidance)
+                })
         } })
         root.put("plannedExercises", JSONArray().also { array -> backup.plannedExercises.forEach { p ->
             array.put(JSONObject().put("id", p.id).put("planId", p.planId).put("exerciseId", p.exerciseId).put("position", p.position)
@@ -20,10 +22,10 @@ internal object PlanBackupJson {
                 .put("activityPreference", p.activityPreference).put("availableMinutes", p.availableMinutes ?: JSONObject.NULL).put("lastTargetDate", p.lastTargetDate)
         } ?: JSONObject.NULL)
     }
-    fun plans(root: JSONObject): List<PlannedWorkout> = objects(root, "plannedWorkouts", 100000).map { o ->
-        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId"))
+    fun plans(root: JSONObject, version: Int): List<PlannedWorkout> = objects(root, "plannedWorkouts", 100000).map { o ->
+        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId") + if (version >= 6) setOf("warmUp", "legacyGuidance") else emptySet())
         PlannedWorkout(text(o, "id"), text(o, "title"), text(o, "scheduledDate"), int(o, "durationMinutes"), text(o, "notes"),
-            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"))
+            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"))
     }
     fun targets(root: JSONObject): List<PlannedExercise> = objects(root, "plannedExercises", 1000000).map { o ->
         keys(o, setOf("id", "planId", "exerciseId", "position", "sourceName", "sets", "repsMin", "repsMax", "weightValue", "weightUnit", "note"))
@@ -65,8 +67,9 @@ fun validatePlanBackup(backup: Backup) {
         val exercises = targets.filter { it.planId == plan.id }.sortedBy { it.position }
         require(exercises.map { it.position } == exercises.indices.toList()) { "Plan exercise positions must be contiguous." }
         WorkoutPlanParser.validate(PlanSpec(plan.title, plan.scheduledDate, plan.durationMinutes, plan.notes, exercises.map {
-            PlanPrescription(it.sourceName, it.sets, it.repsMin, it.repsMax, PlanWeight(it.weightValue, it.weightUnit), it.note)
-        }, plan.sourceFingerprint))
+            PlanPrescription(it.sourceName, it.sets, it.repsMin, it.repsMax, PlanWeight(it.weightValue, it.weightUnit), it.note,
+                if (backup.version < 6) null else backup.plannedSets.filter { set -> set.plannedExerciseId == it.id }.sortedBy { set -> set.position }.map { set -> set.target })
+        }, plan.sourceFingerprint, plan.warmUp, plan.legacyGuidance))
     }
     backup.handoffPreferences?.let(::validateHandoffPreferences)
 }

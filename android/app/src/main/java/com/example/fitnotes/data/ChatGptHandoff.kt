@@ -106,22 +106,30 @@ object ChatGptHandoff {
 }
 
 fun nextWorkoutInstructions(date: String): String = """
-    Return exactly one fenced code block containing WORKOUT_PLAN_V1 through END_WORKOUT_PLAN. Keep any explanation outside that block. V1 supports strength workouts only; do not return running or climbing prescriptions in it.
-    Use existing catalogue names verbatim when appropriate. Do not equate movement variants or invent exercise identifiers. Suggested weights are targets, not performed results. Include units (kg or lb), use bodyweight explicitly, or omit Weight if unspecified. Omitted weight is not zero.
-    Use single-line Title, Date, Duration and Note fields before the exercises. Use Exercise, Sets, Reps, optional Weight and optional Note for each exercise. Sets must be positive whole numbers; Reps must be positive whole reps or an ascending range. Put extra instructions such as rest, tempo and alternatives in Note, not extra fields. Date is optional; if omitted the app uses its chosen date. Use $date when providing Date.
-    Example structure (replace the example targets; do not treat them as my results):
+    Return exactly one fenced code block containing WORKOUT_PLAN_V2 through END_WORKOUT_PLAN, with strict JSON between those markers. Put a brief explanation outside the block. Strength plans only; no running/climbing prescriptions or invented identifiers.
+    Use existing catalogue names verbatim when appropriate. Every exercise has its own note and individual sets. Each set requires integer repsMin/repsMax (equal for a fixed count), optional decimal weight and unit (kg/lb, or unit bodyweight with no numeric weight), and optional restSeconds. Omitted weight is unspecified, never zero. Suggested targets are not performed results.
+    Put general warm-up instructions in warmUp and other session guidance in note. Keep exercise-specific guidance in that exercise's note. Do not add unknown fields. Date is optional: omit it for an unscheduled plan, or use ${date.ifBlank { "an explicit YYYY-MM-DD date" }}. durationMinutes is an optional time budget, not recorded activity.
+    Example structure (replace example names and suggestions using my context):
     ```text
-    WORKOUT_PLAN_V1
-    Title: Session title
-    Date: $date
-    Duration: 45 min
-    Note: Session-level guidance.
-
-    Exercise: Existing exercise name
-    Sets: 3
-    Reps: 8-10
-    Weight: bodyweight
-    Note: Exercise-level guidance.
+    WORKOUT_PLAN_V2
+    {
+      "title": "Session title",
+      "date": "$date",
+      "durationMinutes": 45,
+      "warmUp": "General warm-up guidance.",
+      "note": "Session-level guidance.",
+      "exercises": [
+        {
+          "name": "Existing exercise name",
+          "note": "Exercise-level guidance.",
+          "sets": [
+            {"repsMin": 8, "repsMax": 10, "weight": "40.5", "unit": "kg", "restSeconds": 90},
+            {"repsMin": 8, "repsMax": 10, "restSeconds": 90},
+            {"repsMin": 12, "repsMax": 12, "unit": "bodyweight", "restSeconds": 60}
+          ]
+        }
+      ]
+    }
     END_WORKOUT_PLAN
     ```
 """.trimIndent()

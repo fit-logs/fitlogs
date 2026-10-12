@@ -37,6 +37,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val pendingPhotoRestore = MutableStateFlow<PhotoRestore?>(null)
     val plans = planRepository.plans.catch { notices.send("Unable to read planned workouts. Restart the app to retry."); emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val planRuns = database.planDao().observeRuns().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val handoffPreferences = planRepository.preferences.map { HandoffPreferenceState(false, it ?: HandoffPreferences()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, HandoffPreferenceState())
     val preparedHandoff = MutableStateFlow<PreparedHandoff?>(null)
@@ -141,23 +142,37 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         val spec = withContext(Dispatchers.Default) { WorkoutPlanParser.parse(planImportText.value, fallbackDate) }
         val incompatible = incompatiblePlanExercises(data.exercises, data.workouts.flatMap { it.entries.map { e -> e.entry } },
             data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets })
-        planEdit.value = EditablePlan(spec.title, spec.date, spec.durationMinutes.toString(), spec.note, spec.fingerprint, spec.exercises.map { p ->
+        planEdit.value = spec.editable(spec.exercises.map { p ->
             val match = matchPlanExercise(p.name, data.exercises, incompatible)
-            EditablePlanExercise(java.util.UUID.randomUUID().toString(), p.name, p.sets.toString(), p.repsText,
-                if (p.weight.unit == null) "" else if (p.weight.unit == "bodyweight") "bodyweight" else "${p.weight.value} ${p.weight.unit}",
-                p.note, match.candidates.singleOrNull()?.id?.takeIf { match.kind in setOf(ExerciseMatchKind.EXACT, ExerciseMatchKind.ALIAS) })
+            ResolvedPlanExercise(p, match.candidates.singleOrNull()?.id?.takeIf { match.kind in setOf(ExerciseMatchKind.EXACT, ExerciseMatchKind.ALIAS) })
         })
     }
     fun savePlan(allowDuplicate: Boolean = false, onSaved: (String) -> Unit) = change(null, failure = { planImportError.value = it }) {
         planImportError.value = null
-        val preview = planEdit.value?.validated() ?: return@change
-        when (val result = planRepository.save(preview, allowDuplicate)) {
+        val edit = planEdit.value ?: return@change
+        val preview = edit.validated()
+        when (val result = planRepository.save(preview, allowDuplicate, edit.editingId, edit.recoveryWorkoutId)) {
             is PlanSaveResult.Saved -> { planEdit.value = null; duplicatePlanId.value = null; planImportText.value = ""; onSaved(result.id) }
             is PlanSaveResult.Duplicate -> duplicatePlanId.value = result.id
         }
     }
     fun cancelPlanImport() { if (!busy.value) { planEdit.value = null; planImportText.value = ""; planImportError.value = null; duplicatePlanId.value = null } }
-    fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; onReady(planRepository.start(id)) }
+    fun editSavedPlan(id: String, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
+        val detail = requireNotNull(database.planDao().detail(id)) { "Plan no longer exists." }
+        planImportError.value = null
+        planEdit.value = detail.spec.editable(detail.ordered.map { ResolvedPlanExercise(it.prescription, it.exercise.id) }, editingId = id)
+        done()
+    }
+    fun recoverEmptySuggestion(id: Long, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
+        val preview = planRepository.recoveryPreview(id)
+        planImportError.value = null
+        planEdit.value = preview.spec.editable(preview.resolutions, recoveryId = id)
+        done()
+    }
+    fun saveRunSuggestion(id: Long, edit: EditableTarget, name: String, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
+        planRepository.updateRunTarget(id, edit.validated(name)); done()
+    }
+    fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; val workout = planRepository.start(id); planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null; onReady(workout) }
     fun deletePlan(id: String, done: () -> Unit) = change("Plan deleted.", done, failure = { planImportError.value = it }) { planImportError.value = null; planRepository.delete(id) }
     fun addExercise(workoutId: Long, exerciseId: Long, done: () -> Unit) =
         change("Exercise added.", done) { repository.addExercise(workoutId, exerciseId) }

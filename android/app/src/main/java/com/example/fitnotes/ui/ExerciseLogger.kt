@@ -28,22 +28,25 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     var remove by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf(false) }
     val previous = remember(all, session.key, exercise.key) { previousExerciseSessions(all, session, exercise) }
-    val plans by model.plans.collectAsState()
-    val reference = session.local?.workout?.id?.let { id -> plans.firstOrNull { it.plan.startedWorkoutId == id } }
-    val exerciseId = session.local?.entries?.firstOrNull { it.entry.id == exercise.entryId }?.exercise?.id
+    val runs by model.planRuns.collectAsState()
+    val run = session.local?.workout?.id?.let { id -> runs.firstOrNull { it.run.workoutId == id } }
+    val runExercise = run?.exercises?.firstOrNull { it.entry.id == exercise.entryId }
+    val firstTarget = runExercise?.ordered?.firstOrNull()?.target
     val seed = exercise.sets.lastOrNull() ?: previous.firstOrNull()?.second?.sets?.lastOrNull()
-    var weight by rememberSaveable { mutableStateOf(seed?.weight?.let(::weightText) ?: "") }
-    var reps by rememberSaveable { mutableStateOf(seed?.reps?.toString() ?: "") }
-    var distance by rememberSaveable { mutableStateOf(seed?.distance?.let(::weightText) ?: "") }
-    var seconds by rememberSaveable { mutableStateOf(seed?.seconds?.let(::weightText) ?: "") }
+    var weight by rememberSaveable { mutableStateOf(if (runExercise != null) firstTarget?.let(::suggestedActualWeight).orEmpty() else seed?.weight?.let(::weightText) ?: "") }
+    var reps by rememberSaveable { mutableStateOf(if (runExercise != null) firstTarget?.repsMin?.toString().orEmpty() else seed?.reps?.toString() ?: "") }
+    var distance by rememberSaveable { mutableStateOf(if (runExercise != null) "" else seed?.distance?.let(::weightText) ?: "") }
+    var seconds by rememberSaveable { mutableStateOf(if (runExercise != null) "" else seed?.seconds?.let(::weightText) ?: "") }
     var unit by rememberSaveable { mutableStateOf(seed?.unit ?: "km") }
-    var cardio by rememberSaveable { mutableStateOf(seed?.cardio ?: false) }
-    var mixed by rememberSaveable { mutableStateOf(seed?.weight != null && (seed.distance != null || seed.seconds != null)) }
+    var cardio by rememberSaveable { mutableStateOf(runExercise == null && seed?.cardio == true) }
+    var mixed by rememberSaveable { mutableStateOf(runExercise == null && seed?.weight != null && (seed.distance != null || seed.seconds != null)) }
     var comment by rememberSaveable { mutableStateOf("") }
     var showComment by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    var suggested by rememberSaveable { mutableStateOf(seed != null) }
+    var suggested by rememberSaveable { mutableStateOf(runExercise != null || seed != null) }
+    var planSuggested by rememberSaveable { mutableStateOf(runExercise != null) }
+    var userEdited by rememberSaveable { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val listState = rememberLazyListState()
@@ -66,8 +69,14 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     }
     // History may arrive after the local workout. Fill an untouched draft once,
     // without overwriting a user's typing or an explicitly selected record.
+    LaunchedEffect(runExercise?.entry?.id) {
+        if (!planSuggested && runExercise != null && selected == null && !userEdited) {
+            weight = firstTarget?.let(::suggestedActualWeight).orEmpty(); reps = firstTarget?.repsMin?.toString().orEmpty()
+            planSuggested = true; suggested = true; cardio = false; mixed = false; distance = ""; seconds = ""
+        }
+    }
     LaunchedEffect(seed?.key) {
-        if (!suggested && selected == null && listOf(weight, reps, distance, seconds).all { it.isBlank() } && seed != null) {
+        if (runExercise == null && !suggested && selected == null && listOf(weight, reps, distance, seconds).all { it.isBlank() } && seed != null) {
             weight = seed.weight?.let(::weightText) ?: ""; reps = seed.reps?.toString() ?: ""
             distance = seed.distance?.let(::weightText) ?: ""; seconds = seed.seconds?.let(::weightText) ?: ""; unit = seed.unit ?: "km"
             cardio = seed.cardio; mixed = seed.weight != null && (seed.distance != null || seed.seconds != null); suggested = true
@@ -90,7 +99,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
             OverflowMenu { close ->
                 if (!editable) MenuAction("Edit workout") { close(); onEditWorkout() }
                 if (editable && selected == null) MenuAction(if (cardio) "Log strength sets" else "Log cardio") {
-                    close(); cardio = !cardio; mixed = false; weight = ""; reps = ""; distance = ""; seconds = ""; suggested = true
+                    close(); userEdited = true; cardio = !cardio; mixed = false; weight = ""; reps = ""; distance = ""; seconds = ""; suggested = true
                 }
                 if (editable) MenuAction(if (showComment) "Hide set note" else "Add set note") { close(); showComment = !showComment }
                 if (editable && exercise.entryId != null) MenuAction("Remove exercise") { close(); remove = true }
@@ -120,7 +129,14 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                 }
             }
         } else LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
-            if (reference != null && exerciseId != null) item { Box(Modifier.padding(bottom = 12.dp)) { PlanReference(reference, exerciseId) } }
+            if (run != null && run.run.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", run.run.warmUp) }
+            if (run != null && run.run.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Legacy instructions", run.run.legacyGuidance) }
+            if (runExercise != null) item { Box(Modifier.padding(bottom = 12.dp)) {
+                RunSuggestions(runExercise, model, busy, editable) { target ->
+                    if (selected != null) cancelEdit()
+                    weight = suggestedActualWeight(target); reps = target.repsMin?.toString().orEmpty(); cardio = false; mixed = false; suggested = true; planSuggested = true
+                }
+            } }
             if (session.notes.startsWith(SESSION_PLAN_PREFIX)) item {
                 Box(Modifier.padding(bottom = 12.dp)) { SessionPlanCard(session.notes, session.completed) }
             }
@@ -144,8 +160,8 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                         TextButton(onClick = { showComment = !showComment }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text(if (comment.isNotBlank()) "Note •" else "Add note") }
                     }
                     if (!cardio) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        NumericControl("Weight (kg)", weight, { weight = it }, 2.5, false, busy, Modifier.weight(1f))
-                        NumericControl("Reps", reps, { reps = it }, 1.0, true, busy, Modifier.weight(1f))
+                        NumericControl("Weight (kg)", weight, { weight = it; userEdited = true }, 2.5, false, busy, Modifier.weight(1f))
+                        NumericControl("Reps", reps, { reps = it; userEdited = true }, 1.0, true, busy, Modifier.weight(1f))
                     }
                     if (cardio || mixed) {
                         UnitPicker(unit, { unit = it }, !busy)

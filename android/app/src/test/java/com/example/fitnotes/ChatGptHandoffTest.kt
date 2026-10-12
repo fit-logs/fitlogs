@@ -40,7 +40,7 @@ class ChatGptHandoffTest {
         assertTrue(text.contains("$from through $through, inclusive"))
         assertTrue(text.contains("50 kg × 8 reps")); assertTrue(text.contains("Climbing / bouldering")); assertTrue(text.contains("Effort: Okay"))
         assertTrue(text.contains("Synthetic actual-session note")); assertTrue(text.contains("Synthetic equipment"))
-        assertTrue(text.contains("WORKOUT_PLAN_V1")); assertTrue(text.contains("no exercise identifiers"))
+        assertTrue(text.contains("WORKOUT_PLAN_V2")); assertTrue(text.contains("no exercise identifiers"))
         assertTrue(text.contains("Activity preference: not specified"))
         assertFalse(text.contains("Synthetic body weight")); assertFalse(text.contains("timestamp_local,epoch_millis,bpm"))
     }
@@ -58,9 +58,9 @@ class ChatGptHandoffTest {
     }
     @Test fun adviceRequestsAvoidPlanInstructionsAndPartialHistoryIsRejected() {
         val review = ChatGptHandoff.prepare(data(), emptyList(), request(HandoffRequestKind.REVIEW_PROGRESS).copy(preferences = HandoffPreferences(activityPreference = "climbing")))
-        assertFalse(review.fullText.contains("WORKOUT_PLAN_V1"))
+        assertFalse(review.fullText.contains("WORKOUT_PLAN_V2"))
         val custom = ChatGptHandoff.prepare(data(), emptyList(), request(HandoffRequestKind.CUSTOM).copy(customQuestion = "Synthetic question about recovery"))
-        assertTrue(custom.fullText.contains("Synthetic question about recovery")); assertFalse(custom.fullText.contains("WORKOUT_PLAN_V1"))
+        assertTrue(custom.fullText.contains("Synthetic question about recovery")); assertFalse(custom.fullText.contains("WORKOUT_PLAN_V2"))
         try { ChatGptHandoff.prepare(data().copy(imported = ImportedData(loading = true)), emptyList(), request()); fail() } catch (_: IllegalArgumentException) {}
         try { ChatGptHandoff.prepare(data(), emptyList(), request().copy(preferences = HandoffPreferences(activityPreference = "running"))); fail() } catch (_: IllegalArgumentException) {}
     }

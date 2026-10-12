@@ -61,7 +61,7 @@ class ActivityMigrationTest {
             if (!localOnly) old.execSQL("UPDATE health_sessions SET workoutId = NULL, importedWorkoutId = 'original'")
             old.version = 4
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8).build()
         try {
             assertEquals(7L, db.dao().workouts().single().id); assertEquals("Keep note", db.dao().workouts().single().notes)
             assertEquals(6L, db.dao().sets().single().id); assertEquals("Keep set note", db.dao().sets().single().comment)

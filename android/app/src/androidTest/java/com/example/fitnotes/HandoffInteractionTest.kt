@@ -54,7 +54,7 @@ END_WORKOUT_PLAN"""
                 healthSessions = listOf(source), healthSamples = samples)
             model.confirmRestore { restored.set(true) }
         }
-        ui.waitUntil(30000) { restored.get() && !model.busy.value && !model.data.value.imported.loading && model.data.value.workouts.size == 2 }
+        ui.waitUntil(30000) { restored.get() && !model.busy.value && !model.data.value.imported.loading && model.data.value.workouts.size == 2 && model.handoffPreferences.value.value.lastTargetDate.isBlank() }
         waitFor("Backup restored.")
         ui.waitUntil(10000) { ui.onAllNodesWithText("Backup restored.").fetchSemanticsNodes().isEmpty() }
         runBlocking { db.photoDao().all().forEach { model.photoRepository.delete(it.id) } }
@@ -84,7 +84,7 @@ END_WORKOUT_PLAN"""
         assertEquals("", model.planImportText.value)
         ui.onNodeWithText("Paste", substring = false).performScrollTo().performClick()
         ui.onNodeWithText("Preview plan").performClick()
-        waitFor("Review planned workout")
+        waitFor("Edit planned workout")
         // Let Android's transient clipboard preview disappear before screenshots/actions.
         android.os.SystemClock.sleep(5000)
     }
@@ -134,7 +134,7 @@ END_WORKOUT_PLAN"""
     @Test fun exactAndUnknownMatchesSavePlanThenLogActualResultsSeparately() {
         val block = "A short explanation.\n```text\n" + simple.replace("END_WORKOUT_PLAN", "Exercise: DB press\nSets: 2\nReps: 12\nWeight: bodyweight\nEND_WORKOUT_PLAN") + "\n```"
         paste(block)
-        ui.onNodeWithText("Save planned workout").assertIsNotEnabled()
+        ui.onNodeWithText("Save plan").assertIsNotEnabled()
         val key = model.planEdit.value!!.exercises.last().key
         ui.onNodeWithTag("plan-import-list").performScrollToNode(hasTestTag("plan-row:$key"))
         capture("plan-match-unresolved")
@@ -146,25 +146,25 @@ END_WORKOUT_PLAN"""
         assertTrue(runBlocking { db.planDao().plans().isEmpty() })
         capture("plan-match-resolved")
         ui.activityRule.scenario.recreate()
-        waitFor("Review planned workout")
-        ui.onNodeWithText("Save planned workout").performClick()
+        waitFor("Edit planned workout")
+        ui.onNodeWithText("Save plan").performClick()
         waitFor("Saved plan")
         ui.waitUntil(15000) { runBlocking { db.planDao().plans().size } == 1 }
         assertEquals(2, runBlocking { db.dao().workouts().size }); assertEquals(1, runBlocking { db.dao().sets().size })
-        ui.onNodeWithText("3 sets · 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Set 1: 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
         capture("saved-plan-targets")
         val saved = runBlocking { db.planDao().plans().single() }
-        assertEquals(tomorrowDate(), saved.scheduledDate)
+        assertEquals("", saved.scheduledDate)
         ui.activityRule.scenario.recreate()
         waitFor("Saved plan")
-        ui.waitUntil(10000) { ui.onAllNodesWithText("Start workout from plan").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) == false }
-        ui.onNodeWithText("Start workout from plan").performClick()
+        ui.waitUntil(10000) { ui.onAllNodesWithTag("start-plan").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) == false }
+        ui.onNodeWithTag("start-plan").performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().active() } != null }
         assertEquals(1, runBlocking { db.dao().sets().size })
         waitFor("Workout started."); ui.waitUntil(10000) { ui.onAllNodesWithText("Workout started.").fetchSemanticsNodes().isEmpty() }
         ui.onNodeWithText("Synthetic press").performScrollTo().performClick()
         waitFor("Save set")
-        ui.onNodeWithText("3 sets · 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithText("Set 1: 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
         capture("logger-plan-targets")
         ui.onNodeWithTag("field:Weight (kg)").performScrollTo().performTextReplacement("45.5")
         ui.onNodeWithTag("field:Reps").performScrollTo().performTextReplacement("7")
@@ -189,16 +189,18 @@ END_WORKOUT_PLAN"""
         ui.waitUntil(10000) { runCatching { ui.onNode(hasText("Sets must be", substring = true)).assertIsDisplayed() }.isSuccess }
         assertTrue(runBlocking { db.planDao().plans().isEmpty() })
         ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextReplacement(simple)
-        ui.onNodeWithText("Preview plan").performClick(); waitFor("Review planned workout")
-        ui.onNodeWithText("Save planned workout").performClick(); waitFor("Saved plan")
+        Espresso.closeSoftKeyboard()
+        ui.waitUntil(10000) { model.planImportText.value == simple && !model.busy.value }
+        ui.onNodeWithText("Preview plan").performClick(); waitFor("Edit planned workout")
+        ui.onNodeWithText("Save plan").performClick(); waitFor("Saved plan")
         val id = runBlocking { db.planDao().plans().single().id }
         paste(simple)
-        ui.onNodeWithText("Save planned workout").performClick(); waitFor("Plan already saved")
+        ui.onNodeWithText("Save plan").performClick(); waitFor("Plan already saved")
         capture("plan-duplicate-warning")
         ui.onNodeWithText("Open existing plan").performClick(); waitFor("Saved plan")
         assertEquals(id, runBlocking { db.planDao().plans().single().id })
         paste(simple)
-        ui.onNodeWithText("Save planned workout").performClick(); waitFor("Plan already saved")
+        ui.onNodeWithText("Save plan").performClick(); waitFor("Plan already saved")
         ui.onNodeWithText("Save another copy").performClick(); waitFor("Saved plan")
         assertEquals(2, runBlocking { db.planDao().plans().size })
         assertEquals(before.workouts, runBlocking { db.dao().workouts() }); assertEquals(before.sets, runBlocking { db.dao().sets() })

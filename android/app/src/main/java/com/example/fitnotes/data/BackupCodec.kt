@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 5,
+    val version: Int = 6,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -20,6 +20,9 @@ data class Backup(
     val plannedWorkouts: List<PlannedWorkout> = emptyList(),
     val plannedExercises: List<PlannedExercise> = emptyList(),
     val handoffPreferences: HandoffPreferences? = null,
+    val plannedSets: List<PlannedSet> = emptyList(),
+    val planRuns: List<WorkoutPlanRun> = emptyList(),
+    val runTargets: List<WorkoutSetTarget> = emptyList(),
 )
 
 object BackupCodec {
@@ -43,7 +46,7 @@ object BackupCodec {
         })
         root.put("entries", JSONArray().also { array ->
             backup.entries.forEach {
-                array.put(JSONObject().put("id", it.id).put("workoutId", it.workoutId).put("exerciseId", it.exerciseId).put("position", it.position))
+                array.put(JSONObject().put("id", it.id).put("workoutId", it.workoutId).put("exerciseId", it.exerciseId).put("position", it.position).also { entry -> if (backup.version >= 6) entry.put("planNote", it.planNote) })
             }
         })
         root.put("sets", JSONArray().also { array ->
@@ -82,6 +85,7 @@ object BackupCodec {
             root.put("healthSamples", JSONArray().also { array -> backup.healthSamples.forEach { array.put(HealthBackupJson.encode(it)) } })
         }
         if (backup.version >= 5) PlanBackupJson.add(root, backup)
+        if (backup.version >= 6) PlanSetBackupJson.add(root, backup)
         return root.toString(2).also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Backup exceeds the 50 MB limit." } }
     }
 
@@ -92,12 +96,13 @@ object BackupCodec {
             val root = JSONObject(text)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..5) { "Unsupported backup version." }
+            require(version in 1..6) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
             else if (version == 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples")
-            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences")
+            else if (version == 5) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences")
+            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets")
             val backup = Backup(
                 version = root.integer("version"),
                 exportedAt = root.long("exportedAt"),
@@ -115,8 +120,8 @@ object BackupCodec {
                         if (version < 4) null else it.optionalNumber("distance"), if (version < 4 || it.isNull("distanceUnit")) null else it.string("distanceUnit"))
                 },
                 entries = root.objects("entries", 200000).map {
-                    it.keysExactly("id", "workoutId", "exerciseId", "position")
-                    WorkoutExercise(it.long("id"), it.long("workoutId"), it.long("exerciseId"), it.integer("position"))
+                    if (version < 6) it.keysExactly("id", "workoutId", "exerciseId", "position") else it.keysExactly("id", "workoutId", "exerciseId", "position", "planNote")
+                    WorkoutExercise(it.long("id"), it.long("workoutId"), it.long("exerciseId"), it.integer("position"), if (version < 6) "" else it.string("planNote"))
                 },
                 sets = root.objects("sets", 1000000).map {
                     if (version < 3) it.keysExactly("id", "entryId", "weightKg", "reps", "position")
@@ -155,9 +160,12 @@ object BackupCodec {
                 },
                 healthSessions = if (version < 4) emptyList() else root.objects("healthSessions", 100000).map(HealthBackupJson::session),
                 healthSamples = if (version < 4) emptyList() else root.objects("healthSamples", 1000000).map(HealthBackupJson::sample),
-                plannedWorkouts = if (version < 5) emptyList() else PlanBackupJson.plans(root),
+                plannedWorkouts = if (version < 5) emptyList() else PlanBackupJson.plans(root, version),
                 plannedExercises = if (version < 5) emptyList() else PlanBackupJson.targets(root),
                 handoffPreferences = if (version < 5) null else PlanBackupJson.preferences(root),
+                plannedSets = if (version < 6) emptyList() else PlanSetBackupJson.sets(root),
+                planRuns = if (version < 6) emptyList() else PlanSetBackupJson.runs(root),
+                runTargets = if (version < 6) emptyList() else PlanSetBackupJson.targets(root),
             )
             validate(backup)
             return backup
@@ -167,7 +175,7 @@ object BackupCodec {
     }
 
     fun validate(backup: Backup) {
-        require(backup.version in 1..5) { "Unsupported backup version." }
+        require(backup.version in 1..6) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
@@ -219,6 +227,7 @@ object BackupCodec {
         validateHealthBackup(backup.healthSessions, backup.healthSamples, workouts, backup.importedWorkouts.map { it.id }.toSet())
         validateImported(backup.imports, backup.importedWorkouts, backup.importedSets, backup.bodyMeasurements)
         validatePlanBackup(backup)
+        validatePlanSetBackup(backup)
     }
 
     fun validateImported(imports: List<HistoryImport>, workouts: List<ImportedWorkout>, sets: List<ImportedSet>, body: List<BodyMeasurement>) {
@@ -257,7 +266,7 @@ object BackupCodec {
         }
     }
 
-    fun analysis(backup: Backup): String = JSONObject(encode(backup.copy(version = 4, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null)))
+    fun analysis(backup: Backup): String = JSONObject(encode(backup.copy(version = 4, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null, plannedSets = emptyList(), planRuns = emptyList(), runTargets = emptyList(), entries = backup.entries.map { it.copy(planNote = "") })))
         .put("format", "fitnotes-analysis").put("version", 1).put("backupSchemaVersion", 4).toString(2)
 
     private fun JSONObject.optionalNumber(key: String): Double? {

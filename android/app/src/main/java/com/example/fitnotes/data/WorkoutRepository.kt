@@ -235,7 +235,8 @@ class WorkoutRepository(val database: FitDatabase) {
         Backup(exercises = dao.exercises(), workouts = dao.workouts(), entries = dao.entries(), sets = dao.sets(),
             imports = imported.imports(), importedWorkouts = imported.workouts(), importedSets = imported.sets(), bodyMeasurements = imported.body(),
             healthSessions = database.healthDao().sessions(), healthSamples = database.healthDao().samples(),
-            plannedWorkouts = database.planDao().plans(), plannedExercises = database.planDao().exercises(), handoffPreferences = database.planDao().preferences())
+            plannedWorkouts = database.planDao().plans(), plannedExercises = database.planDao().exercises(), handoffPreferences = database.planDao().preferences(),
+            plannedSets = database.planDao().sets(), planRuns = database.planDao().runs(), runTargets = database.planDao().runTargets())
     }
 
     suspend fun restore(backup: Backup) {
@@ -263,6 +264,30 @@ class WorkoutRepository(val database: FitDatabase) {
             database.healthDao().putSamples(backup.healthSamples)
             backup.plannedWorkouts.forEach { database.planDao().insert(it) }
             database.planDao().insertTargets(backup.plannedExercises)
+            if (backup.version >= 6) {
+                database.planDao().insertSets(backup.plannedSets)
+                backup.planRuns.forEach { database.planDao().insertRun(it) }
+                database.planDao().insertRunTargets(backup.runTargets)
+            } else {
+                database.planDao().insertSets(backup.plannedExercises.flatMap { exercise -> List(exercise.sets) { position ->
+                    PlannedSet(plannedExerciseId = exercise.id, position = position, repsMin = exercise.repsMin, repsMax = exercise.repsMax,
+                        weightValue = exercise.weightValue, weightUnit = exercise.weightUnit, restSeconds = null)
+                } })
+                // Earlier plans already linked to an actual workout keep their targets as a snapshot.
+                backup.plannedWorkouts.filter { it.startedWorkoutId != null }.forEach { plan ->
+                    database.planDao().insertRun(WorkoutPlanRun(plan.startedWorkoutId!!, plan.id, plan.title, plan.warmUp, plan.legacyGuidance))
+                    backup.entries.filter { it.workoutId == plan.startedWorkoutId }.forEach { entry ->
+                        val target = backup.plannedExercises.firstOrNull { it.planId == plan.id && it.exerciseId == entry.exerciseId }
+                        if (target != null) {
+                            dao.updateEntry(entry.copy(planNote = target.note))
+                            database.planDao().insertRunTargets(List(target.sets) { position ->
+                            WorkoutSetTarget(entryId = entry.id, position = position, repsMin = target.repsMin, repsMax = target.repsMax,
+                                weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = null)
+                        })
+                        }
+                    }
+                }
+            }
             backup.handoffPreferences?.let { database.planDao().putPreferences(it) }
         }
     }

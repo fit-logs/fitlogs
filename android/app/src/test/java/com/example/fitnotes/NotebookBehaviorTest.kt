@@ -32,7 +32,7 @@ class NotebookBehaviorTest {
             assertEquals(original.id, db.dao().entrySets(entry).first().id)
             repo.duplicateSet(original.id)
             assertEquals("Edited note", db.dao().entrySets(entry).last().comment)
-            val backup = repo.backup(); assertEquals(5, backup.version)
+            val backup = repo.backup(); assertEquals(6, backup.version)
             val decoded = BackupCodec.decode(BackupCodec.encode(backup))
             assertEquals(backup, decoded)
             repo.restore(decoded)
@@ -111,7 +111,7 @@ class NotebookBehaviorTest {
             old.execSQL("INSERT INTO imported_workouts VALUES('original','source','2026-10-11',NULL,NULL,'Imported note')")
             old.version = 2
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8).build()
         try {
             assertEquals(6L, migrated.dao().sets().single().id); assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)
             assertEquals("", migrated.dao().sets().single().comment); assertEquals("original", migrated.importedDao().workouts().single().id)

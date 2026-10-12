@@ -12,7 +12,7 @@ to Paste plan. No API, backend, automatic message submission or answer retrieval
 - Goals, equipment, constraints and activity preference are editable and remembered
   locally; no personal defaults are bundled. Each preference allows 4,000 characters.
 - Next workout requests a strength plan. Review progress / Custom question request
-  ordinary advice, including other activities. V1 cannot import running/climbing plans.
+  ordinary advice, including other activities. V1/V2 import strength plans only.
 - Existing range/session export supplies completed training, exercises, performed
   sets, non-gym activity, recorded notes/effort and imported summaries. Saved actual
   results from unfinished sessions are labelled separately. Planned workouts are
@@ -32,7 +32,110 @@ to Paste plan. No API, backend, automatic message submission or answer retrieval
   the next Share. Explicit Export writes the full text to your selected destination.
   Payloads and clipboard text are not stored in the database or logged.
 
-## Exact V1 format
+## Current V2 format
+
+Ask ChatGPT now requests V2. Return a brief explanation outside one fenced block:
+
+````text
+```text
+WORKOUT_PLAN_V2
+{
+  "title": "Upper body",
+  "date": "2026-10-14",
+  "durationMinutes": 45,
+  "warmUp": "Five minutes of gentle movement, then warm-up sets.",
+  "note": "General session guidance.",
+  "exercises": [
+    {
+      "name": "Flat Barbell Bench Press",
+      "note": "Keep shoulders steady and leave two reps in reserve.",
+      "sets": [
+        {"repsMin": 8, "repsMax": 10, "weight": "80.50", "unit": "kg", "restSeconds": 90},
+        {"repsMin": 6, "repsMax": 8, "weight": "180.25", "unit": "lb", "restSeconds": 120},
+        {"repsMin": 10, "repsMax": 10, "restSeconds": 90}
+      ]
+    },
+    {
+      "name": "Bodyweight Squat",
+      "note": "Exercise-specific guidance.",
+      "sets": [{"repsMin": 12, "repsMax": 12, "unit": "bodyweight"}]
+    }
+  ]
+}
+END_WORKOUT_PLAN
+```
+````
+
+V2 uses strict JSON inside case-sensitive standalone markers. `title` and
+`exercises` are required. Each exercise requires `name` and 1–100 individual
+`sets`; `note` is optional. Each set requires whole `repsMin` and `repsMax`,
+1–1,000 with maximum >= minimum. Equal values mean a fixed count. Optional rest
+is a whole `restSeconds` value from 0–3,600. Omit weight/unit together for an
+unspecified load; otherwise use decimal weight plus kg/lb, or bodyweight unit
+without numeric weight. Decimal strings preserve formatting; numeric JSON
+weights also work. Targets retain their original unit and are never results.
+
+`date` and `durationMinutes` are optional. An omitted date uses the optional date
+chosen in Paste plan, initially remembered from the latest Ask ChatGPT request.
+Leaving it blank makes an unscheduled plan. Duration is a
+1–720 minute budget when supplied. `warmUp` holds general warm-up guidance;
+exercise-specific instructions belong in the corresponding exercise's `note`.
+Unknown fields, duplicate JSON keys, invalid values, multiple blocks and malformed
+JSON fail before database writes. Existing name/field/input size limits below apply.
+
+## Planning, reuse and conversion
+
+Import/preview/Save plan/Edit plan only read or write planning tables. They never
+create an actual workout, start timestamp, timer or completed set. The editor
+shows individual rep minimum/maximum, optional weight/unit and rest rows under
+each exercise; add/remove target sets and exercises explicitly. Exercise guidance
+stays beside that exercise. Warm-up instructions are collapsible. Scheduled date
+and time budget may remain blank. There are no heart-rate prompts or completed
+session controls in this planning screen.
+
+Saved plans offer **Edit plan** and explicit **Start workout**. The editor also
+shows separate Save plan / Start workout actions; Start is enabled only for a
+saved, unchanged plan. Save edited targets first. Only Start creates
+an active workout and its actual current start time. Rapid repeated starts return
+the same active workout. Each start copies guidance and targets into a separate
+workout snapshot; the original plan remains reusable. Editing the plan later or
+editing workout suggestions changes neither other snapshots nor actual results.
+
+The logger copies a target into editable actual input and provides **Use** for
+other sets, plus **Edit workout suggestions** for this workout's target rows.
+The established actual logger stores kg; lb target copies use the exact factor
+0.45359237 kg/lb, explained in the logger and labelled **Use in kg**. Original lb
+targets remain intact. Bodyweight suggests zero external kg; unspecified weight
+stays blank. Only **Save set** writes performed weight/reps. Actual results may
+differ from any suggestion; plans/suggestions never enter recorded volume or PRs.
+
+**Convert empty import to plan** previews older immediate-start suggestions
+identified by their saved suggestion marker, or an empty workout started from a
+plan. Save plan explicitly moves it into planning and removes the accidental
+workout/start timestamp. Cancellation changes nothing. The operation rechecks the
+source in one transaction: any saved sets, recorded duration/distance/effort,
+completion or linked Health Connect data prevents conversion. A set logged after
+preview also prevents conversion. Nothing is converted automatically.
+
+Unstructured old target text is retained in editable **Legacy instructions**.
+Weights, set counts, rep ranges and the association of ambiguous text with an
+exercise are never guessed. Missing targets stay unspecified until the user
+adds them. An empty legacy plan can be saved; add explicit strength exercises
+before starting it.
+
+Room 7 → 8 adds per-set targets, workout snapshots and exercise guidance without
+replacing existing training. Existing V1 plans expand their explicit uniform
+prescription into individual rows; any already-started plan gains a separate
+snapshot. Existing mistaken imports remain untouched until conversion is chosen.
+Backup JSON v6 (also inside the optional photo ZIP) retains all new rows and
+notes. Backup versions 1–5 remain readable; old uniform prescriptions expand
+without inferring rest or parsing prose. Analysis JSON still exports completed
+training in its existing schema, excluding plans and suggestions.
+
+## Legacy V1 format
+
+V1 remains accepted. Its explicit prescription expands into identical target
+rows; exercise/session notes remain editable and rest is not inferred from prose.
 
 Explanation belongs outside exactly one fenced code block:
 
@@ -106,19 +209,8 @@ in one plan is rejected; combine its guidance explicitly rather than silently me
 Repeated pasted blocks show Open existing / Save another copy. Concurrent writes
 are guarded, and saving opens the saved plan before starting is available.
 
-Room 6 → 7 adds plan, target and preference tables without replacing training,
-measurements, photos or imports. Plans never appear as completed training or
-contribute to recorded volume/records. Starting a plan creates an ordinary
-strength session with empty set rows and a link to immutable saved targets.
-The existing logger records actual kg/reps; these may differ from targets in kg,
-lb, bodyweight or unspecified weight. No target is converted into an actual set.
-Deleting a plan leaves its performed workout intact.
-
-Backup JSON v5 and the optional photo ZIP retain plans, targets, start links and
-saved preferences. Versions 1–4 remain readable (they contain no plans). Old JSON
-restore preserves current handoff preferences when that field is absent. Restore
-continues to replace training/plans only after explicit confirmation. Analysis
-JSON keeps its existing completed-data schema and excludes plans/preferences.
+Plan targets and workout suggestion snapshots have separate tables from actual
+performed sets. Deleting a plan leaves its recorded workouts and snapshots intact.
 
 ## Verification
 
@@ -127,5 +219,5 @@ restart, targets versus actual sets, backup versions/round trips and duplicates.
 Android interaction tests must run only with application ID
 `com.example.fitnotes.preview.activities`; a package guard precedes fixture writes.
 The personal `com.example.fitnotes` package must never receive synthetic fixtures.
-See [verification and actual screenshots](chatgpt-handoff-verification.md). Extra
+See [per-set planning verification and before/after screenshots](per-set-plan-verification.md). Extra
 screenshots and transient test output remain in the ignored local captures folder.

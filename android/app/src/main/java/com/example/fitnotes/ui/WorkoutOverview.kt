@@ -20,13 +20,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
-import com.example.fitnotes.data.SESSION_PLAN_PREFIX
+import com.example.fitnotes.data.*
 
 @Composable
 fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<NotebookSession>, data: AppData, model: FitNotesViewModel,
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
-    onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
+    onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
     onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
@@ -37,14 +37,18 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     var provenance by remember { mutableStateOf(false) }
     val showShareIcon = session != null && (session.completed || LocalDensity.current.fontScale <= 1.35f)
     val plans by model.plans.collectAsState()
-    val reference = session?.local?.workout?.id?.let { id -> plans.firstOrNull { it.plan.startedWorkoutId == id } }
+    val runs by model.planRuns.collectAsState()
+    val run = session?.local?.workout?.id?.let { id -> runs.firstOrNull { it.run.workoutId == id } }
+    val recoverable = session?.local?.let { eligibleEmptySuggestion(it, run != null) } == true
+    val legacyEmpty = recoverable && session?.notes?.startsWith(SESSION_PLAN_PREFIX) == true
     Column(Modifier.fillMaxSize()) {
         NotebookBar("Workout", onBack) {
             if (showShareIcon && session != null) IconButton(onClick = { onShare(sessionContext(session, data)) }) { Icon(Icons.Filled.Share, "Copy or share workout") }
-            if (session?.local != null && !session.completed) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
+            if (session?.local != null && !session.completed && !legacyEmpty) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
             OverflowMenu { close ->
                 if (session != null) {
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }
+                    if (recoverable) MenuAction("Convert empty import to plan") { close(); onRecoverPlan(session.local!!.workout.id) }
                     MenuAction("Workout information") { close(); provenance = true }
                     if (editable) MenuAction("Edit details") { close(); details = true }
                     MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
@@ -69,7 +73,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onChatGPT, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
                     TextButton(onClick = onPastePlan, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
-                    TextButton(onClick = onPlans, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Plans (${plans.count { it.plan.startedWorkoutId == null }})") }
+                    TextButton(onClick = onPlans, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Plans (${plans.size})") }
                 }
             }
             val sameDay = sessions.filter { it.date == day }
@@ -96,11 +100,12 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().clickable { showNotes = true }.padding(vertical = 4.dp))
                 }
-                if (reference != null) item { PlanReference(reference) }
+                if (legacyEmpty) item { OutlinedButton(onClick = { onRecoverPlan(session.local!!.workout.id) }, enabled = !busy) { Text("Convert empty import to plan") } }
+                if (run != null) item { RunReference(run) }
                 if (session.local != null && session.activity != "strength") item { ActivityPanel(session, editable, model, busy) }
                 if (session.local != null && session.local.health.isNotEmpty()) item { ImportedActivityInfo(session.local.health) }
                 if (session.imported != null && session.imported.health.isNotEmpty()) item { ImportedActivityInfo(session.imported.health) }
-                if (session.local?.health.isNullOrEmpty() && session.imported?.health.isNullOrEmpty()) item {
+                if (!legacyEmpty && session.local?.health.isNullOrEmpty() && session.imported?.health.isNullOrEmpty()) item {
                     MissingHeartRateInfo(busy, onHealthImport)
                 }
                 items(session.exercises, key = { it.key }) { exercise ->

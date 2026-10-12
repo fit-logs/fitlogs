@@ -7,13 +7,21 @@ import java.util.Locale
 data class PlanWeight(val value: String?, val unit: String?) {
     val text: String get() = when (unit) { null -> "Unspecified"; "bodyweight" -> "Bodyweight"; else -> "$value $unit" }
 }
+data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanWeight = PlanWeight(null, null), val restSeconds: Int? = null) {
+    val repsText get() = when { repsMin == null -> "Unspecified"; repsMin == repsMax -> repsMin.toString(); else -> "$repsMin-$repsMax" }
+    val text get() = "$repsText reps · ${weight.text}" + (restSeconds?.let { " · rest $it s" } ?: "")
+}
 data class PlanPrescription(val name: String, val sets: Int, val repsMin: Int, val repsMax: Int,
-    val weight: PlanWeight = PlanWeight(null, null), val note: String = "") {
+    val weight: PlanWeight = PlanWeight(null, null), val note: String = "", val targets: List<PlanSetTarget>? = null) {
+    val setTargets get() = targets ?: List(sets) { PlanSetTarget(repsMin, repsMax, weight) }
     val repsText get() = if (repsMin == repsMax) repsMin.toString() else "$repsMin-$repsMax"
     val targetText get() = "$sets sets · $repsText reps · ${weight.text}"
 }
 data class PlanSpec(val title: String, val date: String, val durationMinutes: Int, val note: String,
-    val exercises: List<PlanPrescription>, val fingerprint: String)
+    val exercises: List<PlanPrescription>, val fingerprint: String, val warmUp: String = "", val legacyGuidance: String = "")
+
+fun planFingerprint(text: String) = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+    .joinToString("") { "%02x".format(it) }
 
 class PlanParseException(val line: Int?, val field: String?, val exercise: String?, reason: String) : IllegalArgumentException(
     listOfNotNull(line?.let { "Line $it" }, exercise?.let { "Exercise $it" }, field).joinToString(" · ").let {
@@ -31,16 +39,18 @@ object WorkoutPlanParser {
 
     fun parse(raw: String, fallbackDate: String): PlanSpec {
         require(raw.length <= MAX_INPUT) { "Paste one plan of at most 64,000 characters." }
-        require(validHistoryDate(fallbackDate)) { "Choose a valid scheduled date as YYYY-MM-DD." }
+        require(fallbackDate.isBlank() || validHistoryDate(fallbackDate)) { "Choose a valid scheduled date as YYYY-MM-DD." }
         val lines = raw.replace("\r\n", "\n").replace('\r', '\n').lines()
         val starts = lines.indices.filter { marker.matches(lines[it].trim()) }
         val ends = lines.indices.filter { lines[it].trim() == "END_WORKOUT_PLAN" }
         require(starts.size <= 1 && ends.size <= 1) { "Multiple plan blocks found. Paste exactly one workout plan." }
-        require(starts.size == 1) { "Missing WORKOUT_PLAN_V1 start marker." }
+        require(starts.size == 1) { "Missing WORKOUT_PLAN_V2 (or legacy V1) start marker." }
         val start = starts.single()
-        require(lines[start].trim() == "WORKOUT_PLAN_V1") { "Unsupported workout plan version. Use WORKOUT_PLAN_V1." }
+        val version = lines[start].trim()
+        require(version in setOf("WORKOUT_PLAN_V1", "WORKOUT_PLAN_V2")) { "Unsupported workout plan version. Use WORKOUT_PLAN_V2 or legacy V1." }
         require(ends.size == 1 && ends.single() > start) { "Missing END_WORKOUT_PLAN after the plan." }
         val end = ends.single()
+        if (version == "WORKOUT_PLAN_V2") return StructuredPlanV2.parse(lines.subList(start + 1, end).joinToString("\n"), fallbackDate)
         val header = linkedMapOf<String, Pair<String, Int>>()
         val sections = mutableListOf<LinkedHashMap<String, Pair<String, Int>>>()
         var current: LinkedHashMap<String, Pair<String, Int>>? = null
@@ -72,7 +82,7 @@ object WorkoutPlanParser {
         }
         val title = headerValue("title", true)
         val date = if (header.containsKey("date")) headerValue("date", true) else fallbackDate
-        if (!validHistoryDate(date)) throw PlanParseException(header["date"]?.second?.plus(1), "Date", null, "Use a valid date as YYYY-MM-DD.")
+        if (date.isNotBlank() && !validHistoryDate(date)) throw PlanParseException(header["date"]?.second?.plus(1), "Date", null, "Use a valid date as YYYY-MM-DD.")
         val duration = headerValue("duration", true)
         val minutes = Regex("([0-9]+)\\s*min", RegexOption.IGNORE_CASE).matchEntire(duration)?.groupValues?.get(1)?.toIntOrNull()
         if (minutes == null || minutes !in 1..MAX_MINUTES) throw PlanParseException(header["duration"]?.second?.plus(1), "Duration", null, "Use 1-$MAX_MINUTES whole minutes, for example 45 min.")
@@ -91,8 +101,7 @@ object WorkoutPlanParser {
             val weight = parseField("weight") { parseWeight(value("weight"), present = section.containsKey("weight")) }
             PlanPrescription(name, sets, reps.first, reps.second, weight, value("note"))
         }
-        val fingerprint = MessageDigest.getInstance("SHA-256").digest(lines.subList(start, end + 1).joinToString("\n") { it.trim() }.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+        val fingerprint = planFingerprint(lines.subList(start, end + 1).joinToString("\n") { it.trim() })
         return PlanSpec(title, date, minutes, headerValue("note"), exercises, fingerprint).also(::validate)
     }
 
@@ -124,18 +133,27 @@ object WorkoutPlanParser {
             require(value.length <= max && (!required || value.isNotBlank()) && value.none { it.isISOControl() && it !in "\n\r\t" }) { "$label must be readable text of at most $max characters." }
         }
         text(spec.title, 200, "Title", true)
-        require(validHistoryDate(spec.date)) { "Date must be a valid YYYY-MM-DD date." }
-        require(spec.durationMinutes in 1..MAX_MINUTES) { "Duration must be 1-$MAX_MINUTES minutes." }
+        require(spec.date.isBlank() || validHistoryDate(spec.date)) { "Date must be a valid YYYY-MM-DD date." }
+        require(spec.durationMinutes in 0..MAX_MINUTES) { "Duration must be 1-$MAX_MINUTES minutes." }
         text(spec.note, MAX_NOTE, "Session note")
-        require(spec.exercises.size in 1..MAX_EXERCISES) { "Include 1-$MAX_EXERCISES strength exercises." }
+        text(spec.warmUp, MAX_NOTE, "Warm-up")
+        text(spec.legacyGuidance, 10000, "Legacy guidance")
+        require(spec.exercises.size <= MAX_EXERCISES && (spec.exercises.isNotEmpty() || spec.legacyGuidance.isNotBlank())) { "Include 1-$MAX_EXERCISES strength exercises." }
         require(Regex("[a-f0-9]{64}").matches(spec.fingerprint)) { "Invalid plan fingerprint." }
         spec.exercises.forEach { exercise ->
             require(runCatching { InputRules.exerciseName(exercise.name) }.isSuccess) { "Check exercise name ${exercise.name.take(100)}." }
-            require(exercise.sets in 1..MAX_SETS && exercise.repsMin in 1..MAX_REPS && exercise.repsMax in exercise.repsMin..MAX_REPS) { "Check Sets and Reps for ${exercise.name}." }
-            require(exercise.weight == parseWeight(when (exercise.weight.unit) { null -> ""; "bodyweight" -> "bodyweight"; else -> "${exercise.weight.value} ${exercise.weight.unit}" })) { "Check Weight for ${exercise.name}." }
+            require(exercise.sets in (if (exercise.targets == null) 1 else 0)..MAX_SETS && exercise.setTargets.size <= MAX_SETS) { "Use at most $MAX_SETS target sets for ${exercise.name}." }
+            exercise.setTargets.forEach { validateSet(it, exercise.name) }
             text(exercise.note, MAX_NOTE, "Note for ${exercise.name}")
         }
     }
+    fun validateSet(target: PlanSetTarget, name: String = "exercise") {
+        require((target.repsMin == null && target.repsMax == null) ||
+            (target.repsMin != null && target.repsMax != null && target.repsMin in 1..MAX_REPS && target.repsMax in target.repsMin..MAX_REPS)) { "Check rep minimum/maximum for $name." }
+        require(target.weight == parseWeight(when (target.weight.unit) { null -> ""; "bodyweight" -> "bodyweight"; else -> "${target.weight.value} ${target.weight.unit}" })) { "Check Weight for $name." }
+        require(target.restSeconds == null || target.restSeconds in 0..3600) { "Rest must be 0–3,600 whole seconds for $name." }
+    }
+
 }
 
 fun normaliseExerciseName(raw: String) = raw.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)

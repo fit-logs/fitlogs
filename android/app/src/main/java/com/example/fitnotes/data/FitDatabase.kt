@@ -48,6 +48,7 @@ data class WorkoutExercise(
     val workoutId: Long,
     val exerciseId: Long,
     val position: Int,
+    @ColumnInfo(defaultValue = "''") val planNote: String = "",
 )
 
 @Entity(
@@ -105,6 +106,7 @@ interface FitDao {
     @Insert suspend fun insertEntries(values: List<WorkoutExercise>)
     @Insert suspend fun insertSets(values: List<WorkoutSet>)
     @Update suspend fun updateWorkout(value: Workout)
+    @Update suspend fun updateEntry(value: WorkoutExercise)
     @Update suspend fun updateSet(value: WorkoutSet)
     @Query("DELETE FROM workout_sets WHERE id = :id") suspend fun deleteSet(id: Long)
     @Query("DELETE FROM workout_exercises WHERE id = :id") suspend fun deleteEntry(id: Long)
@@ -124,7 +126,7 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class], version = 7, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class], version = 8, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
@@ -135,7 +137,7 @@ abstract class FitDatabase : RoomDatabase() {
     companion object {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.

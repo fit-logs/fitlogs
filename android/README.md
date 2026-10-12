@@ -44,10 +44,14 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
   samples are optional and start unselected each time.
 - **Paste plan** reads the clipboard only when **Paste** is tapped; manual text
   entry also works. Review and edit the strength plan, resolve exercise names,
-  then **Save planned workout**. This saves targets without recorded sets.
+  then **Save plan**. This saves targets without recorded sets.
   **Plans / Planned workouts** lists saved plans. Starting one creates an actual
   session with empty exercise entries and keeps its targets visible separately.
-  Enter the weights/reps actually performed in the existing logger.
+  Targets appear in editable per-set rows, including rest and original units.
+  **Edit plan** changes the reusable plan; **Start workout** copies suggestions
+  into the logger. Enter the weights/reps actually performed. Scheduled dates
+  are optional. **Convert empty import to plan** repairs empty older suggestions
+  after review, while preserving uncertain legacy text and actual training.
 - ChatGPT handoff is manual, using your existing app/account. Nothing is submitted
   or answered automatically. There is no OpenAI API, backend or cloud upload.
   Copy is the fallback if a receiving app rejects Android sharing.
@@ -66,10 +70,10 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 ## Backup and restore
 
 Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 5 file contains the entire exercise library, local session
+file picker. The version 6 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
 original fields, import fingerprints, planned workouts/targets and saved handoff
-preferences. Versions 1–4 remain readable. Store it outside this repository
+preferences, individual target sets and workout suggestion snapshots. Versions 1–5 remain readable. Store it outside this repository
 in a private location. Backups are readable JSON and are not encrypted.
 
 Use **Choose backup to restore** to validate a file and see its export date,
@@ -460,8 +464,8 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the current v5 JSON format excludes all photo files and photo
-metadata and clearly says so. Versions 1–5 restore; JSON restoration leaves
+opens. With it off, the current v6 JSON format excludes all photo files and photo
+metadata and clearly says so. Versions 1–6 restore; JSON restoration leaves
 existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
 can explicitly attach selected JPEG copies; its Copy action remains text only.
 

@@ -66,7 +66,7 @@ class WorkoutPlanParserTest {
     @Test fun missingUnsupportedAndMultipleBlocksAreRejected() {
         reject(text.replace("WORKOUT_PLAN_V1\n", ""), "start marker")
         reject(text.replace("END_WORKOUT_PLAN", ""), "END_WORKOUT_PLAN")
-        reject(text.replace("WORKOUT_PLAN_V1", "WORKOUT_PLAN_V2"), "Unsupported")
+        reject(text.replace("WORKOUT_PLAN_V1", "WORKOUT_PLAN_V99"), "Unsupported")
         reject(text + "\n" + text, "Multiple")
         reject("END_WORKOUT_PLAN\n" + text, "Multiple")
         reject(text + "x".repeat(64001), "64,000")

@@ -146,7 +146,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                             }, onSession = ::chooseSession, onExercise = { selected -> loggerKey = session?.key; exerciseKey = selected }, onStart = ::startWorkout,
                             onAdd = { addingTo = session?.key }, onEdit = { editableKey = session?.key }, onShare = { shareText = it },
                             onImport = { importMenu = true }, onHealthImport = { healthImport = true }, onBackup = { backupMenu = true },
-                            onChatGPT = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },
+                            onRecoverPlan = { id -> model.recoverEmptySuggestion(id) { pastePlan = true } }, onChatGPT = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },
                             onBack = if (tab == 1) ({ historyKey = null; historyDay = null; editableKey = null }) else null,
                             onDeleted = { workoutKey = null; historyKey = null; loggerKey = null; historyDay = null; editableKey = null },
                             onFinished = { editableKey = null; session?.let { openHistory(it.key) } },
@@ -167,11 +167,16 @@ fun FitNotesApp(model: FitNotesViewModel) {
     LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) } }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
-    if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }) { id ->
+    if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { id ->
+        model.startPlan(id) { workoutId ->
+            pastePlan = false; plansMenu = false; selectedPlan = null; workoutKey = "local:$workoutId"; workoutDay = todayDate(); tab = 0
+            historyDay = null; loggerKey = null; editableKey = null
+        }
+    }) { id ->
         pastePlan = false; selectedPlan = id; plansMenu = true
     }
     if (plansMenu) PlannedWorkoutsDialog(model, data, busy, selectedPlan, { selectedPlan = it }, { plansMenu = false; selectedPlan = null },
-        onPaste = { plansMenu = false; pastePlan = true }, onStart = { id ->
+        onPaste = { model.cancelPlanImport(); plansMenu = false; pastePlan = true }, onEdit = { id -> model.editSavedPlan(id) { plansMenu = false; pastePlan = true } }, onStart = { id ->
             model.startPlan(id) { workoutId ->
                 plansMenu = false; selectedPlan = null; workoutKey = "local:$workoutId"; workoutDay = todayDate(); tab = 0
                 historyDay = null; loggerKey = null; editableKey = null
