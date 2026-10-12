@@ -193,8 +193,8 @@ fun PhotoComparison(repository: ProgressPhotoRepository, earlier: ProgressPhoto,
                     Text("${if (earlier.date == later.date) "Photo 2" else "Later"}\n${prettyDay(later.date, "d MMM yyyy")}", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
                 }
                 Box(Modifier.fillMaxWidth().weight(1f).clipToBounds().onSizeChanged { width = it.width.coerceAtLeast(1); height = it.height.coerceAtLeast(1) }
-                    .pointerInput(adjusting) {
-                        if (adjusting != "Neither") detectTransformGestures { _, pan, zoom, _ ->
+                    .pointerInput(adjusting, sideBySide) {
+                        if (!sideBySide && adjusting != "Neither") detectTransformGestures { _, pan, zoom, _ ->
                             if (adjusting == "Earlier") {
                                 firstScale = (firstScale * zoom).coerceIn(1f, 4f)
                                 firstX = (firstX + pan.x / width).coerceIn(-1f, 1f); firstY = (firstY + pan.y / height).coerceIn(-1f, 1f)

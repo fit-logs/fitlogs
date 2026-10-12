@@ -180,7 +180,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         }
     }, confirmButton = { TextButton(onClick = { backupMenu = false }) { Text("Close") } })
     pending?.let { backup ->
-        val dates = backup.workouts.map { com.example.fitnotes.data.localWorkoutDate(it) } + backup.importedWorkouts.map { it.date } + backup.bodyMeasurements.map { it.date }
+        val dates = backup.workouts.map { com.example.fitnotes.data.localWorkoutDate(it) } + backup.importedWorkouts.map { it.date } + backup.bodyMeasurements.map { it.date } + (photoRestore?.photos?.map { it.date } ?: emptyList())
         NotebookConfirm("Replace all training data?", "Validated backup v${backup.version}\nExported " +
             SimpleDateFormat("EEE d MMM yyyy · HH:mm", Locale.getDefault()).format(Date(backup.exportedAt)) + "\n${backup.exercises.size} exercises\n" +
             "${backup.workouts.count { it.isComplete }} completed workouts · ${backup.workouts.count { !it.isComplete }} unfinished\n" +
