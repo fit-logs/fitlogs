@@ -50,6 +50,9 @@ val PLAN_MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
+// Identifies mistaken imports for explicit conversion; the note is never parsed.
+const val SESSION_PLAN_PREFIX = "Suggested session · targets only\n"
+
 fun eligibleEmptySuggestion(detail: WorkoutDetail, hasPlanRun: Boolean = false): Boolean {
     val workout = detail.workout
     return (workout.notes.startsWith(SESSION_PLAN_PREFIX) || hasPlanRun) && workout.activityType == "strength" &&

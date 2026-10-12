@@ -12,7 +12,7 @@ to Paste plan. No API, backend, automatic message submission or answer retrieval
 - Goals, equipment, constraints and activity preference are editable and remembered
   locally; no personal defaults are bundled. Each preference allows 4,000 characters.
 - Next workout requests a strength plan. Review progress / Custom question request
-  ordinary advice, including other activities. V1/V2 import strength plans only.
+  ordinary advice, including other activities. V2 imports strength plans only.
 - Existing range/session export supplies completed training, exercises, performed
   sets, non-gym activity, recorded notes/effort and imported summaries. Saved actual
   results from unfinished sessions are labelled separately. Planned workouts are
@@ -117,10 +117,10 @@ source in one transaction: any saved sets, recorded duration/distance/effort,
 completion or linked Health Connect data prevents conversion. A set logged after
 preview also prevents conversion. Nothing is converted automatically.
 
-Unstructured old target text is retained in editable **Legacy instructions**.
+Unstructured old target text is retained in editable **Additional instructions**.
 Weights, set counts, rep ranges and the association of ambiguous text with an
 exercise are never guessed. Missing targets stay unspecified until the user
-adds them. An empty legacy plan can be saved; add explicit strength exercises
+adds them. An empty recovered plan can be saved; add explicit strength exercises
 before starting it.
 
 Room 7 → 8 adds per-set targets, workout snapshots and exercise guidance without
@@ -132,63 +132,29 @@ notes. Backup versions 1–5 remain readable; old uniform prescriptions expand
 without inferring rest or parsing prose. Analysis JSON still exports completed
 training in its existing schema, excluding plans and suggestions.
 
-## Legacy V1 format
-
-V1 remains accepted. Its explicit prescription expands into identical target
-rows; exercise/session notes remain editable and rest is not inferred from prose.
-
-Explanation belongs outside exactly one fenced code block:
-
-````text
-```text
-WORKOUT_PLAN_V1
-Title: Upper body
-Date: 2026-10-14
-Duration: 45 min
-Note: Session-level guidance.
-
-Exercise: Flat Barbell Bench Press
-Sets: 3
-Reps: 8
-Weight: 80 kg
-Note: Exercise-level guidance.
-
-Exercise: Lat Pulldown
-Sets: 3
-Reps: 8-10
-Weight: 70.50 lb
-
-Exercise: Bodyweight Squat
-Sets: 3
-Reps: 12
-Weight: bodyweight
-END_WORKOUT_PLAN
-```
-````
-
-Title and Duration precede the exercises and are required. Date is optional;
-omitting it uses the date selected in the app. Weight is optional; omission means
-unspecified, never zero. Notes are optional single-line `Note: ...` fields; put
-rest, tempo or alternatives in notes. Suggested values remain targets.
-
 ## Deterministic parser
 
-The on-device parser accepts surrounding prose/Markdown fences, LF/CRLF/CR,
-whitespace around fields, and case-insensitive field names. Start/end markers
-are case-sensitive standalone lines. It never calls a service.
+The on-device parser accepts only WORKOUT_PLAN_V2. Older and unknown versions
+show an unsupported-version error; request a new V2 reply. Surrounding prose,
+Markdown fences, LF/CRLF/CR and JSON whitespace are accepted. JSON keys and
+standalone start/end markers are case-sensitive. No service is called.
 
 Limits: 64,000 input characters; title 200 characters; exercise name 100
-characters; 1–50 exercises; 1–100 sets; reps 1–1,000 as an integer or strictly
-ascending range (hyphen or en dash); duration 1–720 whole `min`; each note 2,000
-characters. Weights accept decimal dot notation up to six decimal places,
-0–10,000, maximum 16 numeric characters, with `kg` or `lb`, or `bodyweight`.
+characters; 1–50 exercises; 1–100 set rows per exercise; whole reps 1–1,000,
+maximum >= minimum; duration 1–720 minutes; rest 0–3,600 seconds; each note
+2,000 characters. Weights accept decimal dot notation up to six decimal places,
+0–10,000, maximum 16 numeric characters, with kg/lb, or explicit bodyweight.
 Units and decimal text are retained without conversion/rounding. Dates must be
-valid `YYYY-MM-DD` calendar dates. Blank explicit Weight is invalid: omit it.
+valid YYYY-MM-DD calendar dates. Omit both weight and unit for unspecified load.
 
 Missing markers/required fields, multiple blocks, unsupported numeric versions,
-unknown/misplaced fields, invalid values and conflicting duplicate fields fail.
-Identical duplicate values are accepted. Errors identify the line/exercise/field
-where available. Correct the editable reply and retry. Parse/cancel writes nothing.
+unknown fields, invalid values and any duplicate JSON key fail. Errors identify
+the exercise/set/field where available. Correct the editable reply and retry.
+Parse/cancel writes nothing.
+
+There is one per-set prescription model and one import parser. Stored database
+columns and migration/backup readers remain to preserve existing phone data;
+older text imports no longer have a separate parser or special logger card.
 
 ## Matching, review and saving
 

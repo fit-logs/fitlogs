@@ -94,8 +94,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 if (session.title.isNotBlank()) item {
                     Text(session.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (session.notes.startsWith(SESSION_PLAN_PREFIX)) item { SessionPlanCard(session.notes, session.completed) }
-                else if (session.notes.isNotBlank()) item {
+                if (session.notes.isNotBlank()) item {
                     Text(session.notes, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().clickable { showNotes = true }.padding(vertical = 4.dp))

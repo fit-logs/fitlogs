@@ -38,8 +38,7 @@ internal object StructuredPlanV2 {
                             PlanSetTarget(low, high, weight, integer(set, "restSeconds", optional = true)).also { WorkoutPlanParser.validateSet(it, name) }
                         } catch (failure: Exception) { throw PlanParseException(null, "Set ${position + 1}", name, failure.message ?: "Check this target.") }
                     }
-                    val first = targets.first()
-                    PlanPrescription(name, targets.size, first.repsMin!!, first.repsMax!!, first.weight, text(exercise, "note"), targets)
+                    PlanPrescription(name, targets, text(exercise, "note"))
                 } catch (failure: PlanParseException) { throw failure }
                 catch (failure: Exception) { throw PlanParseException(null, "Exercise ${index + 1}", name, failure.message ?: "Check this exercise.") }
             }

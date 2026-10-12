@@ -25,14 +25,9 @@ class HandoffInteractionTest {
     @get:Rule val ui = createAndroidComposeRule<MainActivity>()
     private lateinit var model: FitNotesViewModel
     private val db get() = model.photoRepository.database
-    private val simple = """WORKOUT_PLAN_V1
-Title: Synthetic saved plan
-Duration: 45 min
-Note: Synthetic session guidance.
-Exercise: Synthetic press
-Sets: 3
-Reps: 8-10
-Weight: 100.25 lb
+    private val simple = """WORKOUT_PLAN_V2
+{"title":"Synthetic saved plan","durationMinutes":45,"note":"Synthetic session guidance.","exercises":[
+{"name":"Synthetic press","sets":[{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"},{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"},{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"}]}]}
 END_WORKOUT_PLAN"""
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -132,7 +127,8 @@ END_WORKOUT_PLAN"""
         assertEquals("Synthetic goal", runBlocking { db.planDao().preferences()!!.goals })
     }
     @Test fun exactAndUnknownMatchesSavePlanThenLogActualResultsSeparately() {
-        val block = "A short explanation.\n```text\n" + simple.replace("END_WORKOUT_PLAN", "Exercise: DB press\nSets: 2\nReps: 12\nWeight: bodyweight\nEND_WORKOUT_PLAN") + "\n```"
+        val block = "A short explanation.\n```text\n" + simple.replace("]}\nEND_WORKOUT_PLAN", """,{"name":"DB press","sets":[{"repsMin":12,"repsMax":12,"unit":"bodyweight"},{"repsMin":12,"repsMax":12,"unit":"bodyweight"}]}]}
+END_WORKOUT_PLAN""") + "\n```"
         paste(block)
         ui.onNodeWithText("Save plan").assertIsNotEnabled()
         val key = model.planEdit.value!!.exercises.last().key
@@ -184,9 +180,9 @@ END_WORKOUT_PLAN"""
         val after = runBlocking { WorkoutRepository(db).backup() }
         assertEquals(before.copy(exportedAt = after.exportedAt), after)
         ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
-        ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextInput(simple.replace("Sets: 3", "Sets: 0"))
+        ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextInput(simple.replace("\"repsMin\":8", "\"repsMin\":0"))
         ui.onNodeWithText("Preview plan").performClick()
-        ui.waitUntil(10000) { runCatching { ui.onNode(hasText("Sets must be", substring = true)).assertIsDisplayed() }.isSuccess }
+        ui.waitUntil(10000) { runCatching { ui.onNode(hasText("Check rep minimum/maximum", substring = true)).assertIsDisplayed() }.isSuccess }
         assertTrue(runBlocking { db.planDao().plans().isEmpty() })
         ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextReplacement(simple)
         Espresso.closeSoftKeyboard()

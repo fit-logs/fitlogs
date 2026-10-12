@@ -130,16 +130,13 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
             }
         } else LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
             if (run != null && run.run.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", run.run.warmUp) }
-            if (run != null && run.run.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Legacy instructions", run.run.legacyGuidance) }
+            if (run != null && run.run.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Additional instructions", run.run.legacyGuidance) }
             if (runExercise != null) item { Box(Modifier.padding(bottom = 12.dp)) {
                 RunSuggestions(runExercise, model, busy, editable) { target ->
                     if (selected != null) cancelEdit()
                     weight = suggestedActualWeight(target); reps = target.repsMin?.toString().orEmpty(); cardio = false; mixed = false; suggested = true; planSuggested = true
                 }
             } }
-            if (session.notes.startsWith(SESSION_PLAN_PREFIX)) item {
-                Box(Modifier.padding(bottom = 12.dp)) { SessionPlanCard(session.notes, session.completed) }
-            }
             if (exercise.name.length > 45) item {
                 Text(exercise.name, Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.titleMedium)
             }

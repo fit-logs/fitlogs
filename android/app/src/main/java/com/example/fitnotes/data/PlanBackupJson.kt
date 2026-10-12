@@ -67,8 +67,11 @@ fun validatePlanBackup(backup: Backup) {
         val exercises = targets.filter { it.planId == plan.id }.sortedBy { it.position }
         require(exercises.map { it.position } == exercises.indices.toList()) { "Plan exercise positions must be contiguous." }
         WorkoutPlanParser.validate(PlanSpec(plan.title, plan.scheduledDate, plan.durationMinutes, plan.notes, exercises.map {
-            PlanPrescription(it.sourceName, it.sets, it.repsMin, it.repsMax, PlanWeight(it.weightValue, it.weightUnit), it.note,
-                if (backup.version < 6) null else backup.plannedSets.filter { set -> set.plannedExerciseId == it.id }.sortedBy { set -> set.position }.map { set -> set.target })
+            val sets = if (backup.version < 6) {
+                require(it.sets in 1..WorkoutPlanParser.MAX_SETS) { "Invalid planned set count." }
+                List(it.sets) { _ -> PlanSetTarget(it.repsMin, it.repsMax, PlanWeight(it.weightValue, it.weightUnit)) }
+            } else backup.plannedSets.filter { set -> set.plannedExerciseId == it.id }.sortedBy { set -> set.position }.map { set -> set.target }
+            PlanPrescription(it.sourceName, sets, it.note)
         }, plan.sourceFingerprint, plan.warmUp, plan.legacyGuidance))
     }
     backup.handoffPreferences?.let(::validateHandoffPreferences)

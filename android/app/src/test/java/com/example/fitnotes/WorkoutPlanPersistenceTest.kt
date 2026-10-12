@@ -27,14 +27,9 @@ class WorkoutPlanPersistenceTest {
     private lateinit var repo: WorkoutRepository
     private lateinit var plans: WorkoutPlanRepository
     private val name = "synthetic-plans.db"
-    private val block = """WORKOUT_PLAN_V1
-Title: Synthetic planned session
-Duration: 40 min
-Note: Keep targets separate.
-Exercise: Synthetic press
-Sets: 3
-Reps: 8-10
-Weight: 100.25 lb
+    private val block = """WORKOUT_PLAN_V2
+{"title":"Synthetic planned session","durationMinutes":40,"note":"Keep targets separate.","exercises":[
+{"name":"Synthetic press","sets":[{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"},{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"},{"repsMin":8,"repsMax":10,"weight":"100.25","unit":"lb"}]}]}
 END_WORKOUT_PLAN"""
     @Before fun setup() = runBlocking {
         context = ApplicationProvider.getApplicationContext(); context.deleteDatabase(name); reopen()
@@ -61,7 +56,7 @@ END_WORKOUT_PLAN"""
         db.close(); reopen()
         val detail = db.planDao().detail(id)!!
         assertEquals("2026-10-14", detail.plan.scheduledDate)
-        assertEquals(PlanWeight("100.25", "lb"), detail.ordered.single().prescription.weight)
+        assertEquals(PlanWeight("100.25", "lb"), detail.ordered.single().prescription.setTargets.first().weight)
         assertEquals(8, detail.ordered.single().target.repsMin); assertEquals(10, detail.ordered.single().target.repsMax)
         assertTrue(db.dao().workouts().isEmpty()); assertTrue(db.dao().sets().isEmpty()); assertNull(db.dao().active())
         assertTrue(notebookSessions(AppData(workouts = emptyList(), loading = false)).isEmpty())
@@ -76,7 +71,7 @@ END_WORKOUT_PLAN"""
         repo.saveSet(entry.id, "45.5", "7"); repo.finish(actual)
         assertEquals(45.5, db.dao().sets().single().weightKg, 0.0)
         assertEquals(7, db.dao().sets().single().reps)
-        assertEquals(PlanWeight("100.25", "lb"), db.planDao().detail(id)!!.ordered.single().prescription.weight)
+        assertEquals(PlanWeight("100.25", "lb"), db.planDao().detail(id)!!.ordered.single().prescription.setTargets.first().weight)
         assertEquals(3, db.planDao().detail(id)!!.ordered.single().target.sets)
         assertEquals(1, db.dao().sets().size)
     }

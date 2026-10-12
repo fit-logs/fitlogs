@@ -8,31 +8,22 @@ class WorkoutPlanParserTest {
     private val text = """
         A brief explanation goes here.
         ```text
-        WORKOUT_PLAN_V1
-        Title: Synthetic upper body
-        Date: 2026-10-14
-        Duration: 45 min
-        Note: Warm up gradually.
-
-        Exercise: Flat Barbell Bench Press
-        Sets: 3
-        Reps: 8
-        Weight: 80.25 kg
-        Note: Rest two minutes.
-
-        Exercise: Lat Pulldown
-        Sets: 3
-        Reps: 8-10
-        Weight: 70.50 lb
-
-        Exercise: Bodyweight Squat
-        Sets: 2
-        Reps: 12
-        Weight: bodyweight
-
-        Exercise: Lunge
-        Sets: 2
-        Reps: 10
+        WORKOUT_PLAN_V2
+        {
+          "title": "Synthetic upper body",
+          "date": "2026-10-14",
+          "durationMinutes": 45,
+          "warmUp": "Warm up gradually.",
+          "exercises": [
+            {"name":"Flat Barbell Bench Press", "note":"Rest two minutes.", "sets":[
+              {"repsMin":8,"repsMax":8,"weight":"80.25","unit":"kg"}]},
+            {"name":"Lat Pulldown", "sets":[
+              {"repsMin":8,"repsMax":10,"weight":"70.50","unit":"lb"}]},
+            {"name":"Bodyweight Squat", "sets":[
+              {"repsMin":12,"repsMax":12,"unit":"bodyweight"}]},
+            {"name":"Lunge", "sets":[{"repsMin":10,"repsMax":10}]}
+          ]
+        }
         END_WORKOUT_PLAN
         ```
         Additional explanation.
@@ -48,42 +39,43 @@ class WorkoutPlanParserTest {
         assertEquals(plan, parse(text.replace("\n", "\r\n")))
         assertEquals("2026-10-14", plan.date)
         assertEquals(45, plan.durationMinutes)
-        assertEquals(PlanWeight("80.25", "kg"), plan.exercises[0].weight)
-        assertEquals(PlanWeight("70.50", "lb"), plan.exercises[1].weight)
-        assertEquals(8, plan.exercises[1].repsMin); assertEquals(10, plan.exercises[1].repsMax)
-        assertEquals(PlanWeight(null, "bodyweight"), plan.exercises[2].weight)
-        assertEquals(PlanWeight(null, null), plan.exercises[3].weight)
+        val targets = plan.exercises.map { it.setTargets.single() }
+        assertEquals(PlanWeight("80.25", "kg"), targets[0].weight)
+        assertEquals(PlanWeight("70.50", "lb"), targets[1].weight)
+        assertEquals(8, targets[1].repsMin); assertEquals(10, targets[1].repsMax)
+        assertEquals(PlanWeight(null, "bodyweight"), targets[2].weight)
+        assertEquals(PlanWeight(null, null), targets[3].weight)
         assertEquals("Rest two minutes.", plan.exercises[0].note)
-        assertEquals("Warm up gradually.", plan.note)
+        assertEquals("Warm up gradually.", plan.warmUp)
     }
     @Test fun dateFallbackWhitespaceAndExplicitZeroRemainDistinct() {
-        val plan = parse(text.replace("Date: 2026-10-14\n", "").replace("Weight: 80.25 kg", " Weight : 0 kg  ").replace("Reps: 8-10", "Reps : 8 – 10"))
+        val plan = parse(text.replace("\"date\": \"2026-10-14\",", "").replace("\"weight\":\"80.25\"", "\"weight\" : \"0\""))
         assertEquals("2026-10-20", plan.date)
-        assertEquals(PlanWeight("0", "kg"), plan.exercises.first().weight)
-        assertEquals(PlanWeight(null, null), plan.exercises.last().weight)
+        assertEquals(PlanWeight("0", "kg"), plan.exercises.first().setTargets.single().weight)
+        assertEquals(PlanWeight(null, null), plan.exercises.last().setTargets.single().weight)
         assertEquals(PlanWeight("0.5", "lb"), WorkoutPlanParser.parseWeight(".5 LB"))
     }
-    @Test fun missingUnsupportedAndMultipleBlocksAreRejected() {
-        reject(text.replace("WORKOUT_PLAN_V1\n", ""), "start marker")
+    @Test fun missingOldUnsupportedAndMultipleBlocksAreRejected() {
+        reject(text.replace("WORKOUT_PLAN_V2\n", ""), "start marker")
         reject(text.replace("END_WORKOUT_PLAN", ""), "END_WORKOUT_PLAN")
-        reject(text.replace("WORKOUT_PLAN_V1", "WORKOUT_PLAN_V99"), "Unsupported")
+        reject(text.replace("WORKOUT_PLAN_V2", "WORKOUT_PLAN_V1"), "Unsupported")
+        reject(text.replace("WORKOUT_PLAN_V2", "WORKOUT_PLAN_V99"), "Unsupported")
         reject(text + "\n" + text, "Multiple")
         reject("END_WORKOUT_PLAN\n" + text, "Multiple")
         reject(text + "x".repeat(64001), "64,000")
     }
-    @Test fun invalidNumbersDatesFieldsAndConflictingDuplicatesIdentifyTheField() {
-        listOf("0", "-1", "3.5", "101").forEach { reject(text.replaceFirst("Sets: 3", "Sets: $it"), "sets") }
-        listOf("0", "-2", "10-8", "8-8", "8-10-12", "1.5").forEach { reject(text.replaceFirst("Reps: 8\n", "Reps: $it\n"), "reps") }
-        listOf("-1 kg", "80", "eight kg", "5 stone", "80.1234567 kg", "").forEach { reject(text.replace("Weight: 80.25 kg", "Weight: $it"), "weight") }
-        reject(text.replace("Date: 2026-10-14", "Date: 2025-02-29"), "date")
-        reject(text.replace("Duration: 45 min", "Duration: 0 min"), "duration")
-        reject(text.replace("Duration: 45 min", "Duration: 1 hour"), "duration")
-        reject(text.replace("Title: Synthetic upper body", "Title: Synthetic upper body\nActivity: running"), "Unknown")
-        reject(text.replace("Sets: 3", "Sets: 3\nExerciseId: 123"), "ExerciseId")
-        reject(text.replaceFirst("Reps: 8\n", "Reps: 8\nReps: 10\n"), "Conflicting")
-        assertEquals(8, parse(text.replaceFirst("Reps: 8\n", "Reps: 8\nReps: 8\n")).exercises.first().repsMin)
-        try { parse(text.replace("Weight: 80.25 kg", "Weight: -1 kg")); fail() } catch (error: PlanParseException) {
-            assertEquals("Flat Barbell Bench Press", error.exercise); assertNotNull(error.line)
+    @Test fun invalidNumbersDatesFieldsAndDuplicateKeysIdentifyTheField() {
+        listOf("0", "-1", "3.5", "1001").forEach { reject(text.replaceFirst("\"repsMin\":8", "\"repsMin\":$it"), "Set 1") }
+        listOf("-1", "eight", "80.1234567", "").forEach { reject(text.replace("\"weight\":\"80.25\"", "\"weight\":\"$it\""), "Weight") }
+        reject(text.replace("2026-10-14", "2025-02-29"), "Date")
+        reject(text.replace("\"durationMinutes\": 45", "\"durationMinutes\": 721"), "Duration")
+        reject(text.replace("\"durationMinutes\": 45", "\"durationMinutes\": 1.5"), "durationMinutes")
+        reject(text.replace("\"durationMinutes\": 45", "\"activity\":\"running\""), "Unknown")
+        reject(text.replace("\"note\":\"Rest two minutes.\"", "\"exerciseId\":123"), "exerciseId")
+        reject(text.replaceFirst("\"repsMin\":8", "\"repsMin\":8,\"repsMin\":10"), "Duplicate")
+        reject(text.replaceFirst("\"repsMin\":8", "\"repsMin\":8,\"repsMin\":8"), "Duplicate")
+        try { parse(text.replace("\"weight\":\"80.25\"", "\"weight\":\"-1\"")); fail() } catch (error: PlanParseException) {
+            assertEquals("Flat Barbell Bench Press", error.exercise); assertEquals("Set 1", error.field)
         }
     }
     @Test fun catalogueMatchingUsesOnlyExactNormalisationAndExplicitAliases() {

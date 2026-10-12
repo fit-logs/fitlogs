@@ -24,7 +24,7 @@ data class PlannedExercise(@PrimaryKey(autoGenerate = true) val id: Long = 0, va
 data class PlannedExerciseDetail(@Embedded val target: PlannedExercise,
     @Relation(parentColumn = "exerciseId", entityColumn = "id") val exercise: Exercise,
     @Relation(parentColumn = "id", entityColumn = "plannedExerciseId") val sets: List<PlannedSet> = emptyList()) {
-    val prescription get() = PlanPrescription(exercise.name, target.sets, target.repsMin, target.repsMax, PlanWeight(target.weightValue, target.weightUnit), target.note, sets.sortedBy { it.position }.map { it.target })
+    val prescription get() = PlanPrescription(exercise.name, sets.sortedBy { it.position }.map { it.target }, target.note)
 }
 data class PlannedWorkoutDetail(@Embedded val plan: PlannedWorkout,
     @Relation(entity = PlannedExercise::class, parentColumn = "id", entityColumn = "planId") val exercises: List<PlannedExerciseDetail>) {
@@ -96,9 +96,7 @@ data class EditablePlan(val title: String, val date: String, val minutes: String
     fun validated(): PlanPreview {
         val resolutions = exercises.map { e ->
             val targets = e.targets.map { it.validated(e.sourceName) }
-            val first = targets.firstOrNull()
-            ResolvedPlanExercise(PlanPrescription(e.sourceName, targets.size, first?.repsMin ?: 0, first?.repsMax ?: 0,
-                first?.weight ?: PlanWeight(null, null), e.note, targets), e.exerciseId, e.createName)
+            ResolvedPlanExercise(PlanPrescription(e.sourceName, targets, e.note), e.exerciseId, e.createName)
         }
         val minutes = if (minutes.isBlank()) 0 else WorkoutPlanParser.positiveInteger(minutes, WorkoutPlanParser.MAX_MINUTES, "Minutes")
         val spec = PlanSpec(title, date, minutes, note, resolutions.map { it.prescription }, fingerprint, warmUp, legacyGuidance)
@@ -212,8 +210,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
         require(eligibleEmptySuggestion(detail, run != null)) { "Only an empty imported strength suggestion can become a plan. Recorded sets, activity, effort or imported health data must be retained." }
         val prescriptions = entries.map { entry ->
             val targets = run?.exercises?.firstOrNull { it.entry.id == entry.entry.id }?.ordered?.map { it.target }.orEmpty()
-            val first = targets.firstOrNull()
-            PlanPrescription(entry.exercise.name, targets.size, first?.repsMin ?: 0, first?.repsMax ?: 0, first?.weight ?: PlanWeight(null, null), entry.entry.planNote, targets)
+            PlanPrescription(entry.exercise.name, targets, entry.entry.planNote)
         }
         val fingerprint = planFingerprint("recover:$workout:" + entries.joinToString { "${it.entry}:${it.exercise}" } + ":${run?.run}:" + run?.exercises?.flatMap { it.ordered })
         val spec = PlanSpec(workout.title.ifBlank { "Recovered workout plan" }, "", 0, if (run != null) workout.notes else "", prescriptions, fingerprint,

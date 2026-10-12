@@ -72,7 +72,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         val p = draft
         if (p == null) {
-            item { Text("Paste one WORKOUT_PLAN_V2 strength plan (legacy V1 also works). Surrounding explanation and a Markdown code fence are supported.") }
+            item { Text("Paste one WORKOUT_PLAN_V2 strength plan. Surrounding explanation and a Markdown code fence are supported.") }
             item { OutlinedTextField(fallbackDate, { fallbackDate = it; dateInitialized = true }, label = { Text("Optional date when omitted (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
             item {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -107,7 +107,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), enabled = !busy) }
             item { OutlinedTextField(p.note, { value -> modify { it.copy(note = value) } }, label = { Text("Session note") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth(), enabled = !busy) }
             item { EditableGuidance("Warm-up", p.warmUp, busy) { value -> modify { it.copy(warmUp = value) } } }
-            if (p.legacyGuidance.isNotBlank()) item { EditableGuidance("Legacy instructions · review without guessing", p.legacyGuidance, busy, initiallyExpanded = true) { value -> modify { it.copy(legacyGuidance = value) } } }
+            if (p.legacyGuidance.isNotBlank()) item { EditableGuidance("Additional instructions · review before starting", p.legacyGuidance, busy, initiallyExpanded = true) { value -> modify { it.copy(legacyGuidance = value) } } }
             item { Text("Select the intended movement for unresolved names. The app does not guess abbreviations or combine movement variants.", style = MaterialTheme.typography.bodySmall) }
             items(p.exercises, key = { it.key }) { e ->
                 val index = p.exercises.indexOf(e)
@@ -130,7 +130,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                             SetTargetEditor(set, position + 1, busy, { edited -> target(e.key) { row -> row.copy(targets = row.targets.map { if (it.key == set.key) edited else it }) } },
                                 onRemove = { target(e.key) { row -> row.copy(targets = row.targets.filter { it.key != set.key }) } })
                         }
-                        if (e.targets.isEmpty()) Text("Targets unspecified. Review the legacy instructions and add sets explicitly.", style = MaterialTheme.typography.bodySmall)
+                        if (e.targets.isEmpty()) Text("Targets unspecified. Review the instructions and add sets explicitly.", style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { target(e.key) { it.copy(targets = it.targets + EditableTarget()) } }, enabled = !busy && e.targets.size < WorkoutPlanParser.MAX_SETS) { Text("Add target set") }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { move(e.key, -1) }, enabled = !busy && index > 0) { Text("Move up") }
@@ -221,7 +221,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
                 if (selected.plan.notes.isNotBlank()) Text(selected.plan.notes)
             }
             if (selected.plan.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", selected.plan.warmUp) }
-            if (selected.plan.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Legacy instructions · edit to clarify", selected.plan.legacyGuidance) }
+            if (selected.plan.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Additional instructions · edit to clarify", selected.plan.legacyGuidance) }
             items(selected.ordered, key = { it.target.id }) { exercise -> TargetReference(exercise.prescription) }
             if (selected.exercises.isEmpty()) item { Text("Edit plan to add explicit strength exercises before starting.") }
             if (data.active != null && selected.plan.startedWorkoutId == null) item { Text("Finish or delete the unfinished workout before starting this plan.", color = MaterialTheme.colorScheme.error) }
@@ -295,7 +295,7 @@ fun RunReference(run: PlanRunDetail) {
     Column {
         TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide workout targets" else "Show workout targets") }
         if (run.run.warmUp.isNotBlank()) CollapsedGuidance("Warm-up", run.run.warmUp)
-        if (run.run.legacyGuidance.isNotBlank()) CollapsedGuidance("Legacy instructions", run.run.legacyGuidance)
+        if (run.run.legacyGuidance.isNotBlank()) CollapsedGuidance("Additional instructions", run.run.legacyGuidance)
         if (expanded) run.exercises.sortedBy { it.entry.position }.forEach { e ->
             Text(e.exercise.name, style = MaterialTheme.typography.titleMedium)
             if (e.entry.planNote.isNotBlank()) Text(e.entry.planNote)

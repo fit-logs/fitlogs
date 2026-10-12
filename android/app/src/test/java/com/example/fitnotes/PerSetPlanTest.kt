@@ -95,7 +95,7 @@ END_WORKOUT_PLAN
     @Test fun editingOriginalPlanDoesNotRewriteAnExistingWorkoutSnapshot() = runBlocking {
         val id = save(); val actual = plans.start(id); val before = db.planDao().runDetail(actual)!!
         val detail = db.planDao().detail(id)!!
-        val edited = detail.spec.copy(warmUp = "Edited warm-up", exercises = detail.spec.exercises.map { it.copy(note = "Edited guidance", targets = listOf(PlanSetTarget(5, 5, PlanWeight("99", "kg"), 60)), sets = 1) })
+        val edited = detail.spec.copy(warmUp = "Edited warm-up", exercises = detail.spec.exercises.map { it.copy(note = "Edited guidance", setTargets = listOf(PlanSetTarget(5, 5, PlanWeight("99", "kg"), 60))) })
         plans.save(PlanPreview(edited, edited.exercises.map { ResolvedPlanExercise(it, 1) }), editingId = id)
         assertEquals(before, db.planDao().runDetail(actual)); assertTrue(db.dao().sets().isEmpty())
     }
@@ -129,7 +129,7 @@ END_WORKOUT_PLAN
         val id = (plans.save(recovery, recoveryId = actual) as PlanSaveResult.Saved).id
         assertTrue(db.dao().workouts().isEmpty()); reject { plans.start(id) }
         val original = db.planDao().detail(id)!!.spec
-        val explicit = original.copy(exercises = listOf(PlanPrescription("Synthetic press", 0, 0, 0, targets = emptyList())))
+        val explicit = original.copy(exercises = listOf(PlanPrescription("Synthetic press", emptyList())))
         plans.save(PlanPreview(explicit, explicit.exercises.map { ResolvedPlanExercise(it, 1) }), editingId = id)
         assertTrue(db.dao().workouts().isEmpty()); assertTrue(db.planDao().sets().isEmpty())
     }
