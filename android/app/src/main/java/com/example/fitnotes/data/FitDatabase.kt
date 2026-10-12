@@ -20,7 +20,20 @@ data class Workout(
     val completedAt: Long? = null,
     val title: String = "",
     val notes: String = "",
-)
+    @ColumnInfo(defaultValue = "'strength'") val activityType: String = "strength",
+    @ColumnInfo(defaultValue = "''") val activityLabel: String = "",
+    @ColumnInfo(defaultValue = "''") val sessionDate: String = "",
+    @ColumnInfo(defaultValue = "0") val finished: Boolean = false,
+    val durationSeconds: Double? = null,
+    val effort: String? = null,
+    val distance: Double? = null,
+    val distanceUnit: String? = null,
+) {
+    // Legacy startedAt remains the persisted timer. Zero explicitly means unknown;
+    // date-only activities carry sessionDate and never manufacture midnight.
+    val knownStart: Long? get() = startedAt.takeIf { it > 0 }
+    val isComplete: Boolean get() = finished || completedAt != null
+}
 
 @Entity(
     tableName = "workout_exercises",
@@ -63,6 +76,7 @@ data class EntryDetail(
 data class WorkoutDetail(
     @Embedded val workout: Workout,
     @Relation(entity = WorkoutExercise::class, parentColumn = "id", entityColumn = "workoutId") val entries: List<EntryDetail>,
+    @Relation(entity = HealthSession::class, parentColumn = "id", entityColumn = "workoutId") val health: List<HealthDetail> = emptyList(),
 )
 
 @Dao
@@ -74,7 +88,7 @@ interface FitDao {
     @Query("SELECT * FROM workouts ORDER BY id") suspend fun workouts(): List<Workout>
     @Query("SELECT * FROM workout_exercises ORDER BY position, id") suspend fun entries(): List<WorkoutExercise>
     @Query("SELECT * FROM workout_sets ORDER BY position, id") suspend fun sets(): List<WorkoutSet>
-    @Query("SELECT * FROM workouts WHERE completedAt IS NULL LIMIT 1") suspend fun active(): Workout?
+    @Query("SELECT * FROM workouts WHERE completedAt IS NULL AND finished = 0 LIMIT 1") suspend fun active(): Workout?
     @Query("SELECT * FROM workouts WHERE id = :id") suspend fun workout(id: Long): Workout?
     @Query("SELECT * FROM exercises WHERE id = :id") suspend fun exercise(id: Long): Exercise?
     @Query("SELECT * FROM exercises WHERE nameKey = :key LIMIT 1") suspend fun exerciseByKey(key: String): Exercise?
@@ -110,15 +124,16 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class], version = 3, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class], version = 4, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
+    abstract fun healthDao(): HealthDao
 
     companion object {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.

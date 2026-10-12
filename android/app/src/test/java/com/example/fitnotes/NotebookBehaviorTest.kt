@@ -32,7 +32,7 @@ class NotebookBehaviorTest {
             assertEquals(original.id, db.dao().entrySets(entry).first().id)
             repo.duplicateSet(original.id)
             assertEquals("Edited note", db.dao().entrySets(entry).last().comment)
-            val backup = repo.backup(); assertEquals(3, backup.version)
+            val backup = repo.backup(); assertEquals(4, backup.version)
             val decoded = BackupCodec.decode(BackupCodec.encode(backup))
             assertEquals(backup, decoded)
             repo.restore(decoded)
@@ -50,7 +50,7 @@ class NotebookBehaviorTest {
         try {
             val repo = WorkoutRepository(db); val id = repo.start(); repo.createExercise(id, "Squat")
             repo.saveSet(db.dao().workoutEntries(id).single().id, "0", "12")
-            for (version in 1..2) {
+            for (version in 1..3) {
                 val old = repo.backup().copy(version = version)
                 val restored = BackupCodec.decode(BackupCodec.encode(old))
                 assertEquals(old, restored); repo.restore(restored)
@@ -71,7 +71,7 @@ class NotebookBehaviorTest {
             repo.saveMeasurement(null, "Waist", "81.333", "cm", "Centimetres", "2026-10-11", "", "Date-only")
             val backup = WorkoutRepository(db).backup()
             assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
-            assertEquals(3, JSONObject(BackupCodec.analysis(backup)).getInt("backupSchemaVersion"))
+            assertEquals(4, JSONObject(BackupCodec.analysis(backup)).getInt("backupSchemaVersion"))
             repo.deleteMeasurement(first.id); assertEquals(1, db.importedDao().body().size)
         } finally { db.close() }
     }
@@ -111,7 +111,7 @@ class NotebookBehaviorTest {
             old.execSQL("INSERT INTO imported_workouts VALUES('original','source','2026-10-11',NULL,NULL,'Imported note')")
             old.version = 2
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4).build()
         try {
             assertEquals(6L, migrated.dao().sets().single().id); assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)
             assertEquals("", migrated.dao().sets().single().comment); assertEquals("original", migrated.importedDao().workouts().single().id)

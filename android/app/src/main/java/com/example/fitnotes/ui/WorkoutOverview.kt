@@ -1,6 +1,5 @@
 package com.example.fitnotes.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,9 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
 
@@ -29,17 +29,18 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     var details by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf(false) }
     var finish by remember { mutableStateOf(false) }
-    var expandedNotes by remember(session?.key) { mutableStateOf(false) }
+    var showNotes by remember { mutableStateOf(false) }
+    var provenance by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        NotebookBar(session?.title?.ifBlank { "Workout" } ?: "FitNotes", onBack) {
-            if (session?.local != null && editable) IconButton(onClick = onAdd, enabled = !busy) { Icon(Icons.Filled.Add, "Add exercise") }
-            if (session?.local != null && !session.completed) TextButton(onClick = { finish = true }, enabled = !busy) { Text("Finish") }
+        NotebookBar("Workout", onBack) {
+            if (session?.local != null && !session.completed) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
             OverflowMenu { close ->
                 if (session != null) {
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }
+                    MenuAction("Workout information") { close(); provenance = true }
                     if (editable) MenuAction("Edit details") { close(); details = true }
                     MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
-                    if (session.completed && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
+                    if (session.completed && session.activity == "strength" && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
                     MenuAction("Delete workout") { close(); delete = true }
                 }
                 MenuAction("Import history") { close(); onImport() }
@@ -47,12 +48,12 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { onDay(moveDay(day, -1)) }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Text("‹", Modifier.semantics { contentDescription = "Previous day" }) }
+            TextButton(onClick = { onDay(moveDay(day, -1)) }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous day") }
             TextButton(onClick = { choosingDay = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(prettyDay(day, "EEE d MMM yyyy")) }
-            TextButton(onClick = { onDay(moveDay(day, 1)) }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Text("›", Modifier.semantics { contentDescription = "Next day" }) }
+            TextButton(onClick = { onDay(moveDay(day, 1)) }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day") }
             if (day != todayDate()) TextButton(onClick = { onDay(todayDate()) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Today") }
         }
-        LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val sameDay = sessions.filter { it.date == day }
             if (sameDay.size > 1 || (session == null && sameDay.isNotEmpty())) item {
                 TextButton(onClick = { choosingSession = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -68,41 +69,57 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 }
             }
             if (session != null) {
-                if (session.completed || session.imported != null) item {
-                    Text(buildList {
-                        if (session.dateOnly) add("Date-only") else add(session.timeLabel)
-                        add(if (session.imported != null) "Imported history" else "Completed")
-                        if (editable) add("Editing")
-                    }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                if (session.title.isNotBlank()) item {
+                    Text(session.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (session.notes.isNotBlank()) item {
-                    Text(session.notes, maxLines = if (expandedNotes) Int.MAX_VALUE else 1,
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { expandedNotes = !expandedNotes }.padding(vertical = 12.dp))
+                    Text(session.notes, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().clickable { showNotes = true }.padding(vertical = 4.dp))
                 }
+                if (session.local != null && session.activity != "strength") item { ActivityPanel(session, editable, model, busy) }
+                if (session.local != null && session.local.health.isNotEmpty()) item { ImportedActivityInfo(session.local.health) }
+                if (session.imported != null && session.imported.health.isNotEmpty()) item { ImportedActivityInfo(session.imported.health) }
                 items(session.exercises, key = { it.key }) { exercise ->
-                    Surface(shape = MaterialTheme.shapes.medium, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    Surface(shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { onExercise(exercise.key) }) {
                         Column {
-                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(exercise.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (editable) TextButton(onClick = { onExercise(exercise.key) }, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(3.dp)); Text("Log set")
+                                } else Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (exercise.sets.isEmpty()) Text("No sets yet.", Modifier.padding(horizontal = 12.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (exercise.sets.isEmpty()) Text("No sets yet.", Modifier.padding(horizontal = 12.dp, vertical = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val columns = setColumns(exercise.sets)
+                            if (exercise.sets.isNotEmpty()) NotebookSetHeader(columns)
                             exercise.sets.forEachIndexed { index, set ->
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                NotebookSetRow(set, index + 1)
+                                NotebookSetRow(set, index + 1, columns = columns, compact = true)
                             }
                         }
                     }
                 }
-                if (session.exercises.isEmpty()) item { Text("Add your first exercise.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (session.local != null && session.activity == "strength" && editable) item {
+                    OutlinedButton(onClick = onAdd, enabled = !busy, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary), shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Add exercise")
+                    }
+                }
+                if (session.activity == "strength" && session.exercises.isEmpty()) item { Text("Add your first exercise.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (session.completed && data.active == null && day == todayDate()) item {
                     TextButton(onClick = onStart, modifier = Modifier.heightIn(min = 48.dp)) { Text("Start another workout") }
                 }
             }
         }
     }
+    if (showNotes && session != null) AlertDialog(onDismissRequest = { showNotes = false }, title = { Text("Workout notes") },
+        text = { LazyColumn(Modifier.heightIn(max = 400.dp)) { item { Text(session.notes) } } },
+        confirmButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },
+        dismissButton = { if (editable) TextButton(onClick = { showNotes = false; details = true }) { Text("Edit") } })
+    if (provenance && session != null) AlertDialog(onDismissRequest = { provenance = false }, title = { Text("Workout information") },
+        text = { Text(prettyDay(session.date, "EEE d MMM yyyy") + "\n" + (if (session.dateOnly) "Date-only · no session time was recorded" else session.timeLabel) + "\n" +
+            (session.imported?.let { imported -> data.imported.imports.firstOrNull { it.id == imported.workout.importId }?.source ?: "Imported history" } ?: if (session.completed) "Completed workout" else "In progress")) },
+        confirmButton = { TextButton(onClick = { provenance = false }) { Text("Close") } })
     if (choosingDay) DayDialog(day, { choosingDay = false }) { choosingDay = false; onDay(it) }
     if (choosingSession) AlertDialog(onDismissRequest = { choosingSession = false }, title = { Text("Workouts · " + prettyDay(day)) }, text = {
         LazyColumn { items(sessions.filter { it.date == day }, key = { it.key }) { item ->
@@ -111,7 +128,10 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             }
         } }
     }, confirmButton = { TextButton(onClick = { choosingSession = false }) { Text("Close") } })
-    if (details && session != null) SessionDetailsDialog(session, busy, { details = false }) { title, notes ->
+    if (details && session?.local != null) ActivityDetailsDialog(session.local.workout, busy, { details = false }) { title, notes, effort, distance, unit ->
+        model.saveActivityDetails(session.local.workout.id, title, notes, effort, distance, unit) { details = false }
+    }
+    if (details && session != null && session.local == null) SessionDetailsDialog(session, busy, { details = false }) { title, notes ->
         if (session.local != null) model.saveDetails(session.local.workout.id, title, notes)
         else model.saveImportedNotes(session.imported!!.workout.id, notes)
         details = false

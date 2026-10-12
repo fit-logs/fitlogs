@@ -16,7 +16,7 @@ class NotebookInteractionTest {
     @get:Rule val ui = createAndroidComposeRule<MainActivity>()
     @Test fun deliberateSavesEditCancelSwitchFinishRepeatAndDateNavigation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Use the isolated preview application", context.packageName == "com.example.fitnotes.preview")
+        assumeTrue("Use the isolated preview application", context.packageName == "com.example.fitnotes.preview" || context.packageName == "com.example.fitnotes.preview.polish")
         val db = FitDatabase.open(context)
         try {
             val repo = WorkoutRepository(db)
@@ -48,18 +48,18 @@ class NotebookInteractionTest {
             ui.onNodeWithTag("field:Reps").performScrollTo().performTextReplacement("99")
             ui.onNodeWithText("Cancel edit").performScrollTo().performClick()
             assertEquals(11, runBlocking { db.dao().set(first.id)!!.reps })
-            ui.onNodeWithText("Switch").performClick()
+            ui.onNodeWithContentDescription("Switch").performClick()
             ui.onNodeWithText("Demo seated row · $secondCount sets").performClick()
             ui.waitUntil(30000) { ui.onAllNodesWithText("Demo seated row").fetchSemanticsNodes().isNotEmpty() }
             ui.onNodeWithContentDescription("Back to workout").performClick()
-            ui.waitUntil(30000) { ui.onAllNodesWithText("Finish").fetchSemanticsNodes().isNotEmpty() }
+            ui.waitUntil(30000) { ui.onAllNodesWithText("Finish workout").fetchSemanticsNodes().isNotEmpty() }
             assertEquals(initial + 3, runBlocking { db.dao().entrySets(entry.id).size })
             val countBeforeDateNavigation = runBlocking { db.dao().workouts().size }
             ui.onNodeWithContentDescription("Previous day").performClick()
             ui.onNodeWithContentDescription("Next day").performClick()
             assertEquals(countBeforeDateNavigation, runBlocking { db.dao().workouts().size })
-            ui.onNodeWithText("Finish").performClick()
-            ui.onAllNodesWithText("Finish").onLast().performClick()
+            ui.onNodeWithText("Finish workout").performClick()
+            ui.onNodeWithText("Finish", useUnmergedTree = true).performClick()
             ui.waitUntil(30000) { runBlocking { db.dao().active() } == null }
             ui.onNodeWithText("Demo lat pulldown").performClick()
             ui.waitUntil(30000) { ui.onAllNodesWithText("Recorded sets · ${initial + 3}").fetchSemanticsNodes().size == 1 }

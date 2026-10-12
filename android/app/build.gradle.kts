@@ -45,6 +45,7 @@ ksp {
 }
 
 dependencies {
+    implementation("androidx.health.connect:connect-client:1.1.0")
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
@@ -53,6 +54,7 @@ dependencies {
     testImplementation(libs.json.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation("androidx.health.connect:connect-testing:1.0.0-alpha02")
     androidTestImplementation(libs.androidx.room.testing)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

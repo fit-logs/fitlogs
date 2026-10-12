@@ -77,6 +77,7 @@ data class BodyMeasurement(
 data class ImportedWorkoutDetail(
     @Embedded val workout: ImportedWorkout,
     @Relation(parentColumn = "id", entityColumn = "workoutId") val sets: List<ImportedSet>,
+    @Relation(entity = HealthSession::class, parentColumn = "id", entityColumn = "importedWorkoutId") val health: List<HealthDetail> = emptyList(),
 )
 
 @Dao
@@ -155,7 +156,7 @@ fun validRecordedTimestamp(raw: String): Boolean {
 }
 
 fun localWorkoutDate(workout: Workout): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date(workout.startedAt))
+    workout.sessionDate.ifBlank { SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date(workout.startedAt)) }
 
 fun importedSetText(set: ImportedSet): String = buildList {
     if (set.weightKg != null && set.reps != null) add(weightText(set.weightKg) + " kg × " + set.reps + " reps")
@@ -173,6 +174,7 @@ fun importedSessionText(detail: ImportedWorkoutDetail, source: HistoryImport?): 
         if (set.comment.isNotBlank()) appendLine("   Comment: " + set.comment)
     }
     if (detail.workout.notes.isNotBlank()) appendLine("Notes: " + detail.workout.notes)
+    appendLine(healthContext(detail.health))
 }.trim()
 
 fun bodyContext(body: List<BodyMeasurement>): String = buildString {
