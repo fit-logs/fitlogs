@@ -7,8 +7,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Entity(tableName = "planned_sets", foreignKeys = [ForeignKey(entity = PlannedExercise::class, parentColumns = ["id"], childColumns = ["plannedExerciseId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index(value = ["plannedExerciseId", "position"], unique = true)])
 data class PlannedSet(@PrimaryKey(autoGenerate = true) val id: Long = 0, val plannedExerciseId: Long, val position: Int,
-    val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?) {
-    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds)
+    val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?,
+    @ColumnInfo(defaultValue = "'unknown'") val loadMode: String = LoadMode.target(PlanWeight(weightValue, weightUnit)),
+    @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false) {
+    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp)
 }
 @Entity(tableName = "workout_plan_runs", foreignKeys = [
     ForeignKey(entity = Workout::class, parentColumns = ["id"], childColumns = ["workoutId"], onDelete = ForeignKey.CASCADE),
@@ -17,8 +19,11 @@ data class WorkoutPlanRun(@PrimaryKey val workoutId: Long, val planId: String?, 
 @Entity(tableName = "workout_set_targets", foreignKeys = [ForeignKey(entity = WorkoutExercise::class, parentColumns = ["id"], childColumns = ["entryId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index(value = ["entryId", "position"], unique = true)])
 data class WorkoutSetTarget(@PrimaryKey(autoGenerate = true) val id: Long = 0, val entryId: Long, val position: Int,
-    val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?) {
-    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds)
+    val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?,
+    @ColumnInfo(defaultValue = "'unknown'") val loadMode: String = LoadMode.target(PlanWeight(weightValue, weightUnit)),
+    @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val skipped: Boolean = false) {
+    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp)
 }
 data class RunExerciseDetail(@Embedded val entry: WorkoutExercise,
     @Relation(parentColumn = "exerciseId", entityColumn = "id") val exercise: Exercise,

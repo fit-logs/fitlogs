@@ -89,7 +89,7 @@ END_WORKOUT_PLAN"""
         ui.onNodeWithTag("field:Reps").performTextReplacement("9")
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().sets().size } == 1 }
-        ui.onNodeWithText("Recorded sets · 1").performScrollTo(); capture("after-actual-set-logged")
+        ui.onNodeWithTag("logger-list").performScrollToNode(hasText("Recorded sets · 1"));ui.onNodeWithText("Recorded sets · 1").performScrollTo(); capture("after-actual-set-logged")
         assertEquals(43.5 * 9, runBlocking { db.dao().sets().sumOf { it.weightKg * it.reps } }, 0.0)
         assertEquals("41.25", runBlocking { db.planDao().detail(saved.id)!!.ordered.single().sets.first().weightValue })
     }

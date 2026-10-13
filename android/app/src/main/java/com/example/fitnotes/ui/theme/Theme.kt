@@ -22,6 +22,11 @@ class Appearance(context: Context) {
     var favourites by mutableStateOf(preferences.getStringSet("favourite_exercises", emptySet())!!.toSet())
         private set
     fun choose(mode: ThemeMode) { this.mode = mode; preferences.edit().putString("theme_mode", mode.name).apply() }
+    fun setFavourite(keys:List<String>,nameKey:String,wanted:Boolean) {
+        favourites=(favourites-keys.toSet())+(if(wanted)setOf(nameKey) else emptySet())
+        preferences.edit().putStringSet("favourite_exercises",favourites).apply()
+    }
+    fun refreshFavourites() { favourites=preferences.getStringSet("favourite_exercises",emptySet())!!.toSet() }
     fun toggleFavourite(nameKey: String) {
         favourites = if (nameKey in favourites) favourites - nameKey else favourites + nameKey
         preferences.edit().putStringSet("favourite_exercises", favourites).apply()

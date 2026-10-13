@@ -17,12 +17,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.fitnotes.data.Exercise
+import com.example.fitnotes.data.*
 import com.example.fitnotes.ui.theme.LocalAppearance
 
 @Composable
 fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<String>, categories: Map<String, String>, busy: Boolean,
-    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false) {
+    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false, aliases: List<ExerciseAlias> = emptyList(), allowCreation: Boolean = true) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(if (singleSelection) "All" else "Recent") }
     var selected by rememberSaveable(stateSaver = listSaver(save = { it }, restore = { it.toList() })) { mutableStateOf(emptyList<Long>()) }
@@ -30,13 +30,17 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
     var customName by rememberSaveable { mutableStateOf("") }
     val appearance = LocalAppearance.current
     val available = exercises.filter { it.id !in added }
+    fun keys(exercise:Exercise)=listOf(exercise.nameKey)+aliases.filter{it.exerciseId==exercise.id}.map{it.nameKey}
+    fun favourite(exercise:Exercise)=keys(exercise).any{it in appearance.favourites}
+    val q=query.trim()
+    fun score(exercise:Exercise)= (keys(exercise)+exercise.name+categories[exercise.nameKey].orEmpty()).mapNotNull{fuzzyMatchScore(q,it)}.maxOrNull()
     val filtered = available.filter { exercise ->
-        (exercise.name.contains(query.trim(), true) || categories[exercise.nameKey].orEmpty().contains(query.trim(), true)) && when (filter) {
+        (q.isBlank() || score(exercise)!=null) && when(filter) {
             "Recent" -> exercise.nameKey in recent
-            "Favourites" -> exercise.nameKey in appearance.favourites
+            "Favourites" -> favourite(exercise)
             else -> true
         }
-    }.let { if (filter == "Recent") it.sortedBy { e -> recent.indexOf(e.nameKey) } else it }
+    }.let { values->if(q.isNotBlank())values.sortedWith(compareByDescending<Exercise>{score(it)}.thenBy{it.nameKey}) else if(filter=="Recent")values.sortedBy{recent.indexOf(it.nameKey)} else values }
     Column(Modifier.fillMaxSize()) {
         NotebookBar(if (singleSelection) "Resolve exercise" else "Add exercise", onCancel)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -64,9 +68,9 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
                         Text(exercise.name, style = MaterialTheme.typography.titleSmall)
                         categories[exercise.nameKey]?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                    IconButton(onClick = { appearance.toggleFavourite(exercise.nameKey) }, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Filled.Star, (if (exercise.nameKey in appearance.favourites) "Unfavourite " else "Favourite ") + exercise.name,
-                            tint = if (exercise.nameKey in appearance.favourites) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+                    IconButton(onClick = { appearance.setFavourite(keys(exercise),exercise.nameKey,!favourite(exercise)) }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Filled.Star, (if (favourite(exercise)) "Unfavourite " else "Favourite ") + exercise.name,
+                            tint = if (favourite(exercise)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
                     }
                     Checkbox(checked, onCheckedChange = null, modifier = Modifier.semantics { contentDescription = exercise.name + if (checked) ", selected" else ", unselected" })
                 }
@@ -75,7 +79,7 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
         }
         Surface(color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                TextButton(onClick = { customName = query; creating = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Create custom exercise") }
+                if(allowCreation) TextButton(onClick = { customName = query; creating = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Create custom exercise") }
                 Button(onClick = { onSelect(selected.toList()) }, enabled = selected.isNotEmpty() && !busy, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (singleSelection) "Use for strength plan" else if (selected.size == 1) "Add 1 exercise" else "Add ${selected.size} exercises")
                 }

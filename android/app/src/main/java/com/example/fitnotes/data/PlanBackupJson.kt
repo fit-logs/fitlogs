@@ -15,7 +15,7 @@ internal object PlanBackupJson {
         root.put("plannedExercises", JSONArray().also { array -> backup.plannedExercises.forEach { p ->
             array.put(JSONObject().put("id", p.id).put("planId", p.planId).put("exerciseId", p.exerciseId).put("position", p.position)
                 .put("sourceName", p.sourceName).put("sets", p.sets).put("repsMin", p.repsMin).put("repsMax", p.repsMax)
-                .put("weightValue", p.weightValue ?: JSONObject.NULL).put("weightUnit", p.weightUnit ?: JSONObject.NULL).put("note", p.note))
+                .put("weightValue", p.weightValue ?: JSONObject.NULL).put("weightUnit", p.weightUnit ?: JSONObject.NULL).put("note", p.note).also { if (backup.version >= 7) it.put("supersetGroup", p.supersetGroup) })
         } })
         root.put("handoffPreferences", backup.handoffPreferences?.let { p ->
             JSONObject().put("id", p.id).put("goals", p.goals).put("equipment", p.equipment).put("constraints", p.constraints)
@@ -27,11 +27,11 @@ internal object PlanBackupJson {
         PlannedWorkout(text(o, "id"), text(o, "title"), text(o, "scheduledDate"), int(o, "durationMinutes"), text(o, "notes"),
             long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"))
     }
-    fun targets(root: JSONObject): List<PlannedExercise> = objects(root, "plannedExercises", 1000000).map { o ->
-        keys(o, setOf("id", "planId", "exerciseId", "position", "sourceName", "sets", "repsMin", "repsMax", "weightValue", "weightUnit", "note"))
+    fun targets(root: JSONObject, version: Int): List<PlannedExercise> = objects(root, "plannedExercises", 1000000).map { o ->
+        keys(o, setOf("id", "planId", "exerciseId", "position", "sourceName", "sets", "repsMin", "repsMax", "weightValue", "weightUnit", "note") + if (version >= 7) setOf("supersetGroup") else emptySet())
         PlannedExercise(long(o, "id"), text(o, "planId"), long(o, "exerciseId"), int(o, "position"), text(o, "sourceName"),
             int(o, "sets"), int(o, "repsMin"), int(o, "repsMax"), if (o.isNull("weightValue")) null else text(o, "weightValue"),
-            if (o.isNull("weightUnit")) null else text(o, "weightUnit"), text(o, "note"))
+            if (o.isNull("weightUnit")) null else text(o, "weightUnit"), text(o, "note"), if (version >= 7) text(o, "supersetGroup") else "")
     }
     fun preferences(root: JSONObject): HandoffPreferences? {
         if (root.isNull("handoffPreferences")) return null

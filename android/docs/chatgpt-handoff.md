@@ -17,6 +17,10 @@ to Paste plan. No API, backend, automatic message submission or answer retrieval
   sets, non-gym activity, recorded notes/effort and imported summaries. Saved actual
   results from unfinished sessions are labelled separately. Planned workouts are
   excluded. Missing values remain explicit; preparation waits for full history.
+- The exercise catalogue is omitted. Familiar names come from selected history.
+  **Compact strength summary (omit raw sets)** is an explicit
+  choice using the same finished-session calculations as progress charts. Full
+  raw strength context remains the default. Non-gym details and notes remain.
 - Body measurement name/unit types require explicit selection. Photos require
   individual selection (maximum 8 within the range). Raw heart rate is opt-in and
   includes available cached imported-session samples by actual local sample date,
@@ -80,6 +84,14 @@ chosen in Paste plan, initially remembered from the latest Ask ChatGPT request.
 Leaving it blank makes an unscheduled plan. Duration is a
 1–720 minute budget when supplied. `warmUp` holds general warm-up guidance;
 exercise-specific instructions belong in the corresponding exercise's `note`.
+Optional set fields `loadMode` and `isWarmUp` are defined in
+`data/WorkoutPlanFormat.kt`, the shared parser/export schema. Modes are `external`,
+`bodyweight` (bodyweight plus added load), `assistance`, `reps_only` and `unknown`.
+Omitting the mode derives it only from an explicit target unit; an unspecified
+load stays unknown. Reps-only targets cannot contain weight. `isWarmUp` is a JSON
+boolean, default false. Superset groups are edited locally in the plan editor;
+external superset fields remain unsupported in V2.
+
 Unknown fields, duplicate JSON keys, invalid values, multiple blocks and malformed
 JSON fail before database writes. Existing name/field/input size limits below apply.
 
@@ -101,11 +113,14 @@ the same active workout. Each start copies guidance and targets into a separate
 workout snapshot; the original plan remains reusable. Editing the plan later or
 editing workout suggestions changes neither other snapshots nor actual results.
 
-The logger copies a target into editable actual input and provides **Use** for
-other sets, plus **Edit workout suggestions** for this workout's target rows.
+The logger compares Previous / Target / Actual in set rows and fills the next
+pending target. Selecting another pending row fills a draft; Save set or the
+current row's checkbox records it. Undo removes its actual result. Skip marks
+only the run target; extras have no target link. **Edit workout suggestions**
+changes this workout's targets, while preserving the original reusable plan.
 The established actual logger stores kg; lb target copies use the exact factor
 0.45359237 kg/lb, explained in the logger and labelled **Use in kg**. Original lb
-targets remain intact. Bodyweight suggests zero external kg; unspecified weight
+targets remain intact. Bodyweight suggests zero added kg; unspecified weight
 stays blank. Only **Save set** writes performed weight/reps. Actual results may
 differ from any suggestion; plans/suggestions never enter recorded volume or PRs.
 
@@ -127,10 +142,11 @@ Room 7 → 8 adds per-set targets, workout snapshots and exercise guidance witho
 replacing existing training. Existing V1 plans expand their explicit uniform
 prescription into individual rows; any already-started plan gains a separate
 snapshot. Existing mistaken imports remain untouched until conversion is chosen.
-Backup JSON v6 (also inside the optional photo ZIP) retains all new rows and
-notes. Backup versions 1–5 remain readable; old uniform prescriptions expand
-without inferring rest or parsing prose. Analysis JSON still exports completed
-training in its existing schema, excluding plans and suggestions.
+Backup JSON v7 (also inside the optional photo ZIP) retains targets, actual links,
+modes, skips, supersets, aliases and settings. Backup versions 1–6 remain readable;
+old uniform prescriptions expand
+without inferring rest or parsing prose. Analysis JSON v2 exports actual
+training with load semantics, excluding plans and suggestions.
 
 ## Deterministic parser
 
@@ -158,11 +174,12 @@ older text imports no longer have a separate parser or special logger card.
 
 ## Matching, review and saving
 
-Only case and whitespace are normalised. Exact catalogue names are reused;
+Only case and whitespace are normalised. Exact catalogue names and saved aliases are reused;
 multiple matches require selection and unknown names require selection or
-explicit creation. No abbreviation or movement variant is guessed. The catalogue
-has no alias/merge manager; the matcher supports explicit alias maps for callers,
-while this UI uses existing catalogue matching and manual resolution.
+explicit creation. No abbreviation or movement variant is guessed. An alias that
+collides with another exercise name remains ambiguous and requires selection.
+**Exercise library** manages aliases and source mappings. Merge requires preview
+and explicit same-movement confirmation; fuzzy ranking is only a search aid.
 
 Known cardio-only entries cannot receive strength prescriptions. The catalogue
 has no universal exercise-type metadata, so manual selection confirms a strength
@@ -187,3 +204,5 @@ Android interaction tests must run only with application ID
 The personal `com.example.fitnotes` package must never receive synthetic fixtures.
 See [per-set planning verification and before/after screenshots](per-set-plan-verification.md). Extra
 screenshots and transient test output remain in the ignored local captures folder.
+
+See [training adoption verification](liftlog-adoption-verification.md) for current logger, timer, identity and statistics checks.

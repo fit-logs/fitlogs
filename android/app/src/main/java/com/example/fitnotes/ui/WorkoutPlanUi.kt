@@ -44,7 +44,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
     val keyboard = LocalSoftwareKeyboardController.current
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val incompatible = remember(data) { incompatiblePlanExercises(data.exercises, data.workouts.flatMap { it.entries.map { e -> e.entry } },
-        data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets }) }
+        data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets },canonicalImportedSetIds(data)) }
     fun modify(change: (EditablePlan) -> EditablePlan) { model.planEdit.value?.let { model.planEdit.value = change(it) }; model.planImportError.value = null }
     fun target(key: String, change: (EditablePlanExercise) -> EditablePlanExercise) = modify { p -> p.copy(exercises = p.exercises.map { if (it.key == key) change(it) else it }) }
     fun move(key: String, amount: Int) = modify { p ->
@@ -131,6 +131,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                                 onRemove = { target(e.key) { row -> row.copy(targets = row.targets.filter { it.key != set.key }) } })
                         }
                         if (e.targets.isEmpty()) Text("Targets unspecified. Review the instructions and add sets explicitly.", style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(e.supersetGroup,{value->target(e.key){it.copy(supersetGroup=value)}},label={Text("Superset group (optional)")},supportingText={Text("Same group alternates exercises by set. Leave blank for ordinary order.")},singleLine=true,modifier=Modifier.fillMaxWidth(),enabled=!busy)
                         TextButton(onClick = { target(e.key) { it.copy(targets = it.targets + EditableTarget()) } }, enabled = !busy && e.targets.size < WorkoutPlanParser.MAX_SETS) { Text("Add target set") }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { move(e.key, -1) }, enabled = !busy && index > 0) { Text("Move up") }
@@ -164,7 +165,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                             else target(key) { it.copy(exerciseId = null, createName = valid) }
                             resolving = null
                         } catch (failure: IllegalArgumentException) { model.planImportError.value = failure.message; resolving = null }
-                    }, singleSelection = true)
+                    }, singleSelection = true, aliases=data.exerciseAliases)
             }
         }
     }
@@ -192,6 +193,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
         if (selected != null) {
             val started = selected.plan.startedWorkoutId
             Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy && (data.active == null || data.active?.workout?.id == started), modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
+            TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Apply progression suggestions") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
             TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete plan") }
@@ -222,7 +224,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
             }
             if (selected.plan.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", selected.plan.warmUp) }
             if (selected.plan.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Additional instructions · edit to clarify", selected.plan.legacyGuidance) }
-            items(selected.ordered, key = { it.target.id }) { exercise -> TargetReference(exercise.prescription) }
+            items(selected.ordered, key = { it.target.id }) { exercise -> if(exercise.target.supersetGroup.isNotBlank())Text("Superset ${exercise.target.supersetGroup}");TargetReference(exercise.prescription) }
             if (selected.exercises.isEmpty()) item { Text("Edit plan to add explicit strength exercises before starting.") }
             if (data.active != null && selected.plan.startedWorkoutId == null) item { Text("Finish or delete the unfinished workout before starting this plan.", color = MaterialTheme.colorScheme.error) }
         }
@@ -285,6 +287,8 @@ fun SetTargetEditor(value: EditableTarget, number: Int, busy: Boolean, onChange:
                 OutlinedTextField(value.repsMax, { onChange(value.copy(repsMax = it)) }, label = { Text("Rep max") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), enabled = !busy)
             }
             OutlinedTextField(value.weight, { onChange(value.copy(weight = it)) }, label = { Text("Weight + unit (optional)") }, singleLine = true, supportingText = { Text("kg / lb / bodyweight; blank means unspecified") }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+            LoadModePicker(value.loadMode,{onChange(value.copy(loadMode=it))},!busy)
+            Row { Checkbox(value.isWarmUp,{onChange(value.copy(isWarmUp=it))},enabled=!busy);Text("Warm-up set",Modifier.padding(top=12.dp)) }
             OutlinedTextField(value.rest, { onChange(value.copy(rest = it)) }, label = { Text("Rest seconds (optional)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), enabled = !busy)
         }
     }

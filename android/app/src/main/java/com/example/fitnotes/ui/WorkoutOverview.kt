@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,7 +28,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
     onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
-    onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
@@ -46,7 +47,10 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             if (showShareIcon && session != null) IconButton(onClick = { onShare(sessionContext(session, data)) }) { Icon(Icons.Filled.Share, "Copy or share workout") }
             if (session?.local != null && !session.completed && !legacyEmpty) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
             OverflowMenu { close ->
-                if (session != null) {
+                MenuAction("Strength progress") { close();onProgress() }
+                MenuAction("Exercise library") { close();onLibrary() }
+                MenuAction("Training settings") { close();onTrainingSettings() }
+            if (session != null) {
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }
                     if (recoverable) MenuAction("Convert empty import to plan") { close(); onRecoverPlan(session.local!!.workout.id) }
                     MenuAction("Workout information") { close(); provenance = true }
@@ -68,7 +72,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             TextButton(onClick = { onDay(moveDay(day, 1)) }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day") }
             if (day != todayDate()) TextButton(onClick = { onDay(todayDate()) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Today") }
         }
-        LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(state = state, modifier = Modifier.fillMaxSize().testTag("workout-overview"), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onChatGPT, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
@@ -91,6 +95,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 }
             }
             if (session != null) {
+                if(session.local!=null && !session.completed) item { RestControls(model,session.local.workout.id,busy) }
                 if (session.title.isNotBlank()) item {
                     Text(session.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

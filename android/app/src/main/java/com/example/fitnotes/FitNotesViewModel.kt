@@ -2,6 +2,7 @@ package com.example.fitnotes
 
 import android.app.Application
 import android.net.Uri
+import androidx.room.withTransaction
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnotes.data.*
@@ -18,7 +19,8 @@ import android.content.Intent
 
 data class ImportedData(val imports: List<HistoryImport> = emptyList(), val workouts: List<ImportedWorkoutDetail> = emptyList(), val body: List<BodyMeasurement> = emptyList(), val loading: Boolean = false)
 data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: List<WorkoutDetail> = emptyList(), val loading: Boolean = true,
-    val imported: ImportedData = ImportedData(), val storageError: String? = null) {
+    val imported: ImportedData = ImportedData(), val storageError: String? = null,
+    val exerciseAliases: List<ExerciseAlias> = emptyList(), val exerciseMappings: List<ExerciseSourceMapping> = emptyList(), val exerciseRedirects: List<ExerciseRedirect> = emptyList()) {
     val active get() = workouts.firstOrNull {  !it.workout.isComplete }
     val history get() = workouts.filter { it.workout.isComplete }
         .sortedWith(compareByDescending<WorkoutDetail> { it.workout.completedAt }.thenByDescending { it.workout.id })
@@ -26,10 +28,21 @@ data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: Li
 data class HandoffPreferenceState(val loading: Boolean = true, val value: HandoffPreferences = HandoffPreferences())
 
 class FitNotesViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = FitDatabase.open(application)
-    private val repository = WorkoutRepository(database)
-    private val planRepository = WorkoutPlanRepository(database)
     private val notices = Channel<String>(Channel.BUFFERED)
+    private val database = FitDatabase.open(application)
+    private val repository = WorkoutRepository(database,AndroidRestClock(application))
+    private val planRepository = WorkoutPlanRepository(database)
+    private val training = TrainingRepository(database)
+    private val identity = ExerciseIdentityRepository(database)
+    val restController = RestTimerController(application, database)
+    val restTimer = database.trainingDao().observeTimer().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val trainingPreferences = database.trainingDao().observePreferences().map { it ?: TrainingPreferences() }.stateIn(viewModelScope, SharingStarted.Eagerly, TrainingPreferences())
+    val progression = database.trainingDao().observeProgression().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val mergePreview = MutableStateFlow<ExerciseMergePreview?>(null)
+    val trainingError = MutableStateFlow<String?>(null)
+    val completionSummary = MutableStateFlow<String?>(null)
+    val completionReady = MutableStateFlow(true)
+    private val timerRecovery = viewModelScope.launch { try { database.trainingDao().observeTimer().collect { restController.sync() } } catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; notices.send("Unable to recover the rest timer. Saved training is retained.") } }
     val photoRepository = ProgressPhotoRepository(application, database)
     private val photoBackup = PhotoBackup(photoRepository, repository)
     val photos = photoRepository.photos.catch { notices.send("Unable to read progress photos. Restart the app to retry."); emit(emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -81,8 +94,9 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         emitAll(combine(database.importedDao().observeImports(), database.importedDao().observeWorkouts(),
             database.importedDao().observeBody()) { sources, workouts, body -> ImportedData(sources, workouts, body) })
     }
-    val data = combine(localData, importedData) { local, imported ->
-        local.copy(imported = imported)
+    private val identities = combine(database.trainingDao().observeAliases(),database.trainingDao().observeMappings(),database.trainingDao().observeRedirects()) { aliases,mappings,redirects -> Triple(aliases,mappings,redirects) }
+    val data = combine(localData, importedData, identities) { local, imported, identity ->
+        local.copy(imported = imported,exerciseAliases=identity.first,exerciseMappings=identity.second,exerciseRedirects=identity.third)
     }.catch {
         notices.send("Unable to read workouts. Restart the app to retry.")
         emit(AppData(loading = false, storageError = "Unable to read workouts. Your database has not been reset. Close and reopen FitNotes after updating the app to retry."))
@@ -116,7 +130,35 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         register?.invoke(job)
     }
 
+    fun applyPlanProgression(planId: String) = change("Progression suggestions applied.",failure={planImportError.value=it}) { planRepository.applyProgression(planId) }
+    fun completeTarget(id: Long, weight: String, reps: String, note: String, mode: String, done: () -> Unit) {
+        if(busy.value||!completionReady.value)return
+        completionReady.value=false
+        viewModelScope.launch { kotlinx.coroutines.delay(1000);completionReady.value=true }
+        change(null, done) { if (training.complete(id,weight,reps,note,mode)) restController.afterCompletion(id) }
+    }
+    fun skipTarget(id: Long, skipped: Boolean) = change(null) { training.skip(id,skipped) }
+    fun undoTarget(id: Long) = change(null) { training.undo(id);restController.sync() }
+    fun applyRemainingWeight(entryId: Long, weight: String) = change(null) { training.applyWeight(entryId,WorkoutPlanParser.parseWeight(weight)) }
+    fun addRunTarget(entryId: Long) = change(null) { training.addTarget(entryId) }
+    fun moveRunTarget(id: Long, direction: Int) = change(null) { training.moveTarget(id,direction) }
+    fun restAction(token: String, action: String) = change(null) { restController.action(token,action) }
+    fun restFinished(token: String) { viewModelScope.launch { restController.action(token,"expire") } }
+    fun startRest(workoutId: Long, seconds: Int, targetId: Long? = null) = change(null) { restController.start(workoutId,seconds,targetId) }
+    fun saveTrainingPreferences(value: TrainingPreferences) = change(null) { training.preferences(value);restController.sync() }
+    fun saveProgression(value: ExerciseProgression) = change(null,failure={trainingError.value=it}) { trainingError.value=null;training.progression(value) }
+    fun addAlias(exerciseId: Long, name: String, done: () -> Unit = {}) = change(null,done,failure={trainingError.value=it}) { trainingError.value=null;identity.addAlias(exerciseId,name) }
+    fun removeAlias(id: Long) = change(null) { identity.removeAlias(id) }
+    fun mapExerciseSource(value: ExerciseSourceMapping) = change(null,failure={trainingError.value=it}) { trainingError.value=null;identity.mapSource(value) }
+    fun previewExerciseMerge(survivor: Long, removed: Long) = change(null,failure={trainingError.value=it}) { trainingError.value=null;mergePreview.value=identity.preview(survivor,removed) }
+    fun confirmExerciseMerge() = change("Exercises merged.",failure={trainingError.value=it}) { identity.merge(requireNotNull(mergePreview.value));mergePreview.value=null }
+
     fun start() = change("Session ready.") { repository.start() }
+    private suspend fun captureFavouritePreferences() {
+        val favourites=getApplication<Application>().getSharedPreferences("appearance",android.content.Context.MODE_PRIVATE).getStringSet("favourite_exercises",emptySet())!!.toList().sorted()
+        val prefs=database.trainingDao().preferences() ?: TrainingPreferences()
+        database.trainingDao().putPreferences(prefs.copy(favouriteKeys=org.json.JSONArray(favourites).toString()))
+    }
     fun prepareHandoff(request: HandoffRequest) = change(null, failure = { handoffError.value = it }) {
         handoffError.value = null
         val prepared = withContext(Dispatchers.Default) { ChatGptHandoff.prepare(data.value, photos.value, request) }
@@ -141,9 +183,9 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         require(!data.loading && !data.imported.loading && data.storageError == null) { "Wait for the full exercise catalogue to load." }
         val spec = withContext(Dispatchers.Default) { WorkoutPlanParser.parse(planImportText.value, fallbackDate) }
         val incompatible = incompatiblePlanExercises(data.exercises, data.workouts.flatMap { it.entries.map { e -> e.entry } },
-            data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets })
+            data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets },canonicalImportedSetIds(data))
         planEdit.value = spec.editable(spec.exercises.map { p ->
-            val match = matchPlanExercise(p.name, data.exercises, incompatible)
+            val match = matchPlanExercise(p.name, data.exercises, incompatible, aliasMap(data.exerciseAliases))
             ResolvedPlanExercise(p, match.candidates.singleOrNull()?.id?.takeIf { match.kind in setOf(ExerciseMatchKind.EXACT, ExerciseMatchKind.ALIAS) })
         })
     }
@@ -160,7 +202,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun editSavedPlan(id: String, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
         val detail = requireNotNull(database.planDao().detail(id)) { "Plan no longer exists." }
         planImportError.value = null
-        planEdit.value = detail.spec.editable(detail.ordered.map { ResolvedPlanExercise(it.prescription, it.exercise.id) }, editingId = id)
+        planEdit.value = detail.spec.editable(detail.ordered.map { ResolvedPlanExercise(it.prescription, it.exercise.id, supersetGroup = it.target.supersetGroup) }, editingId = id)
         done()
     }
     fun recoverEmptySuggestion(id: Long, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
@@ -186,7 +228,19 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun deleteSet(id: Long, done: () -> Unit = {}) = change(null, done) { repository.deleteSet(id) }
     fun removeExercise(id: Long, done: () -> Unit) = change("Exercise removed.", done) { repository.removeExercise(id) }
     fun saveDetails(id: Long, title: String, notes: String) = change("Session details saved.") { repository.saveDetails(id, title, notes) }
-    fun finish(id: Long, done: () -> Unit) = change("Session finished.", done) { repository.finish(id) }
+    fun finish(id: Long, done: () -> Unit) = change("Session finished.", done) {
+        repository.finish(id); restController.sync()
+        val updated=repository.database.dao().workout(id)!!
+        val entries=database.dao().workoutEntries(id).map{entry->EntryDetail(entry,database.dao().exercise(entry.exerciseId)!!,database.dao().entrySets(entry.id))}
+        val fresh=WorkoutDetail(updated,entries,data.value.workouts.firstOrNull{it.workout.id==id}?.health.orEmpty())
+        val all=withContext(Dispatchers.Default){observations(data.value.copy(workouts=data.value.workouts.filter{it.workout.id!=id}+fresh))}
+        val current=all.firstOrNull{it.id=="local:$id"}
+        if(current!=null) {
+            val run=database.planDao().runDetail(id)
+            val suggestions=run?.exercises.orEmpty().mapNotNull{e->doubleProgression(e.exercise.id,e.ordered,database.dao().entrySets(e.entry.id),database.trainingDao().progression().firstOrNull{it.exerciseId==e.exercise.id})}
+            completionSummary.value=(if(updated.activityType=="strength")StrengthStatistics.summary(current,all) else "${activityName(updated)} · ${localWorkoutDate(updated)}\nDuration: ${durationText(localDuration(updated))}${updated.effort?.let{"\nEffort: $it"}.orEmpty()}${updated.notes.takeIf{it.isNotBlank()}?.let{"\nNotes: $it"}.orEmpty()}")+suggestions.joinToString("",prefix=if(suggestions.isEmpty())"" else "\n\nProgression suggestions\n"){it.explanation+"\n"}
+        }
+    }
     fun repeat(id: Long, done: () -> Unit) = change("Exercise list repeated. No sets copied.", done) { repository.repeat(id) }
     fun deleteWorkout(id: Long, done: () -> Unit) = change("Session deleted.", done) { repository.deleteWorkout(id) }
     fun repeatImported(id: String, done: () -> Unit) = change("Imported exercise list repeated. No sets copied.", done) { importer.repeatWorkout(id) }
@@ -320,8 +374,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         notices.send(if (id == null) "Already imported; the deleted local session was not recreated." else "Activity saved. Local notes, sets and timing preserved.")
     }
     fun logStrength(entryId: Long, weight: String, reps: String, setId: Long?, comment: String, done: () -> Unit,
-        distance: String? = null, unit: String? = null, seconds: String? = null) =
-        change(null, done) { repository.saveSet(entryId, weight, reps, setId, comment, distance, unit, seconds) }
+        distance: String? = null, unit: String? = null, seconds: String? = null, loadMode: String? = null, isWarmUp: Boolean? = null) =
+        change(null, done) { repository.saveSet(entryId, weight, reps, setId, comment, distance, unit, seconds, loadMode=loadMode, isWarmUp=isWarmUp) }
     fun logCardio(entryId: Long, distance: String, unit: String, seconds: String, comment: String, setId: Long?, done: () -> Unit) =
         change(null, done) { repository.saveCardio(entryId, distance, unit, seconds, comment, setId) }
     fun logImported(workoutId: String, exercise: String, category: String, recordId: String?, weight: String, reps: String,
@@ -335,6 +389,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
 
     fun export(uri: Uri) = change("Backup exported. Progress photos are not included.") {
         withContext(Dispatchers.IO) {
+            captureFavouritePreferences()
             val json = BackupCodec.encode(repository.backup())
             val resolver = getApplication<Application>().contentResolver
             requireNotNull(resolver.openOutputStream(uri, "wt")) { "Unable to open the selected file." }
@@ -364,7 +419,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         change("Photo details saved.", done) { photoRepository.edit(id, date, angle, note) }
     fun deletePhoto(id: String, done: () -> Unit) = change("App copy deleted.", done) { photoRepository.delete(id) }
     fun exportPhotos(uri: Uri) = change("Backup exported with progress photos.") {
-        photoRecovery.join(); photoBackup.export(uri)
+        captureFavouritePreferences(); photoRecovery.join(); photoBackup.export(uri)
     }
 
     fun exportAnalysis(uri: Uri) = change("Analysis JSON exported.") {
@@ -441,6 +496,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         }) {
             val photos = pendingPhotoRestore.value
             if (photos == null) repository.restore(backup) else photoBackup.restore(photos)
+            backup.trainingPreferences?.let { preferences->val values=org.json.JSONArray(preferences.favouriteKeys);val keys=(0 until values.length()).map{values.getString(it)}.toSet();getApplication<Application>().getSharedPreferences("appearance",android.content.Context.MODE_PRIVATE).edit().putStringSet("favourite_exercises",keys).apply() }
+            restController.sync()
         }
     }
 

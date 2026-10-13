@@ -20,7 +20,7 @@ data class PlannedWorkout(@PrimaryKey val id: String, val title: String, val sch
     indices = [Index("exerciseId"), Index(value = ["planId", "position"], unique = true), Index(value = ["planId", "exerciseId"], unique = true)])
 data class PlannedExercise(@PrimaryKey(autoGenerate = true) val id: Long = 0, val planId: String, val exerciseId: Long,
     val position: Int, val sourceName: String, val sets: Int, val repsMin: Int, val repsMax: Int,
-    val weightValue: String?, val weightUnit: String?, val note: String)
+    val weightValue: String?, val weightUnit: String?, val note: String, @ColumnInfo(defaultValue = "''") val supersetGroup: String = "")
 data class PlannedExerciseDetail(@Embedded val target: PlannedExercise,
     @Relation(parentColumn = "exerciseId", entityColumn = "id") val exercise: Exercise,
     @Relation(parentColumn = "id", entityColumn = "plannedExerciseId") val sets: List<PlannedSet> = emptyList()) {
@@ -78,25 +78,25 @@ val PLAN_MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
-data class ResolvedPlanExercise(val prescription: PlanPrescription, val exerciseId: Long? = null, val createName: String? = null)
+data class ResolvedPlanExercise(val prescription: PlanPrescription, val exerciseId: Long? = null, val createName: String? = null, val supersetGroup: String = "")
 data class PlanPreview(val spec: PlanSpec, val resolutions: List<ResolvedPlanExercise>)
-data class EditableTarget(val key: String = UUID.randomUUID().toString(), val repsMin: String = "", val repsMax: String = "", val weight: String = "", val rest: String = "") {
+data class EditableTarget(val key: String = UUID.randomUUID().toString(), val repsMin: String = "", val repsMax: String = "", val weight: String = "", val rest: String = "", val loadMode: String = LoadMode.UNKNOWN, val isWarmUp: Boolean = false) {
     fun validated(name: String): PlanSetTarget = try {
         val low = if (repsMin.isBlank()) null else WorkoutPlanParser.positiveInteger(repsMin, WorkoutPlanParser.MAX_REPS, "Rep minimum")
         val high = if (repsMax.isBlank()) low else WorkoutPlanParser.positiveInteger(repsMax, WorkoutPlanParser.MAX_REPS, "Rep maximum")
         val seconds = if (rest.isBlank()) null else rest.trim().toIntOrNull().also { require(it != null && Regex("[0-9]+").matches(rest.trim())) { "Rest must be whole seconds." } }
-        PlanSetTarget(low, high, WorkoutPlanParser.parseWeight(weight), seconds).also { WorkoutPlanParser.validateSet(it, name) }
+        PlanSetTarget(low, high, WorkoutPlanParser.parseWeight(weight), seconds, loadMode, isWarmUp).also { WorkoutPlanParser.validateSet(it, name) }
     } catch (failure: IllegalArgumentException) { throw PlanParseException(null, "Set target", name, failure.message ?: "Check this set.") }
 }
 fun PlanSetTarget.editable() = EditableTarget(repsMin = repsMin?.toString().orEmpty(), repsMax = repsMax?.toString().orEmpty(),
-    weight = if (weight.unit == null) "" else if (weight.unit == "bodyweight") "bodyweight" else "${weight.value} ${weight.unit}", rest = restSeconds?.toString().orEmpty())
-data class EditablePlanExercise(val key: String, val sourceName: String, val targets: List<EditableTarget>, val note: String, val exerciseId: Long?, val createName: String? = null)
+    weight = if (weight.unit == null) "" else if (weight.unit == "bodyweight") "bodyweight" else "${weight.value} ${weight.unit}", rest = restSeconds?.toString().orEmpty(), loadMode = loadMode, isWarmUp = isWarmUp)
+data class EditablePlanExercise(val key: String, val sourceName: String, val targets: List<EditableTarget>, val note: String, val exerciseId: Long?, val createName: String? = null, val supersetGroup: String = "")
 data class EditablePlan(val title: String, val date: String, val minutes: String, val note: String, val fingerprint: String,
     val exercises: List<EditablePlanExercise>, val warmUp: String = "", val legacyGuidance: String = "", val editingId: String? = null, val recoveryWorkoutId: Long? = null) {
     fun validated(): PlanPreview {
         val resolutions = exercises.map { e ->
             val targets = e.targets.map { it.validated(e.sourceName) }
-            ResolvedPlanExercise(PlanPrescription(e.sourceName, targets, e.note), e.exerciseId, e.createName)
+            ResolvedPlanExercise(PlanPrescription(e.sourceName, targets, e.note), e.exerciseId, e.createName, e.supersetGroup)
         }
         val minutes = if (minutes.isBlank()) 0 else WorkoutPlanParser.positiveInteger(minutes, WorkoutPlanParser.MAX_MINUTES, "Minutes")
         val spec = PlanSpec(title, date, minutes, note, resolutions.map { it.prescription }, fingerprint, warmUp, legacyGuidance)
@@ -106,7 +106,7 @@ data class EditablePlan(val title: String, val date: String, val minutes: String
 }
 fun PlanSpec.editable(resolutions: List<ResolvedPlanExercise>, editingId: String? = null, recoveryId: Long? = null) = EditablePlan(title, date,
     durationMinutes.takeIf { it > 0 }?.toString().orEmpty(), note, fingerprint, resolutions.map { p -> EditablePlanExercise(UUID.randomUUID().toString(), p.prescription.name,
-        p.prescription.setTargets.map { it.editable() }, p.prescription.note, p.exerciseId, p.createName) }, warmUp, legacyGuidance, editingId, recoveryId)
+        p.prescription.setTargets.map { it.editable() }, p.prescription.note, p.exerciseId, p.createName, p.supersetGroup) }, warmUp, legacyGuidance, editingId, recoveryId)
 
 sealed interface PlanSaveResult { data class Saved(val id: String) : PlanSaveResult; data class Duplicate(val id: String) : PlanSaveResult }
 
@@ -117,13 +117,13 @@ fun validateHandoffPreferences(preferences: HandoffPreferences) {
     require(preferences.lastTargetDate.isBlank() || validHistoryDate(preferences.lastTargetDate)) { "Choose a valid target date." }
 }
 
-fun incompatiblePlanExercises(exercises: List<Exercise>, localEntries: List<WorkoutExercise>, localSets: List<WorkoutSet>, imported: List<ImportedSet>): Set<Long> {
+fun incompatiblePlanExercises(exercises: List<Exercise>, localEntries: List<WorkoutExercise>, localSets: List<WorkoutSet>, imported: List<ImportedSet>, importedExerciseIds: Map<String,Long>? = null): Set<Long> {
     val entryNames = localEntries.associate { it.id to it.exerciseId }
     val strength = localSets.filter { it.reps > 0 }.mapNotNull { entryNames[it.entryId] }.toMutableSet()
     val cardio = localSets.filter { it.reps == 0 && (it.distance != null || it.durationSeconds != null) }.mapNotNull { entryNames[it.entryId] }.toMutableSet()
     val byName = exercises.groupBy { normaliseExerciseName(it.name) }
     imported.forEach { set ->
-        val ids = byName[normaliseExerciseName(set.exercise)].orEmpty().map { it.id }
+        val ids = if(importedExerciseIds==null)byName[normaliseExerciseName(set.exercise)].orEmpty().map { it.id } else listOfNotNull(importedExerciseIds[set.id])
         if (set.weightKg != null && set.reps != null && (set.reps > 0 || (!set.category.equals("Cardio", true) && set.distance == null && set.durationSeconds == null))) strength.addAll(ids)
         else if (set.distance != null || set.durationSeconds != null || set.category.equals("Cardio", true)) cardio.addAll(ids)
     }
@@ -149,7 +149,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
         if (editingId == null && !allowDuplicate) dao.duplicate(preview.spec.fingerprint)?.let { return@withTransaction PlanSaveResult.Duplicate(it.id) }
         val local = database.dao()
         val catalogue = local.exercises()
-        val incompatible = incompatiblePlanExercises(catalogue, local.entries(), local.sets(), database.importedDao().sets())
+        val incompatible = database.incompatibleStrengthExercises()
         val ids = preview.resolutions.map { resolution ->
             if (resolution.exerciseId != null) {
                 val exercise = requireNotNull(local.exercise(resolution.exerciseId)) { "A selected exercise no longer exists. Resolve it again." }
@@ -172,11 +172,11 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
             val target = resolution.prescription
             val first = target.setTargets.firstOrNull()
             PlannedExercise(planId = planId, exerciseId = ids[position], position = position, sourceName = target.name,
-                sets = target.setTargets.size, repsMin = first?.repsMin ?: 0, repsMax = first?.repsMax ?: 0, weightValue = first?.weight?.value, weightUnit = first?.weight?.unit, note = target.note)
+                sets = target.setTargets.size, repsMin = first?.repsMin ?: 0, repsMax = first?.repsMax ?: 0, weightValue = first?.weight?.value, weightUnit = first?.weight?.unit, note = target.note, supersetGroup = resolution.supersetGroup.trim().also { require(it.length <= 40 && it.none(Char::isISOControl)) { "Superset group must be at most 40 readable characters." } })
         })
         dao.insertSets(preview.resolutions.flatMapIndexed { index, resolution -> resolution.prescription.setTargets.mapIndexed { position, target ->
             PlannedSet(plannedExerciseId = exerciseIds[index], position = position, repsMin = target.repsMin, repsMax = target.repsMax,
-                weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds)
+                weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp)
         } })
         if (recoveryId != null) local.deleteWorkout(recoveryId)
         PlanSaveResult.Saved(planId)
@@ -188,15 +188,15 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
             require(dao.run(active.id)?.planId == planId) { "Finish or delete the unfinished workout before starting a plan." }
             return@withTransaction active.id
         }
-        val incompatible = incompatiblePlanExercises(database.dao().exercises(), database.dao().entries(), database.dao().sets(), database.importedDao().sets())
+        val incompatible = database.incompatibleStrengthExercises()
         require(plan.ordered.none { it.exercise.id in incompatible }) { "A planned exercise is now recorded as cardio only. Edit the strength plan before starting." }
         require(plan.ordered.isNotEmpty()) { "Add explicit strength exercises to the plan before starting." }
         val id = workouts.startActivity("strength", "", plan.plan.title, plan.plan.notes, null)
         dao.insertRun(WorkoutPlanRun(id, planId, plan.plan.title, plan.plan.warmUp, plan.plan.legacyGuidance))
         plan.ordered.forEachIndexed { index, exercise ->
-            val entryId = database.dao().insertEntry(WorkoutExercise(workoutId = id, exerciseId = exercise.exercise.id, position = index, planNote = exercise.target.note))
+            val entryId = database.dao().insertEntry(WorkoutExercise(workoutId = id, exerciseId = exercise.exercise.id, position = index, planNote = exercise.target.note, supersetGroup = exercise.target.supersetGroup))
             dao.insertRunTargets(exercise.sets.sortedBy { it.position }.map { target -> WorkoutSetTarget(entryId = entryId, position = target.position,
-                repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = target.restSeconds) })
+                repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp) })
         }
         dao.markStarted(planId, id)
         id
@@ -220,7 +220,28 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
     suspend fun updateRunTarget(id: Long, target: PlanSetTarget) {
         WorkoutPlanParser.validateSet(target)
         val old = requireNotNull(dao.runTargets().firstOrNull { it.id == id }) { "Target no longer exists." }
-        dao.updateRunTarget(old.copy(repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds))
+        dao.updateRunTarget(old.copy(repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp))
+    }
+    suspend fun applyProgression(planId:String) = database.withTransaction {
+
+            val plan=requireNotNull(database.planDao().detail(planId))
+            val runs=database.planDao().runs().filter{it.planId==planId && database.dao().workout(it.workoutId)?.isComplete==true}
+            val last=runs.maxByOrNull{database.dao().workout(it.workoutId)!!.completedAt?:0} ?: throw IllegalArgumentException("Finish a workout from this plan first.")
+            val run=database.planDao().runDetail(last.workoutId)!!
+            var applied=0
+            for(e in plan.ordered) {
+                val performed=run.exercises.singleOrNull{it.exercise.id==e.exercise.id} ?: continue
+                val suggestion=doubleProgression(e.exercise.id,performed.ordered,database.dao().entrySets(performed.entry.id),database.trainingDao().progression().firstOrNull{it.exerciseId==e.exercise.id}) ?: continue
+                if(!suggestion.canIncrease)continue
+                require(e.sets.sortedBy{it.position}.map{it.target}==performed.ordered.map{it.target}) { "The plan changed since this workout. Review targets manually; fresh prescriptions will not be overwritten." }
+                val note=e.target.note+"\nProgression: "+suggestion.explanation
+                require(note.length<=WorkoutPlanParser.MAX_NOTE) { "Review the exercise note before adding progression guidance." }
+                e.sets.sortedBy{it.position}.zip(suggestion.targets).forEach{(row,target)->database.trainingDao().updatePlannedSet(row.copy(weightValue=target.weight.value,weightUnit=target.weight.unit,loadMode=target.loadMode))}
+                val first=suggestion.targets.firstOrNull()
+                database.trainingDao().updatePlannedExercise(e.target.copy(weightValue=first?.weight?.value,weightUnit=first?.weight?.unit,note=note.trim()))
+                applied++
+            }
+            require(applied>0) { "Hold: no enabled exercise met every eligible working-set target." }
     }
     suspend fun delete(id: String) = dao.delete(id)
 }

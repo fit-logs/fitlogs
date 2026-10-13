@@ -1,0 +1,14 @@
+FitNotes Android includes a Kotlin adaptation of LiftLog's exercise search scorer.
+
+Upstream: Liam Morrow and LiftLog contributors
+https://github.com/LiamMorrow/LiftLog
+Revision: e7004215562994be7e1640172b4d42145ed76a07
+Source: app/src/components/presentation/workout-editor/exercise-fuzzy-match.ts
+Local: app/src/main/java/com/example/fitnotes/data/ExerciseSearchScore.kt
+Licence: GNU Affero General Public License version 3 (AGPL-3.0-only).
+
+Android application source and distribution notices:
+https://github.com/avivajpeyi/fitnotes/tree/android-mvp/android
+
+The remaining training calculations are independent Kotlin implementations.
+No LiftLog exercise datasets, images, Expo modules, backend or account service are bundled.

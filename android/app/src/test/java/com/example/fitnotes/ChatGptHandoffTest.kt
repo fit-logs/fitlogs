@@ -44,6 +44,14 @@ class ChatGptHandoffTest {
         assertTrue(text.contains("Activity preference: not specified"))
         assertFalse(text.contains("Synthetic body weight")); assertFalse(text.contains("timestamp_local,epoch_millis,bpm"))
     }
+    @Test fun catalogueIsOmittedAndCompactHistoryIsAnExplicitChoice() {
+        val original=data();val unused=Exercise(99,"Synthetic unused catalogue-only lift","synthetic unused catalogue-only lift")
+        val full=ChatGptHandoff.prepare(original.copy(exercises=original.exercises+unused),emptyList(),request())
+        assertFalse(full.fullText.contains(unused.name));assertFalse(full.fullText.contains("Available catalogue names"))
+        val compact=ChatGptHandoff.prepare(original,emptyList(),request().copy(compactHistory=true))
+        assertTrue(compact.fullText.contains("Compact strength context selected"));assertFalse(compact.fullText.contains("50 kg × 8 reps"))
+        assertTrue(compact.fullText.contains("Synthetic climbing note"));assertTrue(full.fullText.contains("50 kg × 8 reps"))
+    }
     @Test fun optionalMeasurementsRawSeriesAndPhotosRequireSpecificSelection() {
         val current = data()
         val photo = ProgressPhoto("00000000-0000-0000-0000-000000000001", "2026-10-12", "Front", "Synthetic photo note", "private/path/not/exported")

@@ -45,15 +45,18 @@ fun NotebookBar(title: String, onBack: (() -> Unit)? = null, backLabel: String =
 fun OverflowMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     var open by remember { mutableStateOf(false) }
     var settings by remember { mutableStateOf(false) }
+    var notices by remember { mutableStateOf(false) }
     val appearance = LocalAppearance.current
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, "More actions") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             content { open = false }
             HorizontalDivider()
+            MenuAction("Open-source notices") { open=false;notices=true }
             MenuAction("Settings") { open = false; settings = true }
         }
     }
+    if(notices) OpenSourceNotices { notices=false }
     if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text("Settings") }, text = {
         Column {
             Text("Appearance", style = MaterialTheme.typography.titleMedium)
@@ -71,7 +74,7 @@ fun MenuAction(text: String, onClick: () -> Unit) = DropdownMenuItem(text = { Te
 
 // One column definition is shared by the overview, logger and exercise history.
 fun setColumns(sets: List<NotebookSet>): List<String> = when {
-    sets.isEmpty() || sets.all { it.weight != null && it.reps != null && it.distance == null && it.seconds == null } -> listOf("kg", "Reps")
+    sets.isEmpty() || sets.all { it.weight != null && it.reps != null && it.distance == null && it.seconds == null && (it.local?.loadMode ?: LoadMode.UNKNOWN) in setOf(LoadMode.EXTERNAL,LoadMode.UNKNOWN) } -> listOf("kg", "Reps")
     sets.all { it.cardio } -> listOf("Distance", "Seconds")
     else -> listOf("Details")
 }
@@ -102,6 +105,7 @@ fun NotebookSetRow(set: NotebookSet, number: Int, selected: Boolean = false, onC
                     if (set.comment.isNotBlank()) Text("•", Modifier.semantics { contentDescription = "Has note" }, color = MaterialTheme.colorScheme.primary)
                 }
             }
+            if((set.reps ?: 0)>0 && (set.local?.loadMode==LoadMode.UNKNOWN || set.imported!=null)) Text("Load mode unknown",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             if (selected && set.comment.isNotBlank()) Text(set.comment, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
         }
     }
@@ -141,6 +145,8 @@ fun NumericControl(label: String, value: String, onChange: (String) -> Unit, ste
     }
     val largeText = LocalDensity.current.fontScale >= 1.3f
     Surface(modifier, shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        BoxWithConstraints {
+        val separateButtons=largeText || maxWidth<192.dp
         Column(Modifier.padding(top = 10.dp, bottom = 4.dp)) {
             Text(label.replace(" (", " · ").replace(")", ""), Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             @Composable fun field(modifier: Modifier) {
@@ -152,10 +158,11 @@ fun NumericControl(label: String, value: String, onChange: (String) -> Unit, ste
             }
             @Composable fun decrease() { IconButton(onClick = { adjusted(-step) }, enabled = !busy) { Text("−", Modifier.semantics { contentDescription = "Decrease $label by " + weightText(step) }, fontSize = 22.sp) } }
             @Composable fun increase() { IconButton(onClick = { adjusted(step) }, enabled = !busy) { Text("+", Modifier.semantics { contentDescription = "Increase $label by " + weightText(step) }, fontSize = 22.sp) } }
-            if (largeText) {
+            if (separateButtons) {
                 field(Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { decrease(); increase() }
             } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { decrease(); field(Modifier.weight(1f)); increase() }
+        }
         }
     }
 }

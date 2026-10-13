@@ -160,13 +160,13 @@ END_WORKOUT_PLAN""") + "\n```"
         waitFor("Workout started."); ui.waitUntil(10000) { ui.onAllNodesWithText("Workout started.").fetchSemanticsNodes().isEmpty() }
         ui.onNodeWithText("Synthetic press").performScrollTo().performClick()
         waitFor("Save set")
-        ui.onNodeWithText("Set 1: 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
+        ui.onAllNodesWithText("8-10 reps · 100.25 lb").onFirst().performScrollTo().assertIsDisplayed()
         capture("logger-plan-targets")
         ui.onNodeWithTag("field:Weight (kg)").performScrollTo().performTextReplacement("45.5")
         ui.onNodeWithTag("field:Reps").performScrollTo().performTextReplacement("7")
         ui.onNodeWithText("Save set").performScrollTo().performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().sets().size } == 2 }
-        ui.onNodeWithText("Recorded sets · 1").performScrollTo().assertIsDisplayed()
+        ui.onNodeWithTag("logger-list").performScrollToNode(hasText("Recorded sets · 1"));ui.onNodeWithText("Recorded sets · 1").performScrollTo().assertIsDisplayed()
         capture("logger-actual-results")
         val actual = runBlocking { db.dao().sets().last() }
         assertEquals(45.5, actual.weightKg, 0.0); assertEquals(7, actual.reps)

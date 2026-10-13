@@ -20,12 +20,13 @@ data class NotebookSet(val key: String, val weight: Double?, val reps: Int?, val
     val seconds: Double?, val comment: String, val local: WorkoutSet? = null, val imported: ImportedSet? = null) {
     val cardio get() = weight == null && (distance != null || seconds != null)
     val text get() = buildList {
-        if (weight != null && reps != null) add(weightText(weight) + " kg × " + reps + " reps")
+        if (weight != null && reps != null) add(local?.let(::localSetText) ?: (weightText(weight) + " kg × " + reps + " reps (load mode unknown)"))
+        if (weight == null && reps != null) add(local?.let(::localSetText) ?: "$reps reps · load unspecified")
         if (distance != null) add(weightText(distance) + " " + unit)
         if (seconds != null) add(weightText(seconds) + " seconds")
     }.joinToString(" · ")
 }
-data class NotebookExercise(val key: String, val name: String, val category: String = "", val entryId: Long? = null, val sets: List<NotebookSet>)
+data class NotebookExercise(val key: String, val name: String, val category: String = "", val entryId: Long? = null, val sets: List<NotebookSet>, val canonicalId: Long? = null, val sourceName: String? = null)
 data class NotebookSession(val key: String, val date: String, val title: String, val notes: String, val completed: Boolean,
     val local: WorkoutDetail? = null, val imported: ImportedWorkoutDetail? = null, val exercises: List<NotebookExercise>) {
     val activity get() = local?.workout?.activityType ?: "strength"
@@ -45,17 +46,19 @@ private fun recordedMillis(raw: String?): Long? {
     return runCatching { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ROOT).apply { isLenient = false }.parse(normalized)?.time }.getOrNull()
 }
 fun notebookSessions(data: AppData): List<NotebookSession> {
+    val identity = ExerciseIdentityIndex(data)
     val locals = data.workouts.map { d ->
         NotebookSession("local:" + d.workout.id, localWorkoutDate(d.workout), d.workout.title, d.workout.notes, d.workout.isComplete,
             local = d, exercises = orderedEntries(d).map { e -> NotebookExercise("entry:" + e.entry.id, e.exercise.name, entryId = e.entry.id,
-                sets = orderedSets(e).map { s -> NotebookSet("set:" + s.id, if (s.reps > 0) s.weightKg else null, if (s.reps > 0) s.reps else null,
-                    s.distance, s.distanceUnit, s.durationSeconds, s.comment, local = s) }) })
+                sets = orderedSets(e).map { s -> NotebookSet("set:" + s.id, if (s.reps > 0 && s.weightSpecified) s.weightKg else null, if (s.reps > 0) s.reps else null,
+                    s.distance, s.distanceUnit, s.durationSeconds, s.comment, local = s) }, canonicalId = e.exercise.id) })
     }
     val imported = data.imported.workouts.map { d ->
         NotebookSession("import:" + d.workout.id, d.workout.date, "", d.workout.notes, true, imported = d,
             exercises = d.sets.sortedBy { it.sourceOrder }.groupBy { it.exercise to it.category }.map { (group, records) ->
-                NotebookExercise("original:" + group.first + "\u001f" + group.second, group.first, group.second,
-                    sets = records.map { s -> NotebookSet(s.id, s.weightKg, s.reps, s.distance, s.distanceUnit, s.durationSeconds, s.comment, imported = s) }) })
+                val canonical = identity.source(d.workout.importId, group.first, group.second)
+                NotebookExercise("original:" + group.first + "\u001f" + group.second, data.exercises.firstOrNull { it.id == canonical }?.name ?: group.first, group.second,
+                    sets = records.map { s -> NotebookSet(s.id, s.weightKg, s.reps, s.distance, s.distanceUnit, s.durationSeconds, s.comment, imported = s) }, canonicalId = canonical, sourceName = group.first) })
     }
     return (locals + imported).sortedWith(compareByDescending<NotebookSession> { it.date }.thenByDescending { it.local?.workout?.startedAt ?: 0L }.thenBy { it.key })
 }
@@ -71,16 +74,18 @@ fun previousExerciseSessions(all: List<NotebookSession>, viewed: NotebookSession
             if (before != null && current != null) before < current else candidate.date < viewed.date
         }
     }.mapNotNull { session ->
-        val matches = session.exercises.filter { it.name.equals(exercise.name, ignoreCase = true) &&
+        val matches = session.exercises.filter { (if (exercise.canonicalId != null && it.canonicalId != null) it.canonicalId == exercise.canonicalId else it.name.equals(exercise.name, ignoreCase = true)) &&
             (exercise.category.isBlank() || it.category.isBlank() || it.category == exercise.category) && it.sets.isNotEmpty() }
         // An original name reused across categories is ambiguous for a local name.
-        matches.singleOrNull()?.let { session to it }
+        val matched=matches.singleOrNull() ?: if(exercise.canonicalId!=null && matches.isNotEmpty() && matches.all{it.canonicalId==exercise.canonicalId})
+            matches.first().copy(key="canonical:${exercise.canonicalId}",sets=matches.flatMap{it.sets}.distinctBy{it.key}.sortedBy{it.imported?.sourceOrder ?: it.local?.position ?: 0},sourceName=matches.mapNotNull{it.sourceName}.distinct().joinToString("; ")) else null
+        matched?.let { session to it }
     }.sortedWith(compareByDescending<Pair<NotebookSession, NotebookExercise>> { it.first.date }
         .thenByDescending { it.first.completedMillis ?: 0L })
 
 fun compactResults(sets: List<NotebookSet>): String {
     if (sets.isEmpty()) return "No sets yet."
-    if (sets.all { it.weight != null && it.reps != null && it.distance == null && it.seconds == null } && sets.map { it.weight }.distinct().size == 1)
+    if (sets.all { it.weight != null && it.reps != null && it.distance == null && it.seconds == null } && sets.map { it.weight }.distinct().size == 1 && sets.all { it.local?.loadMode == LoadMode.EXTERNAL })
         return weightText(sets.first().weight!!) + " kg × " + sets.joinToString(", ") { it.reps.toString() }
     return sets.joinToString("  ·  ") { it.text }
 }

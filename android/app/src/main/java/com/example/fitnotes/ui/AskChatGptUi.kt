@@ -79,6 +79,7 @@ fun AskChatGptDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onC
     var showPhotos by rememberSaveable { mutableStateOf(false) }
     var bodyKeys by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var photoIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var compactHistory by rememberSaveable { mutableStateOf(false) }
     var heartRate by rememberSaveable { mutableStateOf(false) }
     var formError by rememberSaveable { mutableStateOf<String?>(null) }
     var copied by remember { mutableStateOf(false) }
@@ -105,7 +106,7 @@ fun AskChatGptDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onC
                 val available = if (minutes.isBlank()) null else WorkoutPlanParser.positiveInteger(minutes, WorkoutPlanParser.MAX_MINUTES, "Available minutes")
                 model.prepareHandoff(HandoffRequest(first, last, kind, target, HandoffPreferences(goals = goals, equipment = equipment,
                     constraints = constraints, activityPreference = preference, availableMinutes = available, lastTargetDate = target), question,
-                    if (showBody) bodyKeys.toSet() else emptySet(), if (showPhotos) photoIds.toSet() else emptySet(), heartRate))
+                    if (showBody) bodyKeys.toSet() else emptySet(), if (showPhotos) photoIds.toSet() else emptySet(), heartRate, compactHistory))
                 focus.clearFocus(); keyboard?.hide()
             } catch (failure: IllegalArgumentException) { formError = failure.message }
         }, enabled = initialized && !busy && !data.loading && !data.imported.loading, modifier = Modifier.heightIn(min = 48.dp)) { Text("Preview prompt") }
@@ -141,7 +142,7 @@ fun AskChatGptDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onC
                 item { OutlinedTextField(target, { target = it }, label = { Text("Target date (YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(minutes, { minutes = it }, label = { Text("Available minutes (optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth()) }
                 item { ChoiceField("Activity preference", listOf("No preference") + ActivityType.entries.map { it.label }, if (preference.isBlank()) "No preference" else ActivityType.from(preference).label) { selected -> preference = ActivityType.entries.firstOrNull { it.label == selected }?.key.orEmpty() } }
-                item { Text("History covers all activities. V1 imports strength plans; review/custom requests can ask for advice about other activities.", style = MaterialTheme.typography.bodySmall) }
+                item { Text("History covers all activities. V2 imports strength plans; review/custom requests can ask for advice about other activities.", style = MaterialTheme.typography.bodySmall) }
                 item { OutlinedTextField(goals, { goals = it }, label = { Text("Goals") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(equipment, { equipment = it }, label = { Text("Equipment") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(constraints, { constraints = it }, label = { Text("Exercise constraints") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth()) }
@@ -168,7 +169,8 @@ fun AskChatGptDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onC
                         }
                     }
                 }
-                item { HandoffCheck("Include raw heart-rate samples", heartRate) { heartRate = it }; Text("Includes available cached samples from imported exercise sessions. Coverage may be sparse; this is not a complete daily series.", style = MaterialTheme.typography.bodySmall) }
+                item { HandoffCheck("Compact strength summary (omit raw sets)",compactHistory,!busy){compactHistory=it} }
+            item { HandoffCheck("Include raw heart-rate samples", heartRate) { heartRate = it }; Text("Includes available cached samples from imported exercise sessions. Coverage may be sparse; this is not a complete daily series.", style = MaterialTheme.typography.bodySmall) }
                 if (data.imported.loading) item { Text("Loading the full history; preview is unavailable until complete.") }
             }
         } else {

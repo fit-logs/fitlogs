@@ -7,9 +7,18 @@ import java.util.Locale
 data class PlanWeight(val value: String?, val unit: String?) {
     val text: String get() = when (unit) { null -> "Unspecified"; "bodyweight" -> "Bodyweight"; else -> "$value $unit" }
 }
-data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanWeight = PlanWeight(null, null), val restSeconds: Int? = null) {
+data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanWeight = PlanWeight(null, null), val restSeconds: Int? = null, val loadMode: String = LoadMode.target(weight), val isWarmUp: Boolean = false) {
     val repsText get() = when { repsMin == null -> "Unspecified"; repsMin == repsMax -> repsMin.toString(); else -> "$repsMin-$repsMax" }
-    val text get() = "$repsText reps · ${weight.text}" + (restSeconds?.let { " · rest $it s" } ?: "")
+    val text get():String {
+        val load=when(loadMode) {
+            LoadMode.BODYWEIGHT -> if(weight.unit=="bodyweight")"Bodyweight" else if(weight.unit==null)"Bodyweight · added load unspecified" else "Bodyweight + ${weight.text} added"
+            LoadMode.ASSISTANCE -> "${weight.text} assistance"
+            LoadMode.REPS_ONLY -> "Reps only"
+            LoadMode.UNKNOWN -> weight.text+(if(weight.unit!=null)" (mode unknown)" else "")
+            else -> weight.text
+        }
+        return "$repsText reps · $load"+(restSeconds?.let{" · rest $it s"}?:"")+(if(isWarmUp)" · warm-up" else "")
+    }
 }
 data class PlanPrescription(val name: String, val setTargets: List<PlanSetTarget>, val note: String = "")
 data class PlanSpec(val title: String, val date: String, val durationMinutes: Int, val note: String,
@@ -86,6 +95,9 @@ object WorkoutPlanParser {
         require((target.repsMin == null && target.repsMax == null) ||
             (target.repsMin != null && target.repsMax != null && target.repsMin in 1..MAX_REPS && target.repsMax in target.repsMin..MAX_REPS)) { "Check rep minimum/maximum for $name." }
         require(target.weight == parseWeight(when (target.weight.unit) { null -> ""; "bodyweight" -> "bodyweight"; else -> "${target.weight.value} ${target.weight.unit}" })) { "Check Weight for $name." }
+        require(target.loadMode in LoadMode.values) { "Choose a supported load mode for $name." }
+        require(target.weight.unit != "bodyweight" || target.loadMode == LoadMode.BODYWEIGHT) { "Bodyweight unit requires bodyweight load mode." }
+        require(target.loadMode != LoadMode.REPS_ONLY || target.weight.unit == null) { "Reps-only targets must omit weight." }
         require(target.restSeconds == null || target.restSeconds in 0..3600) { "Rest must be 0–3,600 whole seconds for $name." }
     }
 
@@ -100,7 +112,8 @@ data class PlanExerciseMatch(val kind: ExerciseMatchKind, val candidates: List<E
 fun matchPlanExercise(name: String, catalogue: List<Exercise>, incompatible: Set<Long> = emptySet(), aliases: Map<String, Set<Long>> = emptyMap()): PlanExerciseMatch {
     val key = normaliseExerciseName(name)
     val exact = catalogue.filter { normaliseExerciseName(it.name) == key }
-    val candidates = if (exact.isNotEmpty()) exact else catalogue.filter { it.id in aliases.filterKeys { normaliseExerciseName(it) == key }.values.flatten() }
+    val candidateIds=exact.map{it.id}.toSet()+aliases.filterKeys{normaliseExerciseName(it)==key}.values.flatten()
+    val candidates = catalogue.filter { it.id in candidateIds }
     val kind = when {
         candidates.isEmpty() -> ExerciseMatchKind.UNKNOWN
         candidates.size > 1 -> ExerciseMatchKind.AMBIGUOUS

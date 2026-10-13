@@ -21,7 +21,7 @@ class HistoryImportRepository(private val db: FitDatabase) {
             val name = runCatching { InputRules.exerciseName(rawName) }.getOrNull()
             if (name != null) {
                 val key = name.lowercase(Locale.ROOT)
-                if (db.dao().exerciseByKey(key) == null) db.dao().insertExercise(Exercise(name = name, nameKey = key))
+                if (db.dao().exerciseByKey(key) == null && matchPlanExercise(name,db.dao().exercises(),aliases=aliasMap(db.trainingDao().aliases())).candidates.singleOrNull()==null) db.dao().insertExercise(Exercise(name = name, nameKey = key))
             }
         }
         dao.insertImport(source)
@@ -40,7 +40,7 @@ class HistoryImportRepository(private val db: FitDatabase) {
         names.forEachIndexed { position, rawName ->
             val name = InputRules.exerciseName(rawName)
             val key = name.lowercase(Locale.ROOT)
-            val exerciseId = local.exerciseByKey(key)?.id ?: local.insertExercise(Exercise(name = name, nameKey = key))
+            val exerciseId = db.trainingDao().mappings().firstOrNull { it.importId==source.workout.importId && it.sourceName==rawName && source.sets.filter { set->set.exercise==rawName }.map{set->set.category}.distinct().singleOrNull()==it.category }?.exerciseId ?: local.exerciseByKey(key)?.id ?: matchPlanExercise(name,local.exercises(),aliases=aliasMap(db.trainingDao().aliases())).candidates.singleOrNull()?.id ?: local.insertExercise(Exercise(name = name, nameKey = key))
             local.insertEntry(WorkoutExercise(workoutId = workoutId, exerciseId = exerciseId, position = position))
         }
         // No original records are copied into completed/local sets.

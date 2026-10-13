@@ -49,12 +49,14 @@ data class WorkoutExercise(
     val exerciseId: Long,
     val position: Int,
     @ColumnInfo(defaultValue = "''") val planNote: String = "",
+    @ColumnInfo(defaultValue = "''") val supersetGroup: String = "",
 )
 
 @Entity(
     tableName = "workout_sets",
-    foreignKeys = [ForeignKey(entity = WorkoutExercise::class, parentColumns = ["id"], childColumns = ["entryId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("entryId")],
+    foreignKeys = [ForeignKey(entity = WorkoutExercise::class, parentColumns = ["id"], childColumns = ["entryId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = WorkoutSetTarget::class, parentColumns = ["id"], childColumns = ["targetId"], onDelete = ForeignKey.SET_NULL)],
+    indices = [Index("entryId"), Index(value = ["targetId"], unique = true)],
 )
 data class WorkoutSet(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -66,6 +68,10 @@ data class WorkoutSet(
     val distanceUnit: String? = null,
     val durationSeconds: Double? = null,
     @ColumnInfo(defaultValue = "''") val comment: String = "",
+    val targetId: Long? = null, val completedAt: Long? = null,
+    @ColumnInfo(defaultValue = "'unknown'") val loadMode: String = LoadMode.UNKNOWN,
+    @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false,
+    @ColumnInfo(defaultValue = "1") val weightSpecified: Boolean = true,
 )
 
 data class EntryDetail(
@@ -126,18 +132,19 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class], version = 8, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 9, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
     abstract fun healthDao(): HealthDao
     abstract fun photoDao(): ProgressPhotoDao
     abstract fun planDao(): WorkoutPlanDao
+    abstract fun trainingDao(): TrainingDao
 
     companion object {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.

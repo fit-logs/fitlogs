@@ -8,7 +8,7 @@ internal object StructuredPlanV2 {
         try {
             StrictJson(json).check()
             val root = JSONObject(json)
-            keys(root, setOf("title", "date", "durationMinutes", "note", "warmUp", "exercises"))
+            keys(root, WorkoutPlanFormat.rootFields)
             val title = text(root, "title", required = true)
             val date = if (!root.has("date")) fallbackDate else text(root, "date")
             val minutes = integer(root, "durationMinutes", optional = true) ?: 0
@@ -16,7 +16,7 @@ internal object StructuredPlanV2 {
             require(array.length() in 1..WorkoutPlanParser.MAX_EXERCISES) { "Include 1–50 strength exercises." }
             val exercises = (0 until array.length()).map { index ->
                 val exercise = array.getJSONObject(index)
-                keys(exercise, setOf("name", "note", "sets"))
+                keys(exercise, WorkoutPlanFormat.exerciseFields)
                 val name = text(exercise, "name", required = true)
                 try {
                     val sets = exercise.getJSONArray("sets")
@@ -24,7 +24,7 @@ internal object StructuredPlanV2 {
                     val targets = (0 until sets.length()).map { position ->
                         try {
                             val set = sets.getJSONObject(position)
-                            keys(set, setOf("repsMin", "repsMax", "weight", "unit", "restSeconds"))
+                            keys(set, WorkoutPlanFormat.setFields)
                             val low = integer(set, "repsMin")!!
                             val high = integer(set, "repsMax")!!
                             val weight = if (!set.has("weight") && !set.has("unit")) PlanWeight(null, null)
@@ -35,7 +35,9 @@ internal object StructuredPlanV2 {
                                     require(raw is String || raw is Number) { "Weight must be a decimal string or number." }
                                     WorkoutPlanParser.parseWeight("$raw ${text(set, "unit", required = true)}")
                                 }
-                            PlanSetTarget(low, high, weight, integer(set, "restSeconds", optional = true)).also { WorkoutPlanParser.validateSet(it, name) }
+                            PlanSetTarget(low, high, weight, integer(set, "restSeconds", optional = true),
+                                if (set.has("loadMode")) text(set, "loadMode", true) else LoadMode.target(weight),
+                                if (set.has("isWarmUp")) (set.get("isWarmUp") as? Boolean ?: throw IllegalArgumentException("isWarmUp must be boolean.")) else false).also { WorkoutPlanParser.validateSet(it, name) }
                         } catch (failure: Exception) { throw PlanParseException(null, "Set ${position + 1}", name, failure.message ?: "Check this target.") }
                     }
                     PlanPrescription(name, targets, text(exercise, "note"))
