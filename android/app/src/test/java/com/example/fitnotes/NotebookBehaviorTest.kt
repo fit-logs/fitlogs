@@ -20,6 +20,22 @@ import java.io.File
 @SQLiteMode(SQLiteMode.Mode.NATIVE)
 class NotebookBehaviorTest {
     private fun database() = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), FitDatabase::class.java).build()
+    @Test fun mixedTimedAndDateOnlySessionsSortWithoutInventingImportTimes() {
+        val day = "2026-10-12"
+        val timed = WorkoutDetail(Workout(id = 1, sessionDate = day, startedAt = pickerMillis(day) + 7 * 60 * 60 * 1000L, completedAt = pickerMillis(day) + 8 * 60 * 60 * 1000L), emptyList())
+        fun imported(id: String, date: String = day, start: String? = null) =
+            ImportedWorkoutDetail(ImportedWorkout(id, "source", date, recordedStart = start), emptyList())
+        val data = AppData(workouts = listOf(timed), imported = ImportedData(workouts = listOf(
+            imported("date-only-b"), imported("timed", start = "2026-10-12T22:00:00+13:00"),
+            imported("date-only-a"), imported("newer", "2026-10-13"), imported("older", "2026-10-11")
+        )))
+        val sessions = notebookSessions(data)
+        assertEquals(listOf("import:newer", "import:timed", "local:1", "import:date-only-a", "import:date-only-b", "import:older"), sessions.map { it.key })
+        // The main screen joins separately loaded local and imported histories.
+        val joined = notebookSessions(data.copy(imported = ImportedData())) + notebookSessions(data.copy(workouts = emptyList()))
+        assertEquals(sessions, sortNotebookSessions(joined.reversed()))
+        assertNull(sessions.first { it.key == "import:date-only-a" }.startedMillis)
+    }
     @Test fun cardioCommentsAndEditingRoundTripWithoutAppending() = runBlocking {
         val db = database()
         try {

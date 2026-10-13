@@ -226,7 +226,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
 
             val plan=requireNotNull(database.planDao().detail(planId))
             val runs=database.planDao().runs().filter{it.planId==planId && database.dao().workout(it.workoutId)?.isComplete==true}
-            val last=runs.maxByOrNull{database.dao().workout(it.workoutId)!!.completedAt?:0} ?: throw IllegalArgumentException("Finish a workout from this plan first.")
+            val last=runs.maxByOrNull{database.dao().workout(it.workoutId)!!.completedAt?:0L} ?: throw IllegalArgumentException("Finish a workout from this plan first.")
             val run=database.planDao().runDetail(last.workoutId)!!
             var applied=0
             for(e in plan.ordered) {

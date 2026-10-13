@@ -56,7 +56,7 @@ object StrengthStatistics {
             val modes=current.results.filter{it.exerciseKey==exercise.key}.map{it.mode}.toSet()
             var compared=false
             for(mode in modes) {
-                val latest=candidates.filter{it.results.any{r->r.exerciseKey==exercise.key&&r.mode==mode}}.maxWithOrNull(compareBy<TrainingObservation>{it.date}.thenBy{it.finished?:0}) ?: continue
+                val latest=candidates.filter{it.results.any{r->r.exerciseKey==exercise.key&&r.mode==mode}}.maxWithOrNull(compareBy<TrainingObservation>{it.date}.thenBy{it.finished?:0L}) ?: continue
                 compared=true
                 val previousResults=latest.results.filter{it.exerciseKey==exercise.key&&it.mode==mode}
                 val currentResults=current.results.filter{it.exerciseKey==exercise.key&&it.mode==mode}

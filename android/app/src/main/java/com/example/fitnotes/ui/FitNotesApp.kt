@@ -43,7 +43,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val already by model.previouslyImported.collectAsState()
     val localSessions=remember(data.workouts){notebookSessions(AppData(exercises=data.exercises,workouts=data.workouts))}
     val importedSessions=remember(data.imported.workouts,data.exercises,data.exerciseAliases,data.exerciseMappings){notebookSessions(data.copy(workouts=emptyList()))}
-    val sessions=remember(localSessions,importedSessions){(localSessions+importedSessions).sortedWith(compareByDescending<NotebookSession>{it.date}.thenByDescending{it.startedMillis?:0}.thenBy{it.key})}
+    val sessions=remember(localSessions,importedSessions){sortNotebookSessions(localSessions+importedSessions)}
     var library by rememberSaveable { mutableStateOf(false) }
     var progress by rememberSaveable { mutableStateOf(false) }
     var trainingSettings by rememberSaveable { mutableStateOf(false) }

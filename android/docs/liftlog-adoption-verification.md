@@ -96,7 +96,7 @@ Android fixtures require `com.example.fitnotes.preview.activities` before writes
 The production application ID and existing debug signing setup are unchanged.
 No uninstall or data clearing is used on a physical phone.
 
-- Local suite: **121 tests, 120 passed, one optional private-backup example
+- Local suite: **123 tests, 122 passed, one optional private-backup example
   skipped**. Tests exercise strict V2 fields, aliases/collisions, target linking,
   repeated completion, skips/undo/extras/reordering, full prescriptions, unit
   limits, sparse statistics/records, timer recovery and migration preservation.
@@ -130,8 +130,19 @@ No uninstall or data clearing is used on a physical phone.
   and saved handoff preferences. SQLite integrity was clean. No training was
   created and no uninstall/data clearing occurred. Audit outputs stay private
   outside Git; no personal records or phone screenshots are included here.
-- The installed ChatGPT app is present. Phone screen/share inspection currently
-  awaits unlock; emulator Share opened the system sheet without sending.
+- The first physical screen check exposed a startup crash when timed sessions
+  and date-only imports shared a date. A mixed Integer/Long comparison caused it.
+  The main screen and shared history now use one comparator with a Long fallback;
+  completion summaries and plan progression use the same numeric type. Two
+  regressions cover the mixed histories and summary comparisons in either order.
+  The corrected APK update launched successfully and remained running. A second
+  audit confirmed all 17 original-table checksums were unchanged.
+- The installed ChatGPT app declares a plain-text share receiver. The user chose
+  to skip the physical share test; no test draft was passed to ChatGPT. Emulator
+  Share opened the system sheet without sending. After the repair, launch and
+  process stability were checked while the phone was locked; a new unlocked UI
+  inspection was not performed. The temporary charging-screen setting was
+  restored to its original value.
 
 ## Actual screenshots
 
@@ -181,6 +192,6 @@ Application ID `com.example.fitnotes`; version code/name `1` / `1.0`.
 Existing signer SHA-256:
 `7ab64af6c9ab261ba03a9471b6a3adc59fa33d684d5d1c4ef1f06a6bc693ddce`.
 APK SHA-256:
-`d6ce81d3c0e986543f3725e7a1aa7a109daa0c82926acd746ba9dc94ca681cf5`.
+`c6553615e9f862ba01c459b4e4013f674ae949c1623129ed74bed50707c30216`.
 Use an update install with `adb install -r`; never uninstall or clear data.
 The APK and personal exports are excluded from Git.

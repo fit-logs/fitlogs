@@ -45,6 +45,12 @@ private fun recordedMillis(raw: String?): Long? {
     val normalized = raw.take(19) + "." + (if (offset == 19) "000" else raw.substring(20, offset).padEnd(3, '0')) + raw.takeLast(6)
     return runCatching { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ROOT).apply { isLenient = false }.parse(normalized)?.time }.getOrNull()
 }
+// Use a Long fallback so a date-only import and a timed session compare safely.
+// This ordering is for display only; unknown within-day times remain unknown.
+fun sortNotebookSessions(sessions: List<NotebookSession>): List<NotebookSession> =
+    sessions.sortedWith(compareByDescending<NotebookSession> { it.date }
+        .thenByDescending { it.startedMillis ?: 0L }.thenBy { it.key })
+
 fun notebookSessions(data: AppData): List<NotebookSession> {
     val identity = ExerciseIdentityIndex(data)
     val locals = data.workouts.map { d ->
@@ -60,7 +66,7 @@ fun notebookSessions(data: AppData): List<NotebookSession> {
                 NotebookExercise("original:" + group.first + "\u001f" + group.second, data.exercises.firstOrNull { it.id == canonical }?.name ?: group.first, group.second,
                     sets = records.map { s -> NotebookSet(s.id, s.weightKg, s.reps, s.distance, s.distanceUnit, s.durationSeconds, s.comment, imported = s) }, canonicalId = canonical, sourceName = group.first) })
     }
-    return (locals + imported).sortedWith(compareByDescending<NotebookSession> { it.date }.thenByDescending { it.local?.workout?.startedAt ?: 0L }.thenBy { it.key })
+    return sortNotebookSessions(locals + imported)
 }
 
 // Date-only imports have no ordering within a day. Never manufacture a time or

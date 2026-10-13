@@ -80,6 +80,16 @@ class TrainingCalculationTest {
             assertTrue(summary.contains("actual rep change 2"));assertFalse(summary.contains("volume change"));assertFalse(summary.contains("Estimated 1RM"))
         }
     }
+    @Test fun summaryHandlesMixedKnownAndUnknownCompletionTimesOnAnEarlierDay() {
+        val result = StrengthResult("exercise:1", "Synthetic press", 40.0, 8, LoadMode.UNKNOWN)
+        val dateOnly = TrainingObservation("date-only", "2026-10-12", true, null, null, listOf(result))
+        val timed = dateOnly.copy(id = "timed", started = 1000L, finished = 2000L, results = listOf(result.copy(reps = 10)))
+        val current = timed.copy(id = "current", date = "2026-10-13", started = 3000L, finished = 4000L, results = listOf(result.copy(reps = 12)))
+        for (history in listOf(listOf(dateOnly, timed, current), listOf(timed, dateOnly, current))) {
+            assertTrue(StrengthStatistics.summary(current, history).contains("recorded-load volume change 80 kg·reps"))
+        }
+        assertNull(dateOnly.finished)
+    }
     @Test fun fuzzyRankingPrefersExactAndCompactMatchesWithoutEquatingVariants() {
         assertTrue(fuzzyMatchScore("bench","bench")!!>fuzzyMatchScore("bench","flat barbell bench press")!!)
         assertNotNull(fuzzyMatchScore("bp","Bench Press"));assertNull(fuzzyMatchScore("zz","Bench Press"))
