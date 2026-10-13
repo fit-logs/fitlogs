@@ -122,9 +122,16 @@ No uninstall or data clearing is used on a physical phone.
   zero actual sets. A stale-token action changed nothing. Both process-test
   stages passed. Alarm sound was not assessed audibly. Reboot/clock recovery is
   covered by fake-clock unit tests, not a physical reboot.
-- The Pixel 6 was absent from ADB and the USB inventory. This update was not
-  installed on the phone, and the installed ChatGPT receiving app could not be
-  tested for this build. Emulator Share opened the system sheet without sending.
+- Pixel 6 USB update on 13 October: `adb install -r` succeeded using the existing
+  package/signing setup. FitNotes opened its database and migrated **8 → 9**.
+  A read-only audit compared all original columns in **17 tables**: row counts
+  and SHA-256 content checksums matched exactly, including workouts, actual sets,
+  imported history/health samples, measurements, photo metadata, plans, targets
+  and saved handoff preferences. SQLite integrity was clean. No training was
+  created and no uninstall/data clearing occurred. Audit outputs stay private
+  outside Git; no personal records or phone screenshots are included here.
+- The installed ChatGPT app is present. Phone screen/share inspection currently
+  awaits unlock; emulator Share opened the system sheet without sending.
 
 ## Actual screenshots
 
