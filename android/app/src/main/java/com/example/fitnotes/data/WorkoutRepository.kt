@@ -225,6 +225,19 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         if (target != null && database.trainingDao().timer()?.sourceTargetId == target) database.trainingDao().clearTimer()
     }
     suspend fun removeExercise(id: Long) = dao.deleteEntry(id)
+    suspend fun reorderExercises(workoutId: Long, entryIds: List<Long>) = database.withTransaction {
+        requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
+        val entries = dao.workoutEntries(workoutId)
+        require(entryIds.size == entries.size && entryIds.toSet().size == entryIds.size &&
+            entryIds.toSet() == entries.map { it.id }.toSet()) {
+            "The workout exercises changed. Close and reopen Reorder exercises to try again."
+        }
+        val byId = entries.associateBy { it.id }
+        entryIds.forEachIndexed { position, id ->
+            val entry = byId.getValue(id)
+            if (entry.position != position) dao.updateEntry(entry.copy(position = position))
+        }
+    }
     suspend fun deleteWorkout(id: Long) = dao.deleteWorkout(id)
 
     suspend fun saveDetails(id: Long, title: String, notes: String) = database.withTransaction {
