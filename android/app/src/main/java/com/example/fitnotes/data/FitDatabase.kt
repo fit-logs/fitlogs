@@ -132,7 +132,7 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 10, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 11, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
@@ -145,7 +145,7 @@ abstract class FitDatabase : RoomDatabase() {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
                 .enableMultiInstanceInvalidation()
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.

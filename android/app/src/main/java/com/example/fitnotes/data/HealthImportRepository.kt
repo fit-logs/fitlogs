@@ -7,7 +7,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 data class HealthCandidate(val session: HealthSession, val samples: List<HealthSample> = emptyList(),
-    val heartRateRead: Boolean = false, val distanceRead: Boolean = false, val elevationRead: Boolean = false)
+    val heartRateRead: Boolean = false, val distanceRead: Boolean = false, val elevationRead: Boolean = false, val summaryHeartRead: Boolean = false, val movingRead: Boolean = false)
 const val SOURCE_CREATED_STATUS_PREFIX = "Created from source activity. "
 val HealthSession.isSourceCreated: Boolean get() = sourceCreated || sourceStatus.startsWith(SOURCE_CREATED_STATUS_PREFIX)
 fun HealthSession.withSourceStatus(message: String) = copy(sourceStatus = (if (isSourceCreated) SOURCE_CREATED_STATUS_PREFIX else "") + message)
@@ -33,7 +33,7 @@ class HealthImportRepository(private val database: FitDatabase) {
         val s = candidate.session
         validateHealthBackup(listOf(s.copy(workoutId = null, importedWorkoutId = null)), candidate.samples, emptySet())
         val exact = dao.session(s.key)
-        val existing = exact ?: dao.sessions().filter { it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId }
+        val existing = exact ?: dao.sessions().filter { it.provider == s.provider && it.accountId == s.accountId && it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId }
             .maxWithOrNull(compareBy<HealthSession> { it.clientRecordVersion }.thenBy { it.modifiedAt }.thenBy { if (it.workoutId != null || it.importedWorkoutId != null) 1 else 0 })
         // A tombstone survives local deletion: repeat imports never re-create it.
         if (existing != null && existing.workoutId == null && existing.importedWorkoutId == null) {
@@ -60,8 +60,11 @@ class HealthImportRepository(private val database: FitDatabase) {
             sourceCreated = existing?.isSourceCreated == true || (existing == null && attachTo == null && attachImported == null),
             elevationMeters = if (candidate.elevationRead) s.elevationMeters else if (intervalChanged) null else existing?.elevationMeters,
             elevationOrigins = if (candidate.elevationRead) s.elevationOrigins else if (intervalChanged) "" else existing?.elevationOrigins.orEmpty(),
-            movingSeconds = s.movingSeconds ?: if (intervalChanged) null else existing?.movingSeconds,
-            movingOrigin = s.movingOrigin.ifBlank { if (intervalChanged) "" else existing?.movingOrigin.orEmpty() },
+            movingSeconds = if (candidate.movingRead) s.movingSeconds else if (intervalChanged) null else existing?.movingSeconds,
+            movingOrigin = if (candidate.movingRead) s.movingOrigin else if (intervalChanged) "" else existing?.movingOrigin.orEmpty(),
+            averageBpm = if (candidate.summaryHeartRead) s.averageBpm else if (intervalChanged) null else existing?.averageBpm,
+            maximumBpm = if (candidate.summaryHeartRead) s.maximumBpm else if (intervalChanged) null else existing?.maximumBpm,
+            heartOrigin = if (candidate.summaryHeartRead) s.heartOrigin else if (intervalChanged) "" else existing?.heartOrigin.orEmpty(),
             distanceMeters = if (candidate.distanceRead) s.distanceMeters else if (intervalChanged) null else existing?.distanceMeters,
             distanceOrigins = if (candidate.distanceRead) s.distanceOrigins else if (intervalChanged) "" else existing?.distanceOrigins.orEmpty(),
             distanceStatus = if (!candidate.distanceRead && intervalChanged) s.distanceStatus + " Source interval changed; prior imported distance cannot be attributed to the new interval." else s.distanceStatus,
@@ -94,7 +97,7 @@ class HealthImportRepository(private val database: FitDatabase) {
     suspend fun ignore(candidate: HealthCandidate) = database.withTransaction {
         val s = candidate.session
         if (dao.session(s.key) == null) {
-            require(dao.sessions().none { it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId && (it.workoutId != null || it.importedWorkoutId != null) }) { "This activity is already attached under a previous source ID. Refresh its imported data instead." }
+            require(dao.sessions().none { it.provider == s.provider && it.accountId == s.accountId && it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId && (it.workoutId != null || it.importedWorkoutId != null) }) { "This activity is already attached under a previous source ID. Refresh its imported data instead." }
             validateHealthBackup(listOf(s.copy(workoutId = null, importedWorkoutId = null)), emptyList(), emptySet())
             dao.putSession(s.copy(workoutId = null, importedWorkoutId = null, sourceStatus = "Ignored by user; automatic import will not recreate it."))
         }

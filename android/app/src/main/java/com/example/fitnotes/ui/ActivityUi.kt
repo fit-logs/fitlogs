@@ -174,7 +174,12 @@ fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
                 }
                 heartIssue?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 if (s.sourceStatus.removePrefix(SOURCE_CREATED_STATUS_PREFIX).startsWith("Not returned")) Text("Source not returned at last sync; showing saved data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                if (samples.isEmpty()) {
+                if (samples.isEmpty() && (s.averageBpm != null || s.maximumBpm != null)) {
+                    Text("Source-reported heart rate", style = MaterialTheme.typography.labelMedium)
+                    s.averageBpm?.let { Text("Average · " + weightText(it) + " bpm") }
+                    s.maximumBpm?.let { Text("Maximum · " + weightText(it) + " bpm") }
+                    Text("${s.heartOrigin} · summary only; no per-second samples", style = MaterialTheme.typography.bodySmall)
+                } else if (samples.isEmpty()) {
                     Text("No heart-rate samples found for this session", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Text("Imported sample summary", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -225,6 +230,9 @@ fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
                     s.elevationMeters?.let { ImportDetail("Elevation gain", weightText(it) + " m · " + s.elevationOrigins) }
                     if (s.elevationStatus.isNotBlank()) ImportDetail("Elevation context", s.elevationStatus)
                     ImportDetail("Moving time", s.movingSeconds?.let { durationText(it) + " · " + s.movingOrigin } ?: "Not provided by this source. Elapsed time is shown separately.")
+                    ImportDetail("Provider", sourceProviderName(s))
+                    if (s.accountId.isNotBlank()) ImportDetail("Owner key", s.accountId + " (file owner label; not authenticated)")
+                    if (s.sportLabel.isNotBlank()) ImportDetail("Original sport", s.sportLabel)
                     ImportDetail("Source app", "${s.sourceName}\n${s.originPackage}")
                     if (s.title.isNotBlank()) ImportDetail("Source title", s.title)
                     ImportDetail("Source start", sourceTime(s.start, s.startOffsetSeconds))

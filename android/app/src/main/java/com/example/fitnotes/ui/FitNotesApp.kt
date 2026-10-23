@@ -68,6 +68,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var finishActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
     var activityEntry by remember { mutableStateOf(false) }
     var healthImport by remember { mutableStateOf(false) }
+    var stravaExport by rememberSaveable { mutableStateOf(false) }
     var importMenu by remember { mutableStateOf(false) }
     var native by rememberSaveable { mutableStateOf(true) }
     var backupMenu by remember { mutableStateOf(false) }
@@ -203,6 +204,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             TextButton(onClick = { settings = false; trainingSettings = true }) { Text("Training") }
             TextButton(onClick = { settings = false; healthImport = true }) { Text("Garmin via Health Connect") }
+            TextButton(onClick = { settings = false; stravaExport = true }) { Text("Strava activity files") }
             TextButton(onClick = { settings = false; importMenu = true }) { Text("Import history") }
             TextButton(onClick = { settings = false; backupMenu = true }) { Text("Backup and restore") }
             TextButton(onClick = { settings = false; library = true }) { Text("Exercise library") }
@@ -240,6 +242,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     }
     LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date } }
     LaunchedEffect(sessions, historyKey) { sessions.firstOrNull { it.key == historyKey }?.let { historyDay = it.date } }
+    if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
     if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
@@ -257,6 +260,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (importMenu) AlertDialog(onDismissRequest = { importMenu = false }, title = { Text("Import history") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Choose an export, review the preview, then confirm.")
+            TextButton(onClick = { importMenu = false; stravaExport = true }) { Text("Strava activity files") }
             TextButton(onClick = { importMenu = false; pastePlan = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
             TextButton(onClick = { importMenu = false; healthImport = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import activities (Health Connect)") }
             TextButton(onClick = { native = true; importMenu = false; importPicker.launch(arrayOf("*/*")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Original FitNotes backup") }

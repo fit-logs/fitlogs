@@ -285,6 +285,58 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveActivityDetails(id: Long, title: String, notes: String, effort: String?, distance: Double?, unit: String?, done: () -> Unit) =
         change(null, done) { repository.saveActivityDetails(id, title, notes, effort, distance, unit) }
 
+    val stravaExportText = MutableStateFlow("")
+    val stravaExportHeaders = MutableStateFlow<List<String>>(emptyList())
+    val stravaExportPreview = MutableStateFlow<StravaExportPreview?>(null)
+    val stravaExportKnown = MutableStateFlow<List<HealthSession>>(emptyList())
+    val stravaExportWorking = MutableStateFlow(false)
+    val stravaExportMessage = MutableStateFlow("Choose activities.csv from your own downloaded Strava account archive.")
+    private var stravaExportJob: kotlinx.coroutines.Job? = null
+    private var stravaExportGeneration = 0L
+    private fun stravaFileWork(block: suspend () -> Unit) {
+        if (stravaExportWorking.value) return
+        val generation = ++stravaExportGeneration
+        stravaExportWorking.value = true
+        stravaExportJob = viewModelScope.launch(Dispatchers.IO) {
+            try { block() }
+            catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                if (generation == stravaExportGeneration) stravaExportMessage.value = error.message ?: "File import did not complete. Committed batches are retained; review and retry safely."
+            } finally { if (generation == stravaExportGeneration) stravaExportWorking.value = false }
+        }
+    }
+    fun readStravaFile(uri: Uri) = stravaFileWork { loadStravaText(readUtf8(uri, StravaOwnerExport.MAX_BYTES)) }
+    fun inspectStravaText(text: String) = stravaFileWork { loadStravaText(text) }
+    private suspend fun loadStravaText(text: String) {
+        val headers = StravaOwnerExport.headers(text)
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        stravaExportText.value = text; stravaExportHeaders.value = headers; stravaExportPreview.value = null
+        stravaExportMessage.value = "Confirm owner key, timestamp timezone and column units, then load a preview."
+    }
+    fun previewStravaFile(options: StravaExportOptions) = stravaFileWork {
+        val preview = StravaOwnerExport.preview(stravaExportText.value, options)
+        val known = healthImporter.known()
+        val index = SourceMatchIndex(database.dao().workouts(), known)
+        val matches = preview.candidates.associate { it.session.key to index.matches(it.session) }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        stravaExportKnown.value = known; stravaExportPreview.value = preview.copy(matches = matches)
+        stravaExportMessage.value = "${preview.rows} file rows · ${preview.candidates.size} valid activities in range · ${preview.issues.size} row errors. Review possible matches before importing."
+    }
+    fun importStravaFile(choices: List<StravaImportChoice>) = stravaFileWork {
+        val count = StravaExportImporter(database, healthReadMutex).apply(choices) { stravaExportMessage.value = "$it selected records processed. Workout logging remains available." }
+        stravaExportKnown.value = healthImporter.known()
+        stravaExportMessage.value = "$count selected activities processed. Existing workouts and saved sets were kept."
+    }
+    fun ignoreStravaFile(candidate: HealthCandidate) = stravaFileWork {
+        healthImporter.ignore(candidate); stravaExportKnown.value = healthImporter.known()
+        stravaExportMessage.value = "Activity ignored. The decision is included in training backups."
+    }
+    fun cancelStravaFile() {
+        stravaExportJob?.cancel(); stravaExportGeneration++
+        stravaExportWorking.value = false
+        stravaExportMessage.value = "Stopped. Committed batches remain saved; the same owner key and activity IDs make a later retry safe."
+    }
+
     fun cancelHealthRead() {
         if (healthReadJob?.isActive == true) {
             healthReadJob?.cancel()
@@ -513,6 +565,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
             done()
         }) {
             automaticHealthJob?.cancel()
+            cancelStravaFile(); stravaExportPreview.value = null
             healthConnection.first.resetAfterRestore()
             HealthSyncSchedule.cancel(getApplication())
             val photos = pendingPhotoRestore.value

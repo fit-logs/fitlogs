@@ -184,7 +184,7 @@ class TrainingWorkflowTest {
             old.execSQL("INSERT INTO workout_sets(id,entryId,weightKg,reps,position,comment) VALUES (7,6,42.5,8,0,'Keep actual')")
             old.version=8
         }
-        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10).build()
+        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11).build()
         val actual=db.dao().sets().single();assertEquals(7,actual.id);assertEquals(42.5,actual.weightKg,0.0);assertEquals("Keep actual",actual.comment)
         assertNull(actual.targetId);assertNull(actual.completedAt);assertEquals(LoadMode.UNKNOWN,actual.loadMode);assertTrue(actual.weightSpecified)
         assertEquals("Keep note",db.dao().workout(5)!!.notes)
