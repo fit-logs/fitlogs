@@ -34,29 +34,65 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
   **Repeat exercises** starts a new workout with no sets or notes copied.
   Finish/delete the active workout before repeating another. Deletion is confirmed.
 - History's **Share** offers 14 days, 30 days or a custom date range. Workout
-  menus share one session. Review readable text before copying or opening Android's
+  share buttons and menus share one session. Review readable text before copying or opening Android's
   share sheet. Empty ranges explain that no activity was found; nothing is sent.
+- **Ask ChatGPT** in Workout or History prepares a question with 7 days, 30 days
+  (default), or a custom history range. Review the complete prompt, then **Copy
+  prompt** or **Share** through Android. Choose Next workout, Review progress, or
+  Custom question. Goals, equipment, constraints, time and activity preferences
+  are remembered locally. Body measurement types, photos and raw heart-rate
+  samples are optional and start unselected each time.
+- **Paste plan** reads the clipboard only when **Paste** is tapped; manual text
+  entry also works. Review and edit the strength plan, resolve exercise names,
+  then **Save plan**. This saves targets without recorded sets.
+  **Plans / Planned workouts** lists saved plans. Starting one creates an actual
+  session with empty exercise entries and keeps its targets visible separately.
+  Targets appear in editable per-set rows, including rest and original units.
+  The logger compares Previous / Target / Actual and links completion to a target.
+  Skip, undo, extra sets and free exercise switching remain available. The next
+  pending set fills after saving. Rest can pause/resume, add 30 seconds or skip;
+  alerts are optional in **More actions → Training settings**.
+  **Edit plan** changes the reusable plan; **Start workout** copies suggestions
+  into the logger. Enter the weights/reps actually performed. Scheduled dates
+  are optional. **Convert empty import to plan** repairs empty older suggestions
+  after review, while preserving uncertain legacy text and actual training.
+- ChatGPT handoff is manual, using your existing app/account. Nothing is submitted
+  or answered automatically. There is no OpenAI API, backend or cloud upload.
+  Copy is the fallback if a receiving app rejects Android sharing.
+  [Exact plan format, limits and matching behaviour](docs/chatgpt-handoff.md).
 - **Body:** select an actual available name/unit pair. See the latest value and
   dated list; tap a measurement for Edit/Delete, or use **+** to add one.
   You can enter a new measurement name/unit explicitly. Blank time means date-only;
   otherwise use HH:mm:ss. Editing preserves its ID, type, unit and original fields.
   Different measurement types/units remain separate. There are no charts.
 - **Import history** and **Backup and restore** are available in overflow menus.
+- **More actions → Exercise library:** save aliases, resolve original imported
+  names to canonical exercises, and review a merge before confirming it. Both
+  names in one session retain all actual sets and notes. Fuzzy search ranks
+  candidates but never makes a match or merge decision.
+- **Strength progress:** charts and comparisons use actual sets in finished
+  sessions, with separate external, added-bodyweight and unknown load measures.
+  Optional double progression suggests an increase only after every prescribed
+  working set meets its upper rep target. Applying it to a reusable plan is explicit.
+  [Training changes, definitions, verification and screenshots](docs/liftlog-adoption-verification.md).
 - **Settings → Appearance:** System / Light / Dark. An explicit choice persists
-  across restarts and overrides the system appearance. Theme and favourites are
-  device preferences; training backups continue to contain the complete training
-  library and records.
+  across restarts and overrides the system appearance. Theme is a device preference;
+  favourites are also retained by current training backups.
 
 ## Backup and restore
 
 Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 4 file contains the entire exercise library, local session
+file picker. The version 7 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
-original fields, and import fingerprints. Versions 1, 2 and 3 remain readable. Store it outside this repository
+original fields, import fingerprints, planned workouts/targets and saved handoff
+preferences, individual target sets and workout suggestion snapshots, target/result
+links, load modes, aliases/source mappings, superset groups, progression settings
+and favourites. A running rest countdown is exported as paused remaining time and
+restored paused with a fresh action token. Versions 1–6 remain readable. Store it outside this repository
 in a private location. Backups are readable JSON and are not encrypted.
 
 Use **Choose backup to restore** to validate a file and see its export date,
-session date range, and exercise/session/set counts. Nothing is changed during
+session date range, and exercise/session/set/planned-workout counts. Nothing is changed during
 preview. **Replace & restore** explicitly replaces all existing training data
 in one Room transaction. Cancel to leave it unchanged. Export current data first
 if you want to retain it.
@@ -110,8 +146,9 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
   re-addition by the same file. Repeating copies only its exercise list.
 - The **Body** tab lists dated measurements. Graphs are deferred.
   Period sharing includes body measurements. **Backup and restore → Export analysis JSON**
-  exports the complete dataset with format `fitnotes-analysis`, version 1 and
-  `backupSchemaVersion: 4`. Analysis JSON is not a restore file.
+  exports recorded training with format `fitnotes-analysis`, version 2 and
+  `backupSchemaVersion: 7`. It excludes plans, target snapshots, progression
+  settings and private preferences. Analysis JSON is not a restore file.
 - Local workouts can open while imported history loads in the background. A loading
   label appears for imported references/history; period sharing stays disabled until
   the full history is ready, so no partial training context is shared.
@@ -334,6 +371,28 @@ that source. Use the same APK/signing key for later updates.
   identified. Only one source's samples are summarized. Sample count, covered
   timestamp range and sample min/max/average are shown; sparse samples do not
   establish continuous coverage or official Garmin workout statistics.
+- Session details show a compact heart-rate card with average/minimum/maximum,
+  sample count and covered time range. Large fonts use stacked statistics.
+  **Import details** expands source identifiers, full timestamps, coverage and
+  sync messages. Activity duration and logged times are kept separate from watch
+  timing. Missing/revoked access and refresh failures remain visible on the card.
+- **Sync when FitNotes opens** is enabled by default, with a switch and last-sync
+  result in **Import activities**. It reads the accessible last 30 days on launch
+  or return, refreshes existing links (including explicitly attached original
+  history), and attaches a new Garmin record only to a completed local session
+  with known times and the same activity type. The overlap must cover at least
+  60% of both intervals, with exactly one overlapping local session and one
+  Garmin source record. Generic Other types, already linked sessions, date-only,
+  unfinished and ambiguous entries require preview/review. Unmatched source
+  records never automatically create workouts. Deleted links stay deleted.
+- Automatic reads stop on leaving the foreground; logging and explicit imports
+  take priority. A 60-second cooldown avoids repeated reads on rapid returns or
+  rotation. Every attachment is rechecked atomically against current local data
+  before writing. There are no additional permissions or background services.
+- Sessions without an attached Health Connect import show **No heart-rate data
+  imported for this session** and a direct **Import activities** action. Sync the
+  watch with Garmin Connect and return to FitNotes; use the preview for entries
+  requiring review. Watch-to-Garmin syncing remains controlled by Garmin.
 - Distance is the sum of fully contained records from a preferred source.
   Boundary-crossing distance is not apportioned; overlapping distance records are
   reported as ambiguous. Missing distance remains null. Its source and limitations
@@ -378,6 +437,18 @@ permissions, source preference and batched samples crossing boundaries. UI tests
 must use the isolated package `com.example.fitnotes.preview.activities` on an
 emulator. Never run synthetic fixtures against the personal application ID.
 
+
+### Version-4 database repair
+
+Room 4 → 5 supports both earlier installable version-4 layouts. When the original
+layout lacks the imported-history attachment column, the migration adds that
+nullable foreign key and its index without replacing tables or changing records.
+The later version-4 layout retains its existing links. Synthetic tests exercise
+both layouts with saved sets, notes, source IDs and heart-rate samples. Backup
+JSON remains version 4; early files without the optional imported-history link
+also remain readable. Storage failures now show a clear error instead of an
+indefinite loading spinner.
+
 ## Progress photos
 
 **Body → Measurements / Photos** keeps measurements separate from optional photos.
@@ -409,9 +480,10 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the existing v4 JSON format excludes all photo files and photo
-metadata and clearly says so. Versions 1–4 still restore; JSON restoration leaves
-existing photos alone. Analysis exports and workout text sharing exclude photos.
+opens. With it off, the current v7 JSON format excludes all photo files and photo
+metadata and clearly says so. Versions 1–7 restore; JSON restoration leaves
+existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
+can explicitly attach selected JPEG copies; its Copy action remains text only.
 
 With the option on, export creates an unencrypted ZIP containing the training
 JSON, a version-1 photo manifest and actual original image bytes (including any
@@ -442,4 +514,10 @@ with `-PphotoVerification=true` to use `com.example.fitnotes.preview.photos`; no
 builds keep `com.example.fitnotes` and the existing signing configuration. Never
 run synthetic fixtures on the personal application ID. Actual emulator screenshots
 and the detailed verification record are kept in ignored
-`captures/progress-photos-20261013/`. The physical phone is not modified.
+`captures/progress-photos-20261013/`. Those photo checks used an isolated package.
+
+## Source licence
+
+The Android module is distributed under [AGPL-3.0](LICENSE). It contains an
+adapted exercise-search scorer from LiftLog; see [source attribution and revision](THIRD_PARTY_NOTICES.md).
+The licence and notices are bundled under **More actions → Open-source notices**.

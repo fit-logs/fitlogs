@@ -19,7 +19,7 @@ data class HealthAccess(val exercise: Boolean, val heartRate: Boolean, val dista
         else buildList {
             if (!heartRate) add("Heart-rate permission is missing; activities can still be imported.")
             if (!distance) add("Distance permission is missing; activities can still be imported.")
-        }.joinToString("\n").ifBlank { "Read permissions granted. Import runs only when you request it." }
+        }.joinToString("\n").ifBlank { "Read permissions granted. Data can be read while FitNotes is open." }
 }
 @RequiresApi(28)
 class HealthConnectReader(private val context: Context, private val clientOverride: HealthConnectClient? = null) {

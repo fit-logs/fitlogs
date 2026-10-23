@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream
 
 data class PhotoRestore(val backup: Backup, val photos: List<ProgressPhoto>, val directory: File)
 
-// Existing v1–v4 JSON backups stay unchanged. The opt-in archive is a separate,
+// Existing v1–v6 JSON backups stay unchanged. The opt-in archive is a separate,
 // versioned envelope containing that JSON, metadata and actual original files.
 class PhotoBackup(private val repository: ProgressPhotoRepository, private val workouts: WorkoutRepository) {
     suspend fun export(uri: Uri) = withContext(Dispatchers.IO) { repository.mutex.withLock {

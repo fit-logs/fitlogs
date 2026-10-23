@@ -25,7 +25,7 @@ class HealthImportRepository(private val database: FitDatabase) {
     private val dao = database.healthDao()
     suspend fun known() = dao.sessions()
 
-    suspend fun import(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null): Long? = database.withTransaction {
+    suspend fun import(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null, automatic: Boolean = false): Long? = database.withTransaction {
         val s = candidate.session
         validateHealthBackup(listOf(s.copy(workoutId = null, importedWorkoutId = null)), candidate.samples, emptySet())
         val existing = dao.session(s.key)
@@ -50,7 +50,12 @@ class HealthImportRepository(private val database: FitDatabase) {
             distanceMeters = if (candidate.distanceRead) s.distanceMeters else if (intervalChanged) null else existing?.distanceMeters,
             distanceOrigins = if (candidate.distanceRead) s.distanceOrigins else if (intervalChanged) "" else existing?.distanceOrigins.orEmpty(),
             distanceStatus = if (!candidate.distanceRead && intervalChanged) s.distanceStatus + " Source interval changed; prior imported distance cannot be attributed to the new interval." else s.distanceStatus,
-            sourceStatus = if (changed) "Source changed; reviewed and refreshed. Local session preserved." else "Available at last import; sync completion unknown.")
+            sourceStatus = when {
+                automatic && changed -> "Source changed; automatically refreshed. Local session preserved."
+                automatic && existing == null -> "Automatically linked by activity and overlapping recorded times. Local session preserved."
+                changed -> "Source changed; reviewed and refreshed. Local session preserved."
+                else -> "Available at last import; sync completion unknown."
+            })
         if (existing == null) dao.putSession(enriched) else dao.updateSession(enriched)
         if (candidate.heartRateRead) {
             // Replace the complete sample snapshot in the same transaction: later data,
@@ -63,6 +68,30 @@ class HealthImportRepository(private val database: FitDatabase) {
             dao.clearSamples(s.key); dao.putSamples(retained)
         }
         workoutId ?: 0L
+    }
+
+    suspend fun automaticTargets(candidates: List<HealthCandidate>) =
+        automaticHealthTargets(candidates, database.dao().workouts(), dao.sessions())
+
+    // Recheck all matches inside the write transaction: a local edit, explicit
+    // attachment or deletion made while Health Connect was reading takes priority.
+    // Only enriched records are written; unmatched records never create workouts.
+    suspend fun applyAutomaticSync(candidates: List<HealthCandidate>, enriched: List<HealthCandidate>, start: Long, end: Long): HealthSyncResult = database.withTransaction {
+        val before = dao.sessions().associateBy { it.key }
+        val targets = automaticHealthTargets(candidates, database.dao().workouts(), before.values.toList())
+        var refreshed = 0; var linked = 0
+        enriched.distinctBy { it.session.key }.forEach { candidate ->
+            val prior = before[candidate.session.key]
+            if (prior != null && (prior.workoutId != null || prior.importedWorkoutId != null)) {
+                import(candidate, automatic = true); refreshed++
+            } else if (prior == null) {
+                targets[candidate.session.key]?.let { target -> import(candidate, attachTo = target, automatic = true); linked++ }
+            }
+        }
+        val knownKeys = dao.sessions().map { it.key }.toSet()
+        val review = candidates.distinctBy { it.session.key }.count { isGarminOrigin(it.session.originPackage) && it.session.key !in knownKeys }
+        val missing = noteMissing(start, end, candidates.map { it.session.key }.toSet())
+        HealthSyncResult(refreshed, linked, review, missing)
     }
 
     suspend fun noteMissing(start: Long, end: Long, visible: Set<String>): Int = database.withTransaction {

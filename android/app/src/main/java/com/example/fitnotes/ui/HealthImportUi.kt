@@ -35,6 +35,8 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
     var days by rememberSaveable { mutableIntStateOf(7) }
     val candidates by model.healthCandidates.collectAsState(); val known by model.knownHealth.collectAsState()
     val message by model.healthMessage.collectAsState()
+    val automatic by model.automaticHealthEnabled.collectAsState()
+    val syncStatus by model.healthSyncStatus.collectAsState()
     var source by rememberSaveable { mutableStateOf("All sources") }
     var skipped by rememberSaveable { mutableStateOf(listOf<String>()) }
     var attaching by remember { mutableStateOf<HealthCandidate?>(null) }
@@ -77,6 +79,12 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
                         OutlinedButton(onClick = ::openSetup) { Text("Health Connect setup") }
                     } else {
                         item {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("Sync when FitNotes opens", Modifier.weight(1f))
+                                Switch(checked = automatic, onCheckedChange = model::setAutomaticHealth)
+                            }
+                            Text("Refreshes existing links and attaches Garmin activities with a single clear match by type and recorded times. Date-only, unfinished, unmatched and ambiguous entries need review. Sync stops when you leave the app.", style = MaterialTheme.typography.bodySmall)
+                            Text(syncStatus, style = MaterialTheme.typography.bodySmall)
                             ChoiceField("Period", listOf("Last 7 days", "Last 30 days"), "Last $days days") {
                                 days = if (it == "Last 7 days") 7 else 30
                                 model.healthCandidates.value = emptyList()

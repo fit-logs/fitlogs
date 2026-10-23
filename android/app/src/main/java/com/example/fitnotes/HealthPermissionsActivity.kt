@@ -17,7 +17,7 @@ class HealthPermissionsActivity : ComponentActivity() {
         setContent { FitNotesTheme {
             Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Health Connect & your training history", style = MaterialTheme.typography.titleLarge)
-                Text("FitNotes reads exercise sessions, heart-rate samples and distance only when you choose Import activities. You can deny or revoke any permission in Health Connect.")
+                Text("FitNotes reads exercise sessions, heart-rate samples and distance when you use Import activities or when sync on open is enabled. It stops reading when you leave the app. You can turn automatic sync off in Import activities, or deny and revoke permissions in Health Connect.")
                 Text("A preview lets you import, attach to a local session or skip. Saved data remains on this device. FitNotes never writes to Health Connect and has no account or cloud upload. Backups and text leave the app only through your explicit export or sharing action.")
                 Text("Record on your watch separately. Garmin data can be attached after sync.")
                 Text("The local timer does not start your watch, record GPS or receive live heart rate.")

@@ -17,17 +17,30 @@ import com.example.fitnotes.AppData
 import com.example.fitnotes.data.*
 
 @Composable
-fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit) {
+fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit,
+    onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}) {
     val dateWidth = (48 * LocalDensity.current.fontScale).dp
     Column(Modifier.fillMaxSize()) {
         NotebookBar("History") {
             if (!data.imported.loading) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share") }
             OverflowMenu { close ->
+                MenuAction("Strength progress") { close();onProgress() }
+                MenuAction("Exercise library") { close();onLibrary() }
+                MenuAction("Training settings") { close();onTrainingSettings() }
+                MenuAction("Ask ChatGPT") { close(); onAsk() }
+                MenuAction("Paste plan") { close(); onPastePlan() }
+                MenuAction("Planned workouts") { close(); onPlans() }
                 MenuAction("Import history") { close(); onImport() }
                 MenuAction("Backup and restore") { close(); onBackup() }
             }
         }
         LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick=onProgress,modifier=Modifier.heightIn(min=48.dp)){Text("Strength progress")}
+                TextButton(onClick = onAsk, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
+                TextButton(onClick = onPastePlan, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
+                TextButton(onClick = onPlans, modifier = Modifier.heightIn(min = 48.dp)) { Text("Planned workouts") }
+            } }
             if (data.imported.loading) item { Text("Loading imported history…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             val completed = sessions.filter { it.completed }
             if (completed.isEmpty() && !data.imported.loading) item { Text("No completed workouts yet.", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
