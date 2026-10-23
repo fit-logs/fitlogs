@@ -29,7 +29,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
     onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
-    onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    onUseAsPlan: () -> Unit = {}, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var reorder by rememberSaveable(session?.key) { mutableStateOf(false) }
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
@@ -59,6 +59,8 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                     if (editable && session.local != null && session.activity == "strength" && session.exercises.size > 1)
                         MenuAction("Reorder exercises") { close(); reorder = true }
                     if (editable) MenuAction("Edit details") { close(); details = true }
+                    if (session.completed && session.activity == "strength" && session.exercises.isNotEmpty())
+                        MenuAction("Use as plan") { close(); onUseAsPlan() }
                     MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
                     if (session.completed && session.activity == "strength" && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
                     MenuAction("Delete workout") { close(); delete = true }

@@ -5,9 +5,14 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 
 ## Use
 
-- **Workout:** an unfinished session resumes automatically. Otherwise tap
-  **Start workout**. Date arrows and the date picker browse existing sessions;
-  they never create a workout. A selector appears when a day has multiple sessions.
+**Train → Start empty workout** opens exercise selection immediately. Resume,
+Finish and Discard manage the active session; saved plans stay separate.
+See [unplanned workout flow and verification](docs/empty-workouts.md).
+
+- **Train:** tap **Start empty workout** or **Resume workout**. Saved plans remain
+  below the workout actions. Other activities are under Settings. In the workout
+  overview, date arrows and the date picker browse existing sessions; they never
+  create a workout. A selector appears when a day has multiple sessions.
 - Tap **Add exercise** to search Recent / Favourites / All, select multiple exercises,
   and confirm **Add N exercises**. Stars save favourites; selections survive filter
   and search changes. **Create custom exercise** adds a named exercise. The overview contains compact saved

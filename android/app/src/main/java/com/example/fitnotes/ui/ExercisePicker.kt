@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -24,7 +25,7 @@ import com.example.fitnotes.ui.theme.LocalAppearance
 fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<String>, categories: Map<String, String>, busy: Boolean,
     onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false, aliases: List<ExerciseAlias> = emptyList(), allowCreation: Boolean = true) {
     var query by rememberSaveable { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf(if (singleSelection) "All" else "Recent") }
+    var filter by rememberSaveable { mutableStateOf(if (singleSelection || recent.none { key -> exercises.any { it.nameKey == key && it.id !in added } }) "All" else "Recent") }
     var selected by rememberSaveable(stateSaver = listSaver(save = { it }, restore = { it.toList() })) { mutableStateOf(emptyList<Long>()) }
     var creating by remember { mutableStateOf(false) }
     var customName by rememberSaveable { mutableStateOf("") }
@@ -44,8 +45,8 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
     Column(Modifier.fillMaxSize()) {
         NotebookBar(if (singleSelection) "Resolve exercise" else "Add exercise", onCancel)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(query, { query = it.take(100) }, placeholder = { Text("Search exercises") }, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                singleLine = true, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small)
+            OutlinedTextField(query, { query = it.take(100); if (it.isNotBlank()) filter = "All" }, placeholder = { Text("Search exercises") }, leadingIcon = { Icon(Icons.Filled.Search, null) },
+                singleLine = true, modifier = Modifier.fillMaxWidth().testTag("exercise-search"), shape = MaterialTheme.shapes.small)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Recent", "Favourites", "All").forEach { choice -> FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice) }) }
             }

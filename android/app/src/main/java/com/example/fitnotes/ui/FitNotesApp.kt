@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
+import com.example.fitnotes.data.ActiveWorkoutAction
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -58,6 +59,13 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var editableKey by rememberSaveable { mutableStateOf<String?>(null) }
     var restoreRevision by rememberSaveable { mutableIntStateOf(0) }
     var addingTo by rememberSaveable { mutableStateOf<String?>(null) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var resolvingStart by rememberSaveable { mutableStateOf(false) }
+    var requestedPlanId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var discardActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var discardForStart by rememberSaveable { mutableStateOf(false) }
+    var finishActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
     var activityEntry by remember { mutableStateOf(false) }
     var healthImport by remember { mutableStateOf(false) }
     var importMenu by remember { mutableStateOf(false) }
@@ -80,7 +88,25 @@ fun FitNotesApp(model: FitNotesViewModel) {
         val session = sessions.firstOrNull { it.key == key } ?: return
         loggerKey = null; exerciseKey = null; historyKey = key; historyDay = session.date; tab = 1; editableKey = null
     }
-    fun startWorkout() { activityEntry = true }
+    fun enterWorkout(id: Long, openPicker: Boolean = false) {
+        workoutKey = "local:$id"; workoutDay = model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { com.example.fitnotes.data.localWorkoutDate(it.workout) } ?: todayDate()
+        tab = 0; historyDay = null; loggerKey = null; exerciseKey = null; editableKey = null
+        plansMenu = false; pastePlan = false; selectedPlan = null
+        addingTo = if (openPicker) "local:$id" else null
+    }
+    fun requestStart(planId: String? = null) {
+        if (busy) return
+        val active = data.active
+        if (active != null) {
+            if (planId != null && model.planRuns.value.any { it.run.workoutId == active.workout.id && it.run.planId == planId }) {
+                enterWorkout(active.workout.id); return
+            }
+            requestedPlanId = planId; pendingActiveId = active.workout.id; resolvingStart = true
+            plansMenu = false; pastePlan = false
+        } else if (planId == null) model.startEmpty { enterWorkout(it, true) }
+        else model.startPlan(planId) { enterWorkout(it) }
+    }
+    fun startWorkout() { requestStart() }
     fun chooseSession(key: String?) {
         val session = sessions.firstOrNull { it.key == key }
         if (tab == 0) { workoutKey = key; session?.let { workoutDay = it.date } }
@@ -94,19 +120,15 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val analysis = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportAnalysis) }
     LaunchedEffect(backupMenu) { if (backupMenu) includePhotos = false }
     LaunchedEffect(model) { model.messages.collect { snackbar.showSnackbar(it) } }
-    LaunchedEffect(data.loading, data.active?.workout?.id, data.active?.workout?.startedAt) {
-        if (!data.loading && data.active != null) {
-            workoutKey = "local:" + data.active!!.workout.id; workoutDay = sessions.filter{it.local!=null}.firstOrNull { it.key == workoutKey }?.date ?: todayDate()
-        }
-    }
-    BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null) {
+    BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null || (tab == 0 && workoutKey != null)) {
         if (addingTo != null) addingTo = null
         else if (loggerKey != null) { loggerKey = null; exerciseKey = null }
+        else if (tab == 0 && workoutKey != null) { workoutKey = null; editableKey = null }
         else { historyKey = null; historyDay = null; editableKey = null }
     }
     Scaffold(bottomBar = {
         if (loggerKey == null && addingTo == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Workout") })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train") })
             NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History") })
             NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body") })
         }
@@ -128,7 +150,10 @@ fun FitNotesApp(model: FitNotesViewModel) {
                     val categories = sessions.flatMap { it.exercises }.filter { it.category.isNotBlank() }.groupBy { it.name.lowercase(Locale.ROOT) }
                         .mapNotNull { (name, values) -> values.map { it.category }.distinct().singleOrNull()?.let { name to it } }.toMap()
                     ExercisePicker(data.exercises, addingWorkout.entries.map { it.exercise.id }.toSet(), recent, categories, busy, { addingTo = null },
-                        { ids -> model.addExercises(addingWorkout.workout.id, ids) { addingTo = null } },
+                        { ids -> model.addExercisesAndOpen(addingWorkout.workout.id, ids) { entry ->
+                            addingTo = null
+                            if (entry != null) { loggerKey = "local:${addingWorkout.workout.id}"; exerciseKey = "entry:$entry" }
+                        } },
                         { name -> model.createExercise(addingWorkout.workout.id, name) { addingTo = null } }, aliases=data.exerciseAliases)
                 } else if (logSession != null && logExercise != null) holder.SaveableStateProvider("logger:$restoreRevision:${logSession.key}:${logExercise.key}") {
                     ExerciseLogger(logSession, logExercise, sessions, data, model, busy, !logSession.completed || editableKey == logSession.key,
@@ -137,6 +162,14 @@ fun FitNotesApp(model: FitNotesViewModel) {
                 } else if (tab == 2) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
                 else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
                     onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={progress=true},onLibrary={library=true},onTrainingSettings={trainingSettings=true})
+                else if (tab == 0 && workoutKey == null) CompositionLocalProvider(LocalSettingsAction provides { settings = true }) {
+                    TrainScreen(data, model, busy,
+                        onResume = { data.active?.let { enterWorkout(it.workout.id) } }, onStart = ::startWorkout,
+                        onFinish = { finishActiveId = data.active?.workout?.id },
+                        onDiscard = { discardActiveId = data.active?.workout?.id; discardForStart = false },
+                        onPlan = { selectedPlan = it; plansMenu = true }, onNew = { model.newPlan(); pastePlan = true },
+                        onAsk = { askChatGpt = true }, onImport = { model.cancelPlanImport(); pastePlan = true })
+                }
                 else {
                     val key = if (tab == 0) workoutKey else historyKey
                     val day = if (tab == 0) workoutDay else historyDay ?: todayDate()
@@ -151,9 +184,10 @@ fun FitNotesApp(model: FitNotesViewModel) {
                             }, onSession = ::chooseSession, onExercise = { selected -> loggerKey = session?.key; exerciseKey = selected }, onStart = ::startWorkout,
                             onAdd = { addingTo = session?.key }, onEdit = { editableKey = session?.key }, onShare = { shareText = it },
                             onImport = { importMenu = true }, onHealthImport = { healthImport = true }, onBackup = { backupMenu = true },
+                            onUseAsPlan = { session?.let { model.planFromSession(it); pastePlan = true } },
                             onProgress={progress=true},onLibrary={library=true},onTrainingSettings={trainingSettings=true},
                             onRecoverPlan = { id -> model.recoverEmptySuggestion(id) { pastePlan = true } }, onChatGPT = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },
-                            onBack = if (tab == 1) ({ historyKey = null; historyDay = null; editableKey = null }) else null,
+                            onBack = if (tab == 1) ({ historyKey = null; historyDay = null; editableKey = null }) else ({ workoutKey = null; editableKey = null }),
                             onDeleted = { workoutKey = null; historyKey = null; loggerKey = null; historyDay = null; editableKey = null },
                             onFinished = { editableKey = null; session?.let { openHistory(it.key) } },
                             onRepeat = {
@@ -165,6 +199,36 @@ fun FitNotesApp(model: FitNotesViewModel) {
             }
         }
     }
+    if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text("Settings") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            TextButton(onClick = { settings = false; trainingSettings = true }) { Text("Training") }
+            TextButton(onClick = { settings = false; healthImport = true }) { Text("Health sync") }
+            TextButton(onClick = { settings = false; importMenu = true }) { Text("Import history") }
+            TextButton(onClick = { settings = false; backupMenu = true }) { Text("Backup and restore") }
+            TextButton(onClick = { settings = false; library = true }) { Text("Exercise library") }
+            TextButton(onClick = { settings = false; progress = true }) { Text("Strength progress") }
+            TextButton(onClick = { settings = false; activityEntry = true }) { Text("Log another activity") }
+        }
+    }, confirmButton = { TextButton(onClick = { settings = false }) { Text("Done") } })
+    val pendingActive = data.workouts.firstOrNull { it.workout.id == pendingActiveId }
+    if (resolvingStart) AlertDialog(onDismissRequest = { if (!busy) resolvingStart = false }, title = { Text("Workout already in progress") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("Choose what to do with your current workout before starting another.")
+            TextButton(onClick = { resolvingStart = false; pendingActive?.let { enterWorkout(it.workout.id) } }, enabled = !busy && pendingActive != null) { Text("Resume") }
+            TextButton(onClick = {
+                pendingActiveId?.let { id -> model.resolveActiveAndStart(id, ActiveWorkoutAction.FINISH, requestedPlanId) { next -> resolvingStart = false; enterWorkout(next, requestedPlanId == null) } }
+            }, enabled = !busy && pendingActive != null && (pendingActive.workout.activityType != "strength" || pendingActive.entries.any { it.sets.isNotEmpty() })) { Text("Finish and start") }
+            TextButton(onClick = { discardActiveId = pendingActiveId; discardForStart = true; resolvingStart = false }, enabled = !busy && pendingActive != null) { Text("Discard and start") }
+            if (pendingActive?.workout?.activityType == "strength" && pendingActive.entries.all { it.sets.isEmpty() }) Text("There are no saved sets to finish. Resume or discard this empty workout.", style = MaterialTheme.typography.bodySmall)
+        }
+    }, confirmButton = { TextButton(onClick = { resolvingStart = false }, enabled = !busy) { Text("Cancel") } })
+    finishActiveId?.let { id -> NotebookConfirm("Finish workout?", "Only saved sets will be included.", "Finish", busy, { finishActiveId = null }) {
+        model.finish(id) { finishActiveId = null; workoutKey = null }
+    } }
+    discardActiveId?.let { id -> NotebookConfirm("Discard workout?", "This deletes this workout and its saved sets. Saved plans are kept.", "Discard", busy, { discardActiveId = null }) {
+        if (discardForStart) model.resolveActiveAndStart(id, ActiveWorkoutAction.DISCARD, requestedPlanId) { next -> discardActiveId = null; enterWorkout(next, requestedPlanId == null) }
+        else model.deleteWorkout(id) { discardActiveId = null; workoutKey = null }
+    } }
     if(trainingSettings)TrainingSettingsDialog(model,busy){trainingSettings=false}
     if(library)ExerciseLibraryScreen(model,data,busy){library=false}
     if(progress)StrengthProgressScreen(data,model,busy,{progress=false;library=true}){progress=false}
@@ -177,24 +241,16 @@ fun FitNotesApp(model: FitNotesViewModel) {
     LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) } }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
-    if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { id ->
-        model.startPlan(id) { workoutId ->
-            pastePlan = false; plansMenu = false; selectedPlan = null; workoutKey = "local:$workoutId"; workoutDay = todayDate(); tab = 0
-            historyDay = null; loggerKey = null; editableKey = null
-        }
-    }) { id ->
+    if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
         pastePlan = false; selectedPlan = id; plansMenu = true
     }
     if (plansMenu) PlannedWorkoutsDialog(model, data, busy, selectedPlan, { selectedPlan = it }, { plansMenu = false; selectedPlan = null },
-        onPaste = { model.cancelPlanImport(); plansMenu = false; pastePlan = true }, onEdit = { id -> model.editSavedPlan(id) { plansMenu = false; pastePlan = true } }, onStart = { id ->
-            model.startPlan(id) { workoutId ->
-                plansMenu = false; selectedPlan = null; workoutKey = "local:$workoutId"; workoutDay = todayDate(); tab = 0
-                historyDay = null; loggerKey = null; editableKey = null
-            }
-        }, onOpenWorkout = { id ->
+        onPaste = { model.cancelPlanImport(); plansMenu = false; pastePlan = true },
+        onEdit = { id -> model.editSavedPlan(id) { plansMenu = false; pastePlan = true } },
+        onStart = { requestStart(it) }, onOpenWorkout = { id ->
             plansMenu = false; selectedPlan = null
             if (model.data.value.workouts.firstOrNull { it.workout.id == id }?.workout?.isComplete == true) openHistory("local:$id")
-            else { workoutKey = "local:$id"; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null }
+            else enterWorkout(id)
         })
     if (rangeMenu) ShareRangeDialog(data, { rangeMenu = false }) { shareText = it; rangeMenu = false }
     if (importMenu) AlertDialog(onDismissRequest = { importMenu = false }, title = { Text("Import history") }, text = {
