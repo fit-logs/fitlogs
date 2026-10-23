@@ -29,6 +29,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -45,6 +46,9 @@ ksp {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
+    testImplementation("androidx.work:work-testing:2.12.0")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation(libs.androidx.room.runtime)

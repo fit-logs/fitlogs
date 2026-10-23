@@ -202,7 +202,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text("Settings") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             TextButton(onClick = { settings = false; trainingSettings = true }) { Text("Training") }
-            TextButton(onClick = { settings = false; healthImport = true }) { Text("Health sync") }
+            TextButton(onClick = { settings = false; healthImport = true }) { Text("Garmin via Health Connect") }
             TextButton(onClick = { settings = false; importMenu = true }) { Text("Import history") }
             TextButton(onClick = { settings = false; backupMenu = true }) { Text("Backup and restore") }
             TextButton(onClick = { settings = false; library = true }) { Text("Exercise library") }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -12,14 +13,15 @@ import java.time.Instant
 import kotlin.reflect.KClass
 
 const val GARMIN_PACKAGE = "com.garmin.android.apps.connectmobile"
-const val HEALTH_ACCESS_CONTEXT = "Only data available in Health Connect can be read. Default history access begins 30 days before your first permission grant; this app requests no extended history or background access. An empty query does not prove no activity occurred or that Garmin has finished syncing."
+const val HEALTH_ACCESS_CONTEXT = "Only data available in Health Connect can be read. Default history access begins 30 days before your first permission grant; older history and background reads require separate optional permission. Garmin must publish records first. An empty query does not prove no activity occurred or that Garmin has finished syncing."
 fun isGarminOrigin(packageName: String) = packageName == GARMIN_PACKAGE
-data class HealthAccess(val exercise: Boolean, val heartRate: Boolean, val distance: Boolean) {
+data class HealthAccess(val exercise: Boolean, val heartRate: Boolean, val distance: Boolean, val history: Boolean = false, val background: Boolean = false,
+    val historySupported: Boolean = false, val backgroundSupported: Boolean = false) {
     val message get() = if (!exercise) "Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities."
         else buildList {
             if (!heartRate) add("Heart-rate permission is missing; activities can still be imported.")
             if (!distance) add("Distance permission is missing; activities can still be imported.")
-        }.joinToString("\n").ifBlank { "Read permissions granted. Data can be read while FitNotes is open." }
+        }.joinToString("\n").ifBlank { "Read permissions granted. Foreground reads are available. Background and older-history access are optional." }
 }
 @RequiresApi(28)
 class HealthConnectReader(private val context: Context, private val clientOverride: HealthConnectClient? = null) {
@@ -31,36 +33,53 @@ class HealthConnectReader(private val context: Context, private val clientOverri
     }
     private var heartCache: List<HeartRateRecord>? = null
     private var distanceCache: List<DistanceRecord>? = null
-    private val windowEnd = Instant.now()
-    private val windowStart = windowEnd.minusSeconds(30 * 86400L)
+    private var windowEnd = Instant.now()
+    private var windowStart = windowEnd.minusSeconds(30 * 86400L)
+    fun invalidateMetrics() { heartCache = null; distanceCache = null }
+    private fun includeWindow(start: Instant, end: Instant) {
+        if (start < windowStart || end > windowEnd) {
+            windowStart = minOf(start, windowStart); windowEnd = maxOf(end, windowEnd)
+            invalidateMetrics()
+        }
+    }
     private fun client() = clientOverride ?: HealthConnectClient.getOrCreate(context)
     suspend fun access(): HealthAccess {
         val granted = client().permissionController.getGrantedPermissions()
-        return HealthAccess(exercisePermission in granted, heartPermission in granted, distancePermission in granted)
+        fun supported(feature: Int) = client().features.getFeatureStatus(feature) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+        return HealthAccess(exercisePermission in granted, heartPermission in granted, distancePermission in granted,
+            HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY in granted, HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND in granted,
+            supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY), supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND))
     }
     private suspend fun <T : Record> read(type: KClass<T>, start: Instant, end: Instant): List<T> = collectHealthPages { token ->
         val page = client().readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = 500, pageToken = token))
         HealthPage(page.records, page.pageToken)
     }
     suspend fun sessions(start: Instant, end: Instant): List<HealthCandidate> {
-        require(access().exercise) { HealthAccess(false, false, false).message }
+        require(start < end) { "Choose a valid date range." }
+        val access = access()
+        require(access.exercise) { access.message }
+        // Without the separate history grant, never widen a successful exercise
+        // window past its accessible lower bound merely to look for batched HR.
+        includeWindow(if (access.history) start.minusSeconds(30 * 86400L) else start, end)
         return read(ExerciseSessionRecord::class, start, end).distinctBy { healthKey(it.metadata.dataOrigin.packageName, it.metadata.id) }
-            .map { record ->
-                val origin = record.metadata.dataOrigin.packageName
-                val source = runCatching { context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(origin, 0)).toString() }.getOrDefault(origin)
-                val m = record.metadata
-                HealthCandidate(HealthSession(healthKey(origin, m.id), null, m.id, origin, source,
-                    m.clientRecordId, m.clientRecordVersion, m.lastModifiedTime.toEpochMilli(), System.currentTimeMillis(),
-                    record.startTime.toEpochMilli(), record.endTime.toEpochMilli(), record.startZoneOffset?.totalSeconds,
-                    record.endZoneOffset?.totalSeconds, activityType(record.exerciseType), record.exerciseType,
-                    record.title.orEmpty(), record.notes.orEmpty(), null, "", "Not read yet", "Not read yet",
-                    device = listOfNotNull(m.device?.manufacturer, m.device?.model).joinToString(" ")))
-            }.sortedByDescending { it.session.start }
+            .map(::candidate).sortedByDescending { it.session.start }
+    }
+    fun candidate(record: ExerciseSessionRecord): HealthCandidate {
+        val origin = record.metadata.dataOrigin.packageName
+        val source = runCatching { context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(origin, 0)).toString() }.getOrDefault(origin)
+        val m = record.metadata
+        return HealthCandidate(HealthSession(healthKey(origin, m.id), null, m.id, origin, source,
+            m.clientRecordId, m.clientRecordVersion, m.lastModifiedTime.toEpochMilli(), System.currentTimeMillis(),
+            record.startTime.toEpochMilli(), record.endTime.toEpochMilli(), record.startZoneOffset?.totalSeconds,
+            record.endZoneOffset?.totalSeconds, activityType(record.exerciseType), record.exerciseType,
+            record.title.orEmpty(), record.notes.orEmpty(), null, "", "Not read yet", "Not read yet",
+            device = listOfNotNull(m.device?.manufacturer, m.device?.model).joinToString(" ")))
     }
     suspend fun enrich(candidate: HealthCandidate): HealthCandidate {
         val s = candidate.session; val access = access()
         require(access.exercise) { access.message }
         val end = Instant.ofEpochMilli(s.end)
+        includeWindow(Instant.ofEpochMilli(s.start).let { if (access.history) it.minusSeconds(30 * 86400L) else it }, end)
         // Read from the accessible lookback, then filter individual sample times.
         // This also captures batched records that begin before this session.
         val lower = windowStart
