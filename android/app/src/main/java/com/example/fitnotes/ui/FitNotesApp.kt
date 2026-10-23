@@ -82,6 +82,11 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var rangeMenu by remember { mutableStateOf(false) }
     var shareText by remember { mutableStateOf<String?>(null) }
     var askChatGpt by rememberSaveable { mutableStateOf(false) }
+    var programImport by rememberSaveable { mutableStateOf(false) }
+    var programsMenu by rememberSaveable { mutableStateOf(false) }
+    val programRequestVersion by model.programImportRequestVersion.collectAsState()
+    var handledProgramRequest by rememberSaveable { mutableLongStateOf(0L) }
+    LaunchedEffect(programRequestVersion) { if(programRequestVersion>handledProgramRequest){handledProgramRequest=programRequestVersion;programImport=true} }
     var pastePlan by rememberSaveable { mutableStateOf(false) }
     var plansMenu by rememberSaveable { mutableStateOf(false) }
     var selectedPlan by rememberSaveable { mutableStateOf<String?>(null) }
@@ -183,6 +188,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                         onDiscard = { discardActiveId = data.active?.workout?.id; discardForStart = false },
                         onPast = ::openPast, onDraft = { id -> enterWorkout(id) }, onEditTime = ::editTime, onResumeFinished = { id -> model.resumeFinishedWorkout(id) { enterWorkout(id) } }, onDiscardDraft = { discardPastId = it },
                         onProgramStart = { id -> model.startProgramDay(id) { enterWorkout(it) } },
+                        onImportProgram = { model.cancelProgramImport(); programImport = true },
                         onPlan = { selectedPlan = it; plansMenu = true }, onNew = { model.newPlan(); pastePlan = true },
                         onAsk = { askChatGpt = true }, onImport = { model.cancelPlanImport(); pastePlan = true })
                 }
@@ -267,6 +273,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
+    if(programImport) ProgramImportDialog(model,data,busy,{programImport=false}) { programImport=false;programsMenu=true }
+    if(programsMenu) ProgramsDialog(model,data,busy,{programsMenu=false},{id->programsMenu=false;model.startProgramDay(id){enterWorkout(it)}},{id->programsMenu=false;selectedPlan=id;plansMenu=true},importProgram={programsMenu=false;programImport=true})
     if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
         pastePlan = false; selectedPlan = id; plansMenu = true
     }

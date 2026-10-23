@@ -3,7 +3,7 @@
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 (API 24) or later. One app module, Compose Material UI, Room database.
 
-Current formats: Room 13, training backup v11, analysis JSON v5.
+Current formats: Room 14, training backup v12, analysis JSON v5.
 
 ## Use
 
@@ -510,7 +510,7 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the current v11 JSON format excludes all photo files and photo
+opens. With it off, the current v12 JSON format excludes all photo files and photo
 metadata and clearly says so. Versions 1–7 restore; JSON restoration leaves
 existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
 can explicitly attach selected JPEG copies; its Copy action remains text only.
@@ -554,3 +554,6 @@ The licence and notices are bundled under **More actions → Open-source notices
 
 Train now separates [programs and reusable templates](docs/programs-and-templates.md),
 with an explicit next-day cursor and completion/skip records.
+
+[Whole-program import](docs/portable-programs.md) supports offline JSON/text preview,
+explicit exercise resolution, atomic installation, and clear file/PDF/URL fallbacks.

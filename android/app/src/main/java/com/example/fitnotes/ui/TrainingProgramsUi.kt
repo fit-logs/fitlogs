@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
 import com.example.fitnotes.data.*
+import org.json.JSONObject
+import org.json.JSONArray
 
 @Composable
 fun ProgramNextCard(p: ProgramDetail?, data: AppData, sessions: List<ProgramSession>, busy: Boolean, start: () -> Unit, manage: (() -> Unit)?, complete: ((Long) -> Unit)? = null) {
@@ -87,12 +89,13 @@ fun TemplatesDialog(model: FitNotesViewModel,busy: Boolean,close: ()->Unit,open:
 }
 
 @Composable
-fun ProgramsDialog(model: FitNotesViewModel,data:AppData,busy:Boolean,close:()->Unit,start:(String)->Unit,edit:(String)->Unit) {
+fun ProgramsDialog(model: FitNotesViewModel,data:AppData,busy:Boolean,close:()->Unit,start:(String)->Unit,edit:(String)->Unit,importProgram:(()->Unit)?=null) {
     val programs by model.programs.collectAsState();val sessions by model.programSessions.collectAsState();val plans by model.plans.collectAsState();val error by model.programError.collectAsState()
     var creating by rememberSaveable{mutableStateOf(false)};var selected by rememberSaveable{mutableStateOf<String?>(null)};var skipping by rememberSaveable{mutableStateOf(false)};var date by rememberSaveable{mutableStateOf("")};var postponing by rememberSaveable{mutableStateOf(false)}
+    var editingIdentity by rememberSaveable{mutableStateOf(false)};var programTitle by rememberSaveable{mutableStateOf("")};var description by rememberSaveable{mutableStateOf("")}
     val p=programs.firstOrNull{it.program.id==selected}
     HandoffScreen(if(p==null)"My programs" else p.program.title,busy,{if(selected==null)close() else selected=null},"program-list",attention=error,footer={
-        if(p==null)TextButton(onClick={creating=true},enabled=!busy){Text("Build from templates")}
+        if(p==null) { TextButton(onClick={creating=true},enabled=!busy){Text("Build from templates")};if(importProgram!=null)TextButton(onClick=importProgram,enabled=!busy){Text("Import program")} }
         TextButton(onClick=close,enabled=!busy){Text("Close")}
     }) {
         error?.let{item{Text(it,color=MaterialTheme.colorScheme.error)}}
@@ -105,6 +108,15 @@ fun ProgramsDialog(model: FitNotesViewModel,data:AppData,busy:Boolean,close:()->
             }}}
         } else {
             item { Text(p.program.title,style=MaterialTheme.typography.headlineSmall);Text("${p.program.status} · ${p.progress}") }
+            item {
+                val metadata=p.program.definitionJson.takeIf{it.isNotBlank()}?.let(::JSONObject)
+                metadata?.optString("description")?.takeIf{it.isNotBlank()}?.let{Text(it)}
+                metadata?.let{root->for(key in listOf("goals","level","equipment","progression","schedule"))if(root.has(key) && programGuidanceText(root.get(key)).isNotBlank())Text("${key.replaceFirstChar{it.uppercase()}}: ${programGuidanceText(root.get(key))}")
+                    root.optJSONObject("source")?.let{source->for(key in listOf("title","url","author","attribution"))source.optString(key).takeIf{it.isNotBlank()}?.let{Text("Source $key: $it")}}
+                    Text("Imported definition ${p.program.definitionId} · ${p.program.definitionVersion}. Editable day prescriptions are local copies.",style=MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick={programTitle=p.program.title;description=metadata?.optString("description").orEmpty();editingIdentity=true},enabled=!busy){Text("Edit program details")}
+            }
             if(p.next!=null)item {
                 ProgramNextCard(p,data,sessions,busy,{close();start(p.program.id)},null)
                 FlowRow {
@@ -123,6 +135,7 @@ fun ProgramsDialog(model: FitNotesViewModel,data:AppData,busy:Boolean,close:()->
             }}}
         }
     }
+    if(editingIdentity && p!=null)AlertDialog(onDismissRequest={if(!busy)editingIdentity=false},title={Text("Edit program details")},text={Column(Modifier.verticalScroll(rememberScrollState())){OutlinedTextField(programTitle,{programTitle=it},label={Text("Program title")},modifier=Modifier.testTag("edit-program-title"));if(p.program.definitionJson.isNotBlank())OutlinedTextField(description,{description=it},label={Text("Description")});error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={model.editProgramIdentity(p.program.id,programTitle,description){editingIdentity=false}},enabled=!busy){Text("Save details")}},dismissButton={TextButton(onClick={editingIdentity=false},enabled=!busy){Text("Cancel")}})
     if(creating) ProgramBuilderDialog(model,plans.filter{plan->!plan.plan.archived && programs.flatMap{it.days}.none{it.day.planId==plan.plan.id}},busy){creating=false}
     if(skipping && p!=null)NotebookConfirm("Skip this program day?","The next day advances, with this day recorded as skipped. No performed workout is created or marked completed.","Skip day",busy,{skipping=false}){model.skipProgramDay(p.program.id);skipping=false}
     if(postponing && p!=null)AlertDialog(onDismissRequest={postponing=false},title={Text("Postpone next day")},text={Column{OutlinedTextField(date,{date=it},label={Text("Not before (YYYY-MM-DD)")},singleLine=true);Text("Leave blank to clear. This changes no completions or day order.");error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={model.postponeProgram(p.program.id,date);postponing=false},enabled=!busy){Text("Save date")}},dismissButton={TextButton(onClick={postponing=false}){Text("Cancel")}})
@@ -137,4 +150,12 @@ private fun ProgramBuilderDialog(model:FitNotesViewModel,templates:List<PlannedW
         if(templates.isEmpty())item{Text("Create or import a template first.")}
         items(templates,key={it.plan.id}){t->Surface(onClick={days=days+t.plan.id},enabled=!busy && days.size<14 && t.exercises.isNotEmpty(),shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.surfaceContainer,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("add-program-day:${t.plan.id}")){Text("Add day · ${t.plan.title}",Modifier.padding(12.dp),color=MaterialTheme.colorScheme.primary)}}
     }
+}
+
+// Imported structured guidance is displayed as readable text, never executed.
+internal fun programGuidanceText(value:Any?):String=when(value){
+    null,JSONObject.NULL -> ""
+    is JSONArray -> (0 until value.length()).joinToString(", "){programGuidanceText(value.get(it))}
+    is JSONObject -> value.keys().asSequence().toList().joinToString("\n"){key->key.replaceFirstChar{it.uppercase()}+": "+programGuidanceText(value.get(key))}
+    else -> value.toString()
 }

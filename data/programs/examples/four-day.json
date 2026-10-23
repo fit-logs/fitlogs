@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "example-four-day",
+  "programVersion": "1",
+  "name": "Synthetic four-day import example",
+  "description": "A parser fixture with intentionally unresolved exercise names; not a training recommendation.",
+  "weeks": 4,
+  "daysPerWeek": 4,
+  "goals": ["strength"],
+  "level": "example",
+  "equipment": ["barbell", "cable"],
+  "progression": "Review actual results before choosing future loads. No loads are supplied here.",
+  "source": {"title": "Original parser fixture", "url": "https://example.org/program", "author": "FitNotes project", "attribution": "Synthetic example; no third-party instructional material."},
+  "extensionExample": {"kept": true},
+  "days": [
+    {"id": "upper-a", "name": "Upper A", "durationMinutes": 40, "exercises": [
+      {"canonicalId": "bench-press", "name": "Flat bench", "sourceName": "Flat bench", "sets": 3, "reps": "8-12", "restSeconds": 90, "rir": 2, "loadMode": "external", "substitutions": ["Push-up (choose explicitly)"]},
+      {"canonicalId": "row-unspecified", "name": "Row", "sets": [{"repsMin": 8, "repsMax": 10, "restSeconds": 120, "rpe": 8, "loadMode": "external"}]}
+    ]},
+    {"id": "lower-a", "name": "Lower A", "exercises": [{"canonicalId": "squat", "name": "Squat", "sets": 3, "reps": "6-8", "restSeconds": 120, "loadMode": "external"}]},
+    {"id": "upper-b", "name": "Upper B", "exercises": [{"canonicalId": "bench-press", "name": "Bench Press", "sets": 2, "reps": 10, "loadMode": "external"}]},
+    {"id": "lower-b", "name": "Lower B", "exercises": [{"canonicalId": "custom-carry", "name": "Custom carry", "notes": "Choose the intended movement explicitly.", "sets": 2, "reps": 12, "loadMode": "reps_only"}]}
+  ]
+}

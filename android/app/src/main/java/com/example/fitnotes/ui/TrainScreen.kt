@@ -19,7 +19,7 @@ val LocalSettingsAction = staticCompositionLocalOf<() -> Unit> { {} }
 @Composable fun SettingsButton() { val open=LocalSettingsAction.current;IconButton(onClick=open){Icon(Icons.Filled.Settings,"Settings")} }
 
 @Composable
-fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onImport:()->Unit,onPast:()->Unit={},onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={},onProgramStart:(String)->Unit={}) {
+fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onImport:()->Unit,onPast:()->Unit={},onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={},onProgramStart:(String)->Unit={},onImportProgram:()->Unit={}) {
     var section by rememberSaveable { mutableStateOf("") }
     val programs by model.programs.collectAsState()
     val programSessions by model.programSessions.collectAsState()
@@ -76,7 +76,7 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
         }
     }
     if(section=="templates") TemplatesDialog(model,busy,{section=""},onPlan,onNew,onAsk,onImport)
-    if(section=="programs") ProgramsDialog(model,data,busy,{section=""},onProgramStart,onPlan)
-    if(section=="explore") AlertDialog(onDismissRequest={section=""},title={Text("Explore programs / Import")},text={Text("Build a multi-day program from your templates in My programs, or import and review a workout template. Targets stay separate from performed training.")},confirmButton={TextButton(onClick={section="programs"}){Text("My programs")}},dismissButton={TextButton(onClick={section="";onImport()}){Text("Import template")}})
+    if(section=="programs") ProgramsDialog(model,data,busy,{section=""},onProgramStart,onPlan,importProgram={section="";onImportProgram()})
+    if(section=="explore") AlertDialog(onDismissRequest={section=""},title={Text("Explore programs / Import")},text={Text("Paste a complete program, or build ordered workout days from your templates. Targets stay separate from performed training.")},confirmButton={TextButton(onClick={section="";onImportProgram()}){Text("Import program")}},dismissButton={TextButton(onClick={section="programs"}){Text("My programs")}})
 }
 fun planSubtitle(exercises:Int,minutes:Int)= "$exercises ${if(exercises==1) "exercise" else "exercises"}" + if(minutes>0) " · About $minutes min" else ""
