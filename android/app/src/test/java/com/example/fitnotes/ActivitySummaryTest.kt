@@ -99,7 +99,7 @@ class ActivitySummaryTest {
             assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
             WorkoutRepository(db).restore(backup)
             val actual = WorkoutRepository(db).backup(); assertEquals(listOf(s), actual.healthSessions)
-            val analysis = JSONObject(BackupCodec.analysis(actual)); assertEquals(10, analysis.getInt("backupSchemaVersion"))
+            val analysis = JSONObject(BackupCodec.analysis(actual)); assertEquals(13, analysis.getInt("backupSchemaVersion"))
             assertEquals(123.5, analysis.getJSONArray("healthSessions").getJSONObject(0).getDouble("elevationMeters"), 0.0)
             val text = rangeContext(AppData(workouts = listOf(detail(s))), "2026-10-23", "2026-10-23")!!
             assertEquals(1, Regex("FitNotes training context").findAll(text).count()); assertTrue(text.contains("6:00 min/km elapsed pace"))
@@ -128,7 +128,7 @@ class ActivitySummaryTest {
             }
             old.version = 9
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
         try {
             assertEquals("Keep title", db.dao().workout(1)!!.title)
             assertFalse(db.healthDao().session(source().key)!!.isSourceCreated)

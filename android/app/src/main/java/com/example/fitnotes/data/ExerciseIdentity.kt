@@ -40,7 +40,7 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
         val entries=db.dao().entries().filter{it.exerciseId in setOf(a,b)}; val ids=entries.map{it.id}.toSet()
         val plans=db.planDao().exercises().filter{it.exerciseId in setOf(a,b)}; val planIds=plans.map{it.id}.toSet()
         return planFingerprint(listOf(db.dao().exercise(a),db.dao().exercise(b),entries,db.dao().sets().filter{it.entryId in ids},plans,
-            db.planDao().sets().filter{it.plannedExerciseId in planIds},db.planDao().runTargets().filter{it.entryId in ids},dao.aliases(),dao.mappings(),dao.redirects(),dao.progression(),db.importedDao().sets()).joinToString("|"))
+            db.planDao().sets().filter{it.plannedExerciseId in planIds},db.planDao().runTargets().filter{it.entryId in ids},dao.aliases(),dao.mappings(),dao.redirects(),dao.progression(),db.loadDao().profiles(),db.loadDao().contexts(),db.loadDao().locks(),db.importedDao().sets()).joinToString("|"))
     }
     suspend fun preview(survivorId:Long,removedId:Long):ExerciseMergePreview {
         require(survivorId!=removedId) { "Choose two different exercises." }
@@ -75,6 +75,14 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
             if(planned.count{it.plannedExerciseId in pair.map{e->e.id}}>100) blockers.add("A combined plan would exceed 100 targets. Review its targets first.")
             if(mergedNote(pair.first().note,pair.first().sourceName,pair.last().note,pair.last().sourceName).length>2000) blockers.add("Combined plan guidance exceeds 2,000 characters. Review notes first.")
         }
+        val profiles=db.loadDao().profiles().filter{it.exerciseId in setOf(survivorId,removedId)}
+        // An exercise may assign unknown legacy history to only one reviewed
+        // setup. Combining two different assumptions would relabel that history.
+        if(profiles.filter{it.reviewedLegacy}.map{listOf(it.gym,it.equipment,it.basis,it.mode)}.distinct().size>1)
+            blockers.add("Load setups assign legacy history to different equipment. Turn off one legacy assumption before merging.")
+        profiles.groupBy{listOf(it.gym,it.equipment,it.basis,it.mode)}.values.filter{it.size>1}.forEach{group->
+            if(group.map{it.copy(id="",exerciseId=0,selected=false)}.distinct().size>1)blockers.add("Load setups have different increments/units/effort settings. Review them before merging.")
+        }
         if(sets.any{it.loadMode==LoadMode.UNKNOWN})warnings.add("Some recorded load modes are unknown. Confirm these names describe the same movement; no mode will be inferred.")
         if(dao.progression().count{it.exerciseId in setOf(survivorId,removedId)}>1) warnings.add("The surviving exercise's progression setting will be retained.")
         return ExerciseMergePreview(survivor,removed,entries.map{it.workoutId}.distinct().size,plans.map{it.planId}.distinct().size,sets.size,targets.size+planned.size,
@@ -85,6 +93,12 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
         val fresh=preview(a,b)
         require(fresh.fingerprint==preview.fingerprint) { "Exercise data changed. Review the merge again." }
         require(fresh.blockers.isEmpty()) { fresh.blockers.joinToString("\n") }
+        val loadProfiles=db.loadDao().profiles();val hasSelectedSurvivor=loadProfiles.any{it.exerciseId==a && it.selected}
+        loadProfiles.filter{it.exerciseId==b}.forEach{profile->
+            val duplicate=loadProfiles.firstOrNull{it.exerciseId==a && it.gym==profile.gym && it.equipment==profile.equipment && it.basis==profile.basis && it.mode==profile.mode}
+            if(duplicate==null)db.loadDao().putProfile(profile.copy(exerciseId=a,selected=profile.selected && !hasSelectedSurvivor))
+            else if(profile.selected && !hasSelectedSurvivor)db.loadDao().putProfile(duplicate.copy(selected=true))
+        }
         val aliases=dao.aliases();val importWorkouts=db.importedDao().workouts().associateBy{it.id}
         val sourceNames=(aliases.filter{it.exerciseId==b}.map{it.nameKey}+normaliseExerciseName(preview.removed.name)).toSet()
         db.importedDao().sets().filter{normaliseExerciseName(it.exercise) in sourceNames}.forEach { set ->
@@ -108,6 +122,7 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
                 db.planDao().runTargets().filter{it.entryId==source.id}.sortedBy{it.position}.forEachIndexed{index,t->dao.updateTarget(t.copy(entryId=destination.id,position=targetOffset+index))}
                 db.dao().entrySets(source.id).forEachIndexed{index,s->db.dao().updateSet(s.copy(entryId=destination.id,position=resultOffset+index))}
                 db.dao().updateEntry(destination.copy(planNote=mergedNote(destination.planNote,preview.survivor.name,source.planNote,preview.removed.name),supersetGroup=destination.supersetGroup.ifBlank{source.supersetGroup}))
+                if(db.loadDao().locks().any{it.entryId==source.id})db.loadDao().putLock(SessionLoadLock(destination.id))
                 db.dao().deleteEntry(source.id)
             }
             db.dao().workoutEntries(source.workoutId).forEachIndexed{index,e->db.dao().updateEntry(e.copy(position=index))}

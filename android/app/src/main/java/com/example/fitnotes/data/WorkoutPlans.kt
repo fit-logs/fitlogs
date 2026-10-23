@@ -81,16 +81,16 @@ val PLAN_MIGRATION_6_7 = object : Migration(6, 7) {
 
 data class ResolvedPlanExercise(val prescription: PlanPrescription, val exerciseId: Long? = null, val createName: String? = null, val supersetGroup: String = "")
 data class PlanPreview(val spec: PlanSpec, val resolutions: List<ResolvedPlanExercise>)
-data class EditableTarget(val key: String = UUID.randomUUID().toString(), val repsMin: String = "", val repsMax: String = "", val weight: String = "", val rest: String = "", val loadMode: String = LoadMode.UNKNOWN, val isWarmUp: Boolean = false) {
+data class EditableTarget(val key: String = UUID.randomUUID().toString(), val repsMin: String = "", val repsMax: String = "", val weight: String = "", val rest: String = "", val loadMode: String = LoadMode.UNKNOWN, val isWarmUp: Boolean = false, val rir:String="", val rpe:String="") {
     fun validated(name: String): PlanSetTarget = try {
         val low = if (repsMin.isBlank()) null else WorkoutPlanParser.positiveInteger(repsMin, WorkoutPlanParser.MAX_REPS, "Rep minimum")
         val high = if (repsMax.isBlank()) low else WorkoutPlanParser.positiveInteger(repsMax, WorkoutPlanParser.MAX_REPS, "Rep maximum")
         val seconds = if (rest.isBlank()) null else rest.trim().toIntOrNull().also { require(it != null && Regex("[0-9]+").matches(rest.trim())) { "Rest must be whole seconds." } }
-        PlanSetTarget(low, high, WorkoutPlanParser.parseWeight(weight), seconds, loadMode, isWarmUp).also { WorkoutPlanParser.validateSet(it, name) }
+        PlanSetTarget(low, high, WorkoutPlanParser.parseWeight(weight), seconds, loadMode, isWarmUp, optionalNonNegative(rir), optionalNonNegative(rpe)).also { WorkoutPlanParser.validateSet(it, name) }
     } catch (failure: IllegalArgumentException) { throw PlanParseException(null, "Set target", name, failure.message ?: "Check this set.") }
 }
 fun PlanSetTarget.editable() = EditableTarget(repsMin = repsMin?.toString().orEmpty(), repsMax = repsMax?.toString().orEmpty(),
-    weight = if (weight.unit == null) "" else if (weight.unit == "bodyweight") "bodyweight" else "${weight.value} ${weight.unit}", rest = restSeconds?.toString().orEmpty(), loadMode = loadMode, isWarmUp = isWarmUp)
+    weight = if (weight.unit == null) "" else if (weight.unit == "bodyweight") "bodyweight" else "${weight.value} ${weight.unit}", rest = restSeconds?.toString().orEmpty(), loadMode = loadMode, isWarmUp = isWarmUp, rir=rir?.let(::weightText).orEmpty(), rpe=rpe?.let(::weightText).orEmpty())
 data class EditablePlanExercise(val key: String, val sourceName: String, val targets: List<EditableTarget>, val note: String, val exerciseId: Long?, val createName: String? = null, val supersetGroup: String = "")
 data class EditablePlan(val title: String, val date: String, val minutes: String, val note: String, val fingerprint: String,
     val exercises: List<EditablePlanExercise>, val warmUp: String = "", val legacyGuidance: String = "", val editingId: String? = null, val recoveryWorkoutId: Long? = null) {
@@ -177,7 +177,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
         })
         dao.insertSets(preview.resolutions.flatMapIndexed { index, resolution -> resolution.prescription.setTargets.mapIndexed { position, target ->
             PlannedSet(plannedExerciseId = exerciseIds[index], position = position, repsMin = target.repsMin, repsMax = target.repsMax,
-                weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp)
+                weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp, rir=target.rir, rpe=target.rpe)
         } })
         if (recoveryId != null) local.deleteWorkout(recoveryId)
         PlanSaveResult.Saved(planId)
@@ -198,7 +198,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
         plan.ordered.forEachIndexed { index, exercise ->
             val entryId = database.dao().insertEntry(WorkoutExercise(workoutId = id, exerciseId = exercise.exercise.id, position = index, planNote = exercise.target.note, supersetGroup = exercise.target.supersetGroup))
             dao.insertRunTargets(exercise.sets.sortedBy { it.position }.map { target -> WorkoutSetTarget(entryId = entryId, position = target.position,
-                repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp) })
+                repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp, rir=target.rir, rpe=target.rpe) })
         }
         dao.markStarted(planId, id)
         id
@@ -222,7 +222,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
     suspend fun updateRunTarget(id: Long, target: PlanSetTarget) {
         WorkoutPlanParser.validateSet(target)
         val old = requireNotNull(dao.runTargets().firstOrNull { it.id == id }) { "Target no longer exists." }
-        dao.updateRunTarget(old.copy(repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp))
+        dao.updateRunTarget(old.copy(repsMin = target.repsMin, repsMax = target.repsMax, weightValue = target.weight.value, weightUnit = target.weight.unit, restSeconds = target.restSeconds, loadMode = target.loadMode, isWarmUp = target.isWarmUp, rir=target.rir, rpe=target.rpe))
     }
     suspend fun applyProgression(planId:String) = database.withTransaction {
 

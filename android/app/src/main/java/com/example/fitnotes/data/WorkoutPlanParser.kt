@@ -7,7 +7,7 @@ import java.util.Locale
 data class PlanWeight(val value: String?, val unit: String?) {
     val text: String get() = when (unit) { null -> "Unspecified"; "bodyweight" -> "Bodyweight"; else -> "$value $unit" }
 }
-data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanWeight = PlanWeight(null, null), val restSeconds: Int? = null, val loadMode: String = LoadMode.target(weight), val isWarmUp: Boolean = false) {
+data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanWeight = PlanWeight(null, null), val restSeconds: Int? = null, val loadMode: String = LoadMode.target(weight), val isWarmUp: Boolean = false, val rir: Double? = null, val rpe: Double? = null) {
     val repsText get() = when { repsMin == null -> "Unspecified"; repsMin == repsMax -> repsMin.toString(); else -> "$repsMin-$repsMax" }
     val text get():String {
         val load=when(loadMode) {
@@ -17,7 +17,7 @@ data class PlanSetTarget(val repsMin: Int?, val repsMax: Int?, val weight: PlanW
             LoadMode.UNKNOWN -> weight.text+(if(weight.unit!=null)" (mode unknown)" else "")
             else -> weight.text
         }
-        return "$repsText reps · $load"+(restSeconds?.let{" · rest $it s"}?:"")+(if(isWarmUp)" · warm-up" else "")
+        return "$repsText reps · $load"+(restSeconds?.let{" · rest $it s"}?:"")+(if(isWarmUp)" · warm-up" else "")+(rir?.let{" · RIR ${weightText(it)}"}.orEmpty())+(rpe?.let{" · RPE ${weightText(it)}"}.orEmpty())
     }
 }
 data class PlanPrescription(val name: String, val setTargets: List<PlanSetTarget>, val note: String = "")
@@ -98,6 +98,8 @@ object WorkoutPlanParser {
         require(target.loadMode in LoadMode.values) { "Choose a supported load mode for $name." }
         require(target.weight.unit != "bodyweight" || target.loadMode == LoadMode.BODYWEIGHT) { "Bodyweight unit requires bodyweight load mode." }
         require(target.loadMode != LoadMode.REPS_ONLY || target.weight.unit == null) { "Reps-only targets must omit weight." }
+        require(target.rir==null || target.rir.isFinite() && target.rir in 0.0..10.0) { "RIR must be 0–10 for $name." }
+        require(target.rpe==null || target.rpe.isFinite() && target.rpe in 1.0..10.0) { "RPE must be 1–10 for $name." }
         require(target.restSeconds == null || target.restSeconds in 0..3600) { "Rest must be 0–3,600 whole seconds for $name." }
     }
 

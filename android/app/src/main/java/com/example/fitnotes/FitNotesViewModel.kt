@@ -49,6 +49,15 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val programSessions = database.programDao().observeSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val programError = MutableStateFlow<String?>(null)
     private val training = TrainingRepository(database)
+    private val loadAdviceRepository=LoadAdviceRepository(database)
+    val loadProfiles=database.loadDao().observeProfiles().stateIn(viewModelScope,SharingStarted.Eagerly,emptyList())
+    val setLoadContexts=database.loadDao().observeContexts().stateIn(viewModelScope,SharingStarted.Eagerly,emptyList())
+    val sessionLoadLocks=database.loadDao().observeLocks().stateIn(viewModelScope,SharingStarted.Eagerly,emptyList())
+    val loadAdviceOpen=MutableStateFlow(false)
+    val loadAdviceRows=MutableStateFlow<List<ReviewedLoadAdvice>>(emptyList())
+    val loadAdviceError=MutableStateFlow<String?>(null)
+    private var loadAdvicePlan:String?=null
+    private var loadAdviceEntry:Long?=null
     private val identity = ExerciseIdentityRepository(database)
     val restController = RestTimerController(application, database)
     val restTimer = database.trainingDao().observeTimer().stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -151,12 +160,22 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         register?.invoke(job)
     }
 
-    fun applyPlanProgression(planId: String) = change("Progression suggestions applied.",failure={planImportError.value=it}) { planRepository.applyProgression(planId) }
-    fun completeTarget(id: Long, weight: String, reps: String, note: String, mode: String, done: () -> Unit) {
+    fun reviewPlanWeights(id:String) { if(busy.value)return;loadAdvicePlan=id;loadAdviceEntry=null;loadAdviceRows.value=emptyList();loadAdviceOpen.value=true;refreshLoadAdvice() }
+    fun reviewEntryWeights(id:Long) { if(busy.value)return;loadAdviceEntry=id;loadAdvicePlan=null;loadAdviceRows.value=emptyList();loadAdviceOpen.value=true;refreshLoadAdvice() }
+    private suspend fun readLoadAdvice(){loadAdviceRows.value=withContext(Dispatchers.Default){loadAdvicePlan?.let{loadAdviceRepository.plan(it)} ?: loadAdviceEntry?.let{listOf(loadAdviceRepository.entry(it))}.orEmpty()}}
+    fun refreshLoadAdvice()=change(null,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;readLoadAdvice()}
+    fun closeLoadAdvice(){if(!busy.value){loadAdviceOpen.value=false;loadAdviceError.value=null}}
+    fun useSuggestedLoads(value:ReviewedLoadAdvice,lock:Boolean)=change("Target weights updated. No performed sets saved.",failure={loadAdviceError.value=it}) {loadAdviceError.value=null;withContext(Dispatchers.Default){loadAdviceRepository.use(value,lock)};readLoadAdvice()}
+    fun changeTargetLoads(value:ReviewedLoadAdvice,weight:String,mode:String,lock:Boolean,done:()->Unit)=change("Target weights changed.",done,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;withContext(Dispatchers.Default){loadAdviceRepository.change(value,weight,mode,lock)};readLoadAdvice()}
+    fun saveLoadProfile(value:LoadProfile,done:()->Unit)=change(null,done,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;loadAdviceRepository.saveProfile(value);readLoadAdvice()}
+    fun selectLoadProfile(id:String,done:()->Unit={})=change(null,done,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;loadAdviceRepository.selectProfile(id);readLoadAdvice()}
+    fun lockSessionLoads(entryId:Long,locked:Boolean)=change(null,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;loadAdviceRepository.lock(entryId,locked);readLoadAdvice()}
+    fun applyPlanProgression(planId: String) = reviewPlanWeights(planId)
+    fun completeTarget(id: Long, weight: String, reps: String, note: String, mode: String, done: () -> Unit,actualRir:String?=null,actualRpe:String?=null) {
         if(busy.value||!completionReady.value)return
         completionReady.value=false
         viewModelScope.launch { kotlinx.coroutines.delay(1000);completionReady.value=true }
-        change(null, done) { if (training.complete(id,weight,reps,note,mode)) restController.afterCompletion(id) }
+        change(null, done) { if (training.complete(id,weight,reps,note,mode,actualRir,actualRpe)) restController.afterCompletion(id) }
     }
     fun skipTarget(id: Long, skipped: Boolean) = change(null) { training.skip(id,skipped) }
     fun undoTarget(id: Long) = change(null) { training.undo(id);restController.sync() }
@@ -328,9 +347,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         val all=withContext(Dispatchers.Default){observations(data.value.copy(workouts=data.value.workouts.filter{it.workout.id!=id}+fresh))}
         val current=all.firstOrNull{it.id=="local:$id"}
         if(current!=null) {
-            val run=database.planDao().runDetail(id)
-            val suggestions=run?.exercises.orEmpty().mapNotNull{e->doubleProgression(e.exercise.id,e.ordered,database.dao().entrySets(e.entry.id),database.trainingDao().progression().firstOrNull{it.exerciseId==e.exercise.id})}
-            completionSummary.value=(if(updated.activityType=="strength")StrengthStatistics.summary(current,all) else "${activityName(updated)} · ${localWorkoutDate(updated)}\nDuration: ${durationText(localDuration(updated))}${updated.effort?.let{"\nEffort: $it"}.orEmpty()}${updated.notes.takeIf{it.isNotBlank()}?.let{"\nNotes: $it"}.orEmpty()}")+suggestions.joinToString("",prefix=if(suggestions.isEmpty())"" else "\n\nProgression suggestions\n"){it.explanation+"\n"}
+            completionSummary.value=(if(updated.activityType=="strength")StrengthStatistics.summary(current,all) else "${activityName(updated)} · ${localWorkoutDate(updated)}\nDuration: ${durationText(localDuration(updated))}${updated.effort?.let{"\nEffort: $it"}.orEmpty()}${updated.notes.takeIf{it.isNotBlank()}?.let{"\nNotes: $it"}.orEmpty()}")
         }
     }
     fun repeat(id: Long, done: () -> Unit) = change("Exercise list repeated. No sets copied.", done) { repository.repeat(id) }
@@ -556,8 +573,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         notices.send(if (id == null) "Already imported; the deleted local session was not recreated." else "Activity saved. Local notes, sets and timing preserved.")
     }
     fun logStrength(entryId: Long, weight: String, reps: String, setId: Long?, comment: String, done: () -> Unit,
-        distance: String? = null, unit: String? = null, seconds: String? = null, loadMode: String? = null, isWarmUp: Boolean? = null) =
-        change(null, done) { repository.saveSet(entryId, weight, reps, setId, comment, distance, unit, seconds, loadMode=loadMode, isWarmUp=isWarmUp) }
+        distance: String? = null, unit: String? = null, seconds: String? = null, loadMode: String? = null, isWarmUp: Boolean? = null, actualRir:String?=null,actualRpe:String?=null) =
+        change(null, done) { repository.saveSet(entryId, weight, reps, setId, comment, distance, unit, seconds, loadMode=loadMode, isWarmUp=isWarmUp,actualRir=actualRir,actualRpe=actualRpe) }
     fun logCardio(entryId: Long, distance: String, unit: String, seconds: String, comment: String, setId: Long?, done: () -> Unit) =
         change(null, done) { repository.saveCardio(entryId, distance, unit, seconds, comment, setId) }
     fun logImported(workoutId: String, exercise: String, category: String, recordId: String?, weight: String, reps: String,
@@ -675,6 +692,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
             pendingRestore.value = null
             pendingPhotoRestore.value = null
             cancelProgramImportState()
+            loadAdviceOpen.value=false;loadAdviceRows.value=emptyList()
             done()
         }) {
             automaticHealthJob?.cancel()

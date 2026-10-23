@@ -125,7 +125,7 @@ class TrainingProgramTest {
             old.execSQL("INSERT INTO planned_workouts(id,title,scheduledDate,durationMinutes,notes,createdAt,sourceFingerprint) VALUES ('old','Keep template','',30,'Keep target',1000,'${"a".repeat(64)}')")
             old.version=12
         }
-        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build()
+        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
         assertEquals("Keep note",db.dao().workout(1)!!.notes);assertEquals(25.0,db.dao().sets().single().weightKg,0.0);assertFalse(db.planDao().detail("old")!!.plan.archived);assertFalse(db.planDao().detail("old")!!.plan.pinned);assertTrue(db.programDao().programs().isEmpty())
         db.close();context.deleteDatabase(name);Unit
     }

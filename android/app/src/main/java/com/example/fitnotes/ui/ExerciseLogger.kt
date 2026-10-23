@@ -2,6 +2,8 @@ package com.example.fitnotes.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,6 +60,10 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     val seed = exercise.sets.lastOrNull() ?: previous.firstOrNull()?.second?.sets?.lastOrNull()
     var currentTargetId by rememberSaveable { mutableStateOf(firstPending?.id) }
     var mode by rememberSaveable { mutableStateOf(firstPending?.loadMode ?: copiedTarget?.loadMode ?: seed?.local?.loadMode?.takeIf{it!=LoadMode.UNKNOWN} ?: LoadMode.EXTERNAL) }
+    val recordedContexts by model.setLoadContexts.collectAsState()
+    val loadProfiles by model.loadProfiles.collectAsState()
+    val loadProfile=loadProfiles.firstOrNull{it.exerciseId==exercise.canonicalId && it.selected}
+    var actualRir by rememberSaveable{mutableStateOf("")};var actualRpe by rememberSaveable{mutableStateOf("")};var effortEdited by rememberSaveable{mutableStateOf(false)};var showEffort by rememberSaveable{mutableStateOf(false)}
     var actualWarmUp by rememberSaveable { mutableStateOf(firstPending?.isWarmUp ?: false) }
     var completionCooldown by remember { mutableStateOf(false) }
     LaunchedEffect(completionCooldown) { if(completionCooldown) { kotlinx.coroutines.delay(1000);completionCooldown=false } }
@@ -80,22 +86,28 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     val focus = LocalFocusManager.current
     val listState = rememberLazyListState()
     val selectedRecord = exercise.sets.firstOrNull { it.key == selected }
-    fun storeDraft() { draft = arrayListOf(weight, reps, distance, seconds, unit, comment, cardio.toString(), mixed.toString(),mode,currentTargetId?.toString().orEmpty(),actualWarmUp.toString()) }
+    fun storeDraft() { draft = arrayListOf(weight, reps, distance, seconds, unit, comment, cardio.toString(), mixed.toString(),mode,currentTargetId?.toString().orEmpty(),actualWarmUp.toString(),actualRir,actualRpe,effortEdited.toString()) }
     fun cancelEdit() {
         selected = null
         if (draft.size >= 8) {
             weight = draft[0]; reps = draft[1]; distance = draft[2]; seconds = draft[3]; unit = draft[4]; comment = draft[5]
             cardio = draft[6].toBoolean(); mixed = draft[7].toBoolean()
             if(draft.size>=11){mode=draft[8];currentTargetId=draft[9].toLongOrNull();actualWarmUp=draft[10].toBoolean()}
+            if(draft.size>=14){actualRir=draft[11];actualRpe=draft[12];effortEdited=draft[13].toBoolean()} else {actualRir="";actualRpe="";effortEdited=false}
         }
         draft = arrayListOf()
     }
     fun choose(set: NotebookSet) {
         if (selected == null) storeDraft()
+        val context=set.local?.id?.let{id->recordedContexts.firstOrNull{it.setId==id}}
+        actualRir=context?.rir?.let(::weightText).orEmpty();actualRpe=context?.rpe?.let(::weightText).orEmpty();if(actualRir.isNotBlank() || actualRpe.isNotBlank())showEffort=true;effortEdited=false
         selected = set.key;actualWarmUp=set.local?.isWarmUp ?: false; mode = set.local?.loadMode ?: LoadMode.UNKNOWN; weight = set.weight?.let(::weightText) ?: ""; reps = set.reps?.toString() ?: ""
         distance = set.distance?.let(::weightText) ?: ""; seconds = set.seconds?.let(::weightText) ?: ""; unit = set.unit ?: "km"
         comment = set.comment; showComment = comment.isNotBlank(); cardio = set.cardio
         mixed = set.weight != null && (set.distance != null || set.seconds != null)
+    }
+    LaunchedEffect(selectedRecord?.local?.id,recordedContexts) {
+        if(selectedRecord?.local!=null && !effortEdited){val context=recordedContexts.firstOrNull{it.setId==selectedRecord.local.id};actualRir=context?.rir?.let(::weightText).orEmpty();actualRpe=context?.rpe?.let(::weightText).orEmpty()}
     }
     // History may arrive after the local workout. Fill an untouched draft once,
     // without overwriting a user's typing or an explicitly selected record.
@@ -141,6 +153,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     }
     val error = runCatching {
         if (!cardio) {
+            if(exercise.entryId!=null)validateEffort(optionalNonNegative(actualRir),optionalNonNegative(actualRpe))
             if (session.imported != null && reps.trim() == "0") { require(optionalNonNegative(weight) != null) { "Enter a weight." } }
             else InputRules.parseSet(if(mode==LoadMode.REPS_ONLY || (mode==LoadMode.UNKNOWN&&weight.isBlank()))"0" else weight, reps)
         }
@@ -158,7 +171,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
 
         val completedTarget=if(selectedRecord==null && !cardio)currentTargetId else null
         val done = {
-            if(selectedRecord!=null)cancelEdit() else { selected=null;draft=arrayListOf<String>() }; focus.clearFocus(); keyboard?.hide()
+            if(selectedRecord!=null)cancelEdit() else { selected=null;draft=arrayListOf<String>();actualRir="";actualRpe="";effortEdited=false }; focus.clearFocus(); keyboard?.hide()
             if(completedTarget!=null) {
                 val next=runExercise?.ordered?.firstOrNull{t->t.id!=completedTarget&&!t.skipped&&exercise.sets.none{it.local?.targetId==t.id}}
                 currentTargetId=next?.id;actualWarmUp=next?.isWarmUp ?: false;mode=next?.loadMode ?: LoadMode.EXTERNAL
@@ -169,10 +182,10 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
             Unit
         }
         if (exercise.entryId != null) {
-            if(completedTarget!=null && !mixed) model.completeTarget(completedTarget,weight,reps,comment,mode,done)
+            if(completedTarget!=null && !mixed) model.completeTarget(completedTarget,weight,reps,comment,mode,done,actualRir,actualRpe)
             else if (cardio) model.logCardio(exercise.entryId, distance, unit, seconds, comment, selectedRecord?.local?.id, done)
             else model.logStrength(exercise.entryId, weight, reps, selectedRecord?.local?.id, comment, done,
-                if (mixed) distance else null, unit, if (mixed) seconds else null, loadMode=mode,isWarmUp=actualWarmUp)
+                if (mixed) distance else null, unit, if (mixed) seconds else null, loadMode=mode,isWarmUp=actualWarmUp,actualRir=actualRir,actualRpe=actualRpe)
         } else model.logImported(session.imported!!.workout.id, exercise.sourceName ?: exercise.name, exercise.category, selectedRecord?.imported?.id,
             if (cardio) "" else weight, if (cardio) "" else reps, if (cardio || mixed) distance else "", unit,
             if (cardio || mixed) seconds else "", comment, done)
@@ -187,6 +200,18 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                     if(!cardio && session.local!=null) {
                         LoadModePicker(mode,{mode=it;userEdited=true},!busy)
                         Row { Checkbox(actualWarmUp,{actualWarmUp=it},enabled=!busy&&(currentTargetId==null||selectedRecord!=null));Text("Warm-up result",Modifier.padding(top=12.dp)) }
+                        if(exercise.entryId!=null) {
+                            TextButton(onClick={model.reviewEntryWeights(exercise.entryId)},enabled=!busy){Text("Suggested weight · Use / Change")}
+                            loadProfile?.let{p->Text("${p.gym} · ${p.equipment} · ${p.basis.replace('_',' ')}. Actual weight field uses kg.",style=MaterialTheme.typography.bodySmall)}
+                            TextButton(onClick={showEffort=!showEffort},enabled=!busy){Text(if(showEffort)"Hide RIR / RPE" else "Record RIR / RPE")}
+                            if(showEffort) {
+                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(actualRir,{actualRir=it;effortEdited=true},label={Text("Actual RIR (optional)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.weight(1f).testTag("actual-rir"),enabled=!busy)
+                                OutlinedTextField(actualRpe,{actualRpe=it;effortEdited=true},label={Text("Actual RPE (optional)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.weight(1f).testTag("actual-rpe"),enabled=!busy)
+                            }
+                            Text("Report actual spare reps, or RIR-based RPE (10 = none left). Blank stays unknown; a target is never copied here.",style=MaterialTheme.typography.bodySmall)
+                            }
+                        }
                         if(currentTargetId!=null && runExercise?.ordered?.firstOrNull{it.id==currentTargetId}?.weightUnit==null) Text("Target load is unspecified. Previous load may fill a draft only when its load mode is known and compatible. It remains editable and does not alter the target.",style=MaterialTheme.typography.bodySmall)
                     }
                     if (!cardio) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

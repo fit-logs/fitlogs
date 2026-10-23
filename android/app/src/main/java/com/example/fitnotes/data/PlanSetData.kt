@@ -9,8 +9,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 data class PlannedSet(@PrimaryKey(autoGenerate = true) val id: Long = 0, val plannedExerciseId: Long, val position: Int,
     val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?,
     @ColumnInfo(defaultValue = "'unknown'") val loadMode: String = LoadMode.target(PlanWeight(weightValue, weightUnit)),
-    @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false) {
-    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp)
+    @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false, val rir:Double?=null, val rpe:Double?=null) {
+    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp, rir, rpe)
 }
 @Entity(tableName = "workout_plan_runs", foreignKeys = [
     ForeignKey(entity = Workout::class, parentColumns = ["id"], childColumns = ["workoutId"], onDelete = ForeignKey.CASCADE),
@@ -22,8 +22,8 @@ data class WorkoutSetTarget(@PrimaryKey(autoGenerate = true) val id: Long = 0, v
     val repsMin: Int?, val repsMax: Int?, val weightValue: String?, val weightUnit: String?, val restSeconds: Int?,
     @ColumnInfo(defaultValue = "'unknown'") val loadMode: String = LoadMode.target(PlanWeight(weightValue, weightUnit)),
     @ColumnInfo(defaultValue = "0") val isWarmUp: Boolean = false,
-    @ColumnInfo(defaultValue = "0") val skipped: Boolean = false) {
-    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp)
+    @ColumnInfo(defaultValue = "0") val skipped: Boolean = false, val rir:Double?=null, val rpe:Double?=null) {
+    val target get() = PlanSetTarget(repsMin, repsMax, PlanWeight(weightValue, weightUnit), restSeconds, loadMode, isWarmUp, rir, rpe)
 }
 data class RunExerciseDetail(@Embedded val entry: WorkoutExercise,
     @Relation(parentColumn = "exerciseId", entityColumn = "id") val exercise: Exercise,

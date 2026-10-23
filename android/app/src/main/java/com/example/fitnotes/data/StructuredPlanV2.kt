@@ -37,7 +37,9 @@ internal object StructuredPlanV2 {
                                 }
                             PlanSetTarget(low, high, weight, integer(set, "restSeconds", optional = true),
                                 if (set.has("loadMode")) text(set, "loadMode", true) else LoadMode.target(weight),
-                                if (set.has("isWarmUp")) (set.get("isWarmUp") as? Boolean ?: throw IllegalArgumentException("isWarmUp must be boolean.")) else false).also { WorkoutPlanParser.validateSet(it, name) }
+                                if (set.has("isWarmUp")) (set.get("isWarmUp") as? Boolean ?: throw IllegalArgumentException("isWarmUp must be boolean.")) else false,
+                                if(set.has("rir"))set.get("rir").let{require(it is Number);it.toDouble()} else null,
+                                if(set.has("rpe"))set.get("rpe").let{require(it is Number);it.toDouble()} else null).also { WorkoutPlanParser.validateSet(it, name) }
                         } catch (failure: Exception) { throw PlanParseException(null, "Set ${position + 1}", name, failure.message ?: "Check this target.") }
                     }
                     PlanPrescription(name, targets, text(exercise, "note"))

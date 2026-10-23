@@ -30,7 +30,7 @@ data class ProgramImportDraft(val source: PortableProgram, val name: String, val
                     val t=previews[index].resolutions[eIndex].prescription.setTargets[position]
                     JSONObject(setMetadata[set.key] ?: "{}").put("repsMin",t.repsMin ?: JSONObject.NULL).put("repsMax",t.repsMax ?: JSONObject.NULL)
                         .put("weight",t.weight.value ?: JSONObject.NULL).put("unit",t.weight.unit ?: JSONObject.NULL).put("restSeconds",t.restSeconds ?: JSONObject.NULL)
-                        .put("loadMode",t.loadMode).put("isWarmUp",t.isWarmUp)
+                        .put("loadMode",t.loadMode).put("isWarmUp",t.isWarmUp).put("rir",t.rir ?: JSONObject.NULL).put("rpe",t.rpe ?: JSONObject.NULL)
                 }));row
             }));d
         }))
@@ -163,7 +163,7 @@ object PortableProgramParser {
             val exercises=(0 until rows.length()).map { j ->
                 val e=rows.getJSONObject(j);val key=UUID.randomUUID().toString();eMetadata[key]=e.toString()
                 val sets=e.getJSONArray("sets");val targets=(0 until sets.length()).map { k -> val s=sets.getJSONObject(k)
-                    val target=PlanSetTarget(if(s.isNull("repsMin"))null else s.getInt("repsMin"),if(s.isNull("repsMax"))null else s.getInt("repsMax"),PlanWeight(if(s.isNull("weight"))null else s.getString("weight"),if(s.isNull("unit"))null else s.getString("unit")),if(s.isNull("restSeconds"))null else s.getInt("restSeconds"),s.getString("loadMode"),s.getBoolean("isWarmUp")).editable()
+                    val target=PlanSetTarget(if(s.isNull("repsMin"))null else s.getInt("repsMin"),if(s.isNull("repsMax"))null else s.getInt("repsMax"),PlanWeight(if(s.isNull("weight"))null else s.getString("weight"),if(s.isNull("unit"))null else s.getString("unit")),if(s.isNull("restSeconds"))null else s.getInt("restSeconds"),s.getString("loadMode"),s.getBoolean("isWarmUp"),if(s.has("rir") && !s.isNull("rir"))s.getDouble("rir") else null,if(s.has("rpe") && !s.isNull("rpe"))s.getDouble("rpe") else null).editable()
                     sMetadata[target.key]=s.toString();target }
                 val match=matchPlanExercise(e.getString("name"),catalogue,incompatible,aliasMap(aliases))
                 EditablePlanExercise(key,e.getString("name"),targets,e.getString("notes"),match.candidates.singleOrNull()?.id?.takeIf{match.kind in setOf(ExerciseMatchKind.EXACT,ExerciseMatchKind.ALIAS)})

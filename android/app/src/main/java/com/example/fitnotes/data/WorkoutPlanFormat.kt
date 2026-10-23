@@ -4,7 +4,7 @@ package com.example.fitnotes.data
 object WorkoutPlanFormat {
     val rootFields=setOf("title","date","durationMinutes","note","warmUp","exercises")
     val exerciseFields=setOf("name","note","sets")
-    val setFields=setOf("repsMin","repsMax","weight","unit","restSeconds","loadMode","isWarmUp")
+    val setFields=setOf("repsMin","repsMax","weight","unit","restSeconds","loadMode","isWarmUp","rir","rpe")
     fun example(date:String)="""
         WORKOUT_PLAN_V2
         {

@@ -8,17 +8,17 @@ internal object PlanSetBackupJson {
         JSONObject().put("id", id).put(parentName, parent).put("position", position).put("repsMin", min ?: JSONObject.NULL).put("repsMax", max ?: JSONObject.NULL)
             .put("weightValue", weight ?: JSONObject.NULL).put("weightUnit", unit ?: JSONObject.NULL).put("restSeconds", rest ?: JSONObject.NULL)
     fun add(root: JSONObject, backup: Backup) {
-        root.put("plannedSets", JSONArray().also { rows -> backup.plannedSets.forEach { rows.put(row(it.id, it.plannedExerciseId, "plannedExerciseId", it.position, it.repsMin, it.repsMax, it.weightValue, it.weightUnit, it.restSeconds).also { row -> if (backup.version >= 7) row.put("loadMode", it.loadMode).put("isWarmUp", it.isWarmUp) }) } })
-        root.put("runTargets", JSONArray().also { rows -> backup.runTargets.forEach { rows.put(row(it.id, it.entryId, "entryId", it.position, it.repsMin, it.repsMax, it.weightValue, it.weightUnit, it.restSeconds).also { row -> if (backup.version >= 7) row.put("loadMode", it.loadMode).put("isWarmUp", it.isWarmUp).put("skipped", it.skipped) }) } })
+        root.put("plannedSets", JSONArray().also { rows -> backup.plannedSets.forEach { rows.put(row(it.id, it.plannedExerciseId, "plannedExerciseId", it.position, it.repsMin, it.repsMax, it.weightValue, it.weightUnit, it.restSeconds).also { row -> if(backup.version>=13)row.put("rir",it.rir ?: JSONObject.NULL).put("rpe",it.rpe ?: JSONObject.NULL); if (backup.version >= 7) row.put("loadMode", it.loadMode).put("isWarmUp", it.isWarmUp) }) } })
+        root.put("runTargets", JSONArray().also { rows -> backup.runTargets.forEach { rows.put(row(it.id, it.entryId, "entryId", it.position, it.repsMin, it.repsMax, it.weightValue, it.weightUnit, it.restSeconds).also { row -> if(backup.version>=13)row.put("rir",it.rir ?: JSONObject.NULL).put("rpe",it.rpe ?: JSONObject.NULL); if (backup.version >= 7) row.put("loadMode", it.loadMode).put("isWarmUp", it.isWarmUp).put("skipped", it.skipped) }) } })
         root.put("planRuns", JSONArray().also { rows -> backup.planRuns.forEach { rows.put(JSONObject().put("workoutId", it.workoutId).put("planId", it.planId ?: JSONObject.NULL).put("title", it.title).put("warmUp", it.warmUp).put("legacyGuidance", it.legacyGuidance)) } })
     }
     fun sets(root: JSONObject, version: Int) = objects(root, "plannedSets").map { o ->
-        keys(o, targetKeys + "plannedExerciseId" + if (version >= 7) setOf("loadMode", "isWarmUp") else emptySet())
-        PlannedSet(long(o, "id"), long(o, "plannedExerciseId"), int(o, "position"), optionalInt(o, "repsMin"), optionalInt(o, "repsMax"), optionalText(o, "weightValue"), optionalText(o, "weightUnit"), optionalInt(o, "restSeconds"), if (version >= 7) text(o, "loadMode") else LoadMode.target(PlanWeight(optionalText(o, "weightValue"), optionalText(o, "weightUnit"))), if (version >= 7) boolean(o, "isWarmUp") else false)
+        keys(o, targetKeys + "plannedExerciseId" + (if (version >= 7) setOf("loadMode", "isWarmUp") else emptySet()) + (if(version>=13)setOf("rir","rpe") else emptySet()))
+        PlannedSet(long(o, "id"), long(o, "plannedExerciseId"), int(o, "position"), optionalInt(o, "repsMin"), optionalInt(o, "repsMax"), optionalText(o, "weightValue"), optionalText(o, "weightUnit"), optionalInt(o, "restSeconds"), if (version >= 7) text(o, "loadMode") else LoadMode.target(PlanWeight(optionalText(o, "weightValue"), optionalText(o, "weightUnit"))), if (version >= 7) boolean(o, "isWarmUp") else false,if(version>=13)optionalNumber(o,"rir") else null,if(version>=13)optionalNumber(o,"rpe") else null)
     }
     fun targets(root: JSONObject, version: Int) = objects(root, "runTargets").map { o ->
-        keys(o, targetKeys + "entryId" + if (version >= 7) setOf("loadMode", "isWarmUp", "skipped") else emptySet())
-        WorkoutSetTarget(long(o, "id"), long(o, "entryId"), int(o, "position"), optionalInt(o, "repsMin"), optionalInt(o, "repsMax"), optionalText(o, "weightValue"), optionalText(o, "weightUnit"), optionalInt(o, "restSeconds"), if (version >= 7) text(o, "loadMode") else LoadMode.target(PlanWeight(optionalText(o, "weightValue"), optionalText(o, "weightUnit"))), if (version >= 7) boolean(o, "isWarmUp") else false, if (version >= 7) boolean(o, "skipped") else false)
+        keys(o, targetKeys + "entryId" + (if (version >= 7) setOf("loadMode", "isWarmUp", "skipped") else emptySet()) + (if(version>=13)setOf("rir","rpe") else emptySet()))
+        WorkoutSetTarget(long(o, "id"), long(o, "entryId"), int(o, "position"), optionalInt(o, "repsMin"), optionalInt(o, "repsMax"), optionalText(o, "weightValue"), optionalText(o, "weightUnit"), optionalInt(o, "restSeconds"), if (version >= 7) text(o, "loadMode") else LoadMode.target(PlanWeight(optionalText(o, "weightValue"), optionalText(o, "weightUnit"))), if (version >= 7) boolean(o, "isWarmUp") else false, if (version >= 7) boolean(o, "skipped") else false,if(version>=13)optionalNumber(o,"rir") else null,if(version>=13)optionalNumber(o,"rpe") else null)
     }
     fun runs(root: JSONObject) = objects(root, "planRuns").map { o ->
         keys(o, setOf("workoutId", "planId", "title", "warmUp", "legacyGuidance"))
@@ -28,6 +28,7 @@ internal object PlanSetBackupJson {
     private fun keys(o: JSONObject, fields: Set<String>) { require(o.keys().asSequence().toSet() == fields) { "Invalid per-set target backup fields." } }
     private fun long(o: JSONObject, field: String): Long { val v = o.get(field); require(v is Int || v is Long) { "$field must be a whole number." }; return (v as Number).toLong() }
     private fun int(o: JSONObject, field: String): Int { val v = long(o, field); require(v in Int.MIN_VALUE..Int.MAX_VALUE); return v.toInt() }
+    private fun optionalNumber(o:JSONObject,field:String):Double?=if(o.isNull(field))null else (o.get(field) as? Number)?.toDouble() ?: throw IllegalArgumentException("$field must be numeric.")
     private fun optionalInt(o: JSONObject, field: String) = if (o.isNull(field)) null else int(o, field)
     private fun boolean(o: JSONObject, field: String) = (o.get(field) as? Boolean) ?: throw IllegalArgumentException("$field must be boolean.")
     private fun text(o: JSONObject, field: String) = (o.get(field) as? String) ?: throw IllegalArgumentException("$field must be text.")
@@ -36,6 +37,7 @@ internal object PlanSetBackupJson {
 }
 
 fun validatePlanSetBackup(backup: Backup) {
+    if(backup.version<13)require(backup.plannedSets.all{it.rir==null && it.rpe==null} && backup.runTargets.all{it.rir==null && it.rpe==null}) { "Target effort metadata needs backup version 13." }
     if (backup.version < 6) {
         require(backup.plannedSets.isEmpty() && backup.planRuns.isEmpty() && backup.runTargets.isEmpty() && backup.entries.all { it.planNote.isEmpty() } &&
             backup.plannedWorkouts.all { it.warmUp.isEmpty() && it.legacyGuidance.isEmpty() }) { "Per-set targets require backup version 6." }
