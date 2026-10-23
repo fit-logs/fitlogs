@@ -48,9 +48,9 @@ fun activitySummary(detail: WorkoutDetail): ActivitySummary {
     val w = detail.workout; val primary = preferredActivitySource(detail.health); val source = primary?.session
     // Explicit local timing always wins. Missing local time alone never makes a
     // legacy/attached workout source-owned; only persisted provenance can do so.
-    val useSource = source?.isSourceCreated == true && w.knownStart == null
+    val useSource = source?.isSourceCreated == true && w.knownStart == null && !w.timingEdited
     val localSeconds = localDuration(w)
-    val seconds = localSeconds ?: source?.let { (it.end - it.start) / 1000.0 }
+    val seconds = if (w.timingEdited && w.durationUnknown) null else localSeconds ?: source?.let { (it.end - it.start) / 1000.0 }
     val localMeters = distanceInMeters(w.distance, w.distanceUnit)
     val meters = localMeters ?: source?.distanceMeters
     val sport = if (w.activityType == "other" && w.activityLabel.isNotBlank() && source?.isSourceCreated != true) w.activityLabel
@@ -60,9 +60,10 @@ fun activitySummary(detail: WorkoutDetail): ActivitySummary {
     val end = w.completedAt ?: if (useSource) source?.end else null
     val time = when { useSource -> sourceTime(source!!.start, source.startOffsetSeconds, "HH:mm XXX") + " · source"
         start != null -> sourceTime(start, null, "HH:mm")
+        end != null -> "End " + sourceTime(end, null, "HH:mm") + " · start unknown"
         else -> "Date-only" }
     return ActivitySummary(w.title.ifBlank { source?.title.orEmpty() }, sport, date, start, end, time, useSource, seconds,
-        if (localSeconds == null && source != null) "Source elapsed interval" else if (w.sessionDate.isNotBlank()) "Reported duration" else "Local elapsed time",
+        if (w.timingEdited && w.durationUnknown) "Duration left unknown" else if (localSeconds == null && source != null) "Source elapsed interval" else if (w.sessionDate.isNotBlank()) "Reported duration" else "Local elapsed time",
         meters, if (localMeters != null) weightText(w.distance!!) + " " + w.distanceUnit else source?.distanceMeters?.let { weightText(it / 1000) + " km" },
         if (localMeters != null) "Local distance" else source?.distanceOrigins?.takeIf { it.isNotBlank() }, primary)
 }

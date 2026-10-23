@@ -34,7 +34,7 @@ data class NotebookSession(val key: String, val date: String, val title: String,
     val activityTitle get() = summary?.sport ?: "Strength training"
     val duration get() = summary?.seconds
     val count get() = exercises.sumOf { it.sets.size }
-    val dateOnly get() = if (local != null) summary?.start == null else imported != null && imported.workout.recordedStart == null
+    val dateOnly get() = if (local != null) summary?.start == null && summary?.end == null else imported != null && imported.workout.recordedStart == null
     val startedMillis get() = summary?.start ?: recordedMillis(imported?.workout?.recordedStart)
     val completedMillis get() = summary?.end ?: recordedMillis(imported?.workout?.recordedEnd)
     val timeLabel get() = if (dateOnly) "Date-only" else if (local != null) summary!!.timeLabel
@@ -50,11 +50,11 @@ private fun recordedMillis(raw: String?): Long? {
 // This ordering is for display only; unknown within-day times remain unknown.
 fun sortNotebookSessions(sessions: List<NotebookSession>): List<NotebookSession> =
     sessions.sortedWith(compareByDescending<NotebookSession> { it.date }
-        .thenByDescending { it.startedMillis ?: 0L }.thenBy { it.key })
+        .thenByDescending { it.startedMillis ?: it.completedMillis ?: 0L }.thenBy { it.key })
 
-fun notebookSessions(data: AppData): List<NotebookSession> {
+fun notebookSessions(data: AppData, includeDrafts: Boolean = false): List<NotebookSession> {
     val identity = ExerciseIdentityIndex(data)
-    val locals = data.workouts.map { d ->
+    val locals = data.workouts.filter { includeDrafts || !it.workout.historicalDraft }.map { d ->
         NotebookSession("local:" + d.workout.id, activitySummary(d).date, activitySummary(d).title, d.workout.notes, d.workout.isComplete,
             local = d, exercises = orderedEntries(d).map { e -> NotebookExercise("entry:" + e.entry.id, e.exercise.name, entryId = e.entry.id,
                 sets = orderedSets(e).map { s -> NotebookSet("set:" + s.id, if (s.reps > 0 && s.weightSpecified) s.weightKg else null, if (s.reps > 0) s.reps else null,

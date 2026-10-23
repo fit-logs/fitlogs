@@ -126,7 +126,7 @@ class SourceMatchIndex(workouts: List<Workout>, known: List<HealthSession>) {
     private val byStart = java.util.TreeMap<Long, MutableList<Fact>>()
     private val sources = mutableMapOf<String, Fact>()
     init {
-        workouts.forEach { w -> if (w.knownStart != null && w.completedAt != null) {
+        workouts.forEach { w -> if (!w.historicalDraft && w.knownStart != null && w.completedAt != null) {
             val fact = Fact("local:${w.id}", w.startedAt, w.completedAt, w.activityType, distanceInMeters(w.distance, w.distanceUnit), activityName(w), workout = w)
             byStart.getOrPut(fact.start) { mutableListOf() }.add(fact)
         } }

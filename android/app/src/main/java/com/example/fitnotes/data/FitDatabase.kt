@@ -28,11 +28,24 @@ data class Workout(
     val effort: String? = null,
     val distance: Double? = null,
     val distanceUnit: String? = null,
+    val lastActionAt: Long? = null,
+    val autoFinishedAt: Long? = null,
+    @ColumnInfo(defaultValue = "0") val timingEdited: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val timingEstimated: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val durationUnknown: Boolean = false,
+    @ColumnInfo(defaultValue = "''") val timingNote: String = "",
+    @ColumnInfo(defaultValue = "1") val autoFinishAcknowledged: Boolean = true,
+    val resumeStartedAt: Long? = null,
+    val resumeBaseSeconds: Double? = null,
+    val staleSuppressedUntil: Long? = null,
+    @ColumnInfo(defaultValue = "0") val historicalDraft: Boolean = false,
+    @ColumnInfo(defaultValue = "''") val draftSourceKey: String = "",
+
 ) {
     // Legacy startedAt remains the persisted timer. Zero explicitly means unknown;
     // date-only activities carry sessionDate and never manufacture midnight.
     val knownStart: Long? get() = startedAt.takeIf { it > 0 }
-    val isComplete: Boolean get() = finished || completedAt != null
+    val isComplete: Boolean get() = !historicalDraft && (finished || completedAt != null)
 }
 
 @Entity(
@@ -89,13 +102,16 @@ data class WorkoutDetail(
 @Dao
 interface FitDao {
     @Query("SELECT * FROM exercises ORDER BY nameKey") fun observeExercises(): Flow<List<Exercise>>
-    @Transaction @Query("SELECT * FROM workouts ORDER BY startedAt DESC, id DESC")
+    @Transaction @Query("SELECT * FROM workouts WHERE historicalDraft = 0 ORDER BY startedAt DESC, id DESC")
     fun observeWorkouts(): Flow<List<WorkoutDetail>>
+    @Transaction @Query("SELECT * FROM workouts WHERE historicalDraft = 1 ORDER BY id DESC")
+    fun observePastDrafts(): Flow<List<WorkoutDetail>>
     @Query("SELECT * FROM exercises ORDER BY id") suspend fun exercises(): List<Exercise>
     @Query("SELECT * FROM workouts ORDER BY id") suspend fun workouts(): List<Workout>
     @Query("SELECT * FROM workout_exercises ORDER BY position, id") suspend fun entries(): List<WorkoutExercise>
     @Query("SELECT * FROM workout_sets ORDER BY position, id") suspend fun sets(): List<WorkoutSet>
-    @Query("SELECT * FROM workouts WHERE completedAt IS NULL AND finished = 0 LIMIT 1") suspend fun active(): Workout?
+    @Query("SELECT * FROM workouts WHERE completedAt IS NULL AND finished = 0 AND historicalDraft = 0 LIMIT 1") suspend fun active(): Workout?
+    @Query("UPDATE workouts SET lastActionAt = :now WHERE id = :id AND historicalDraft = 0 AND finished = 0 AND completedAt IS NULL") suspend fun touchWorkout(id: Long, now: Long)
     @Query("SELECT * FROM workouts WHERE id = :id") suspend fun workout(id: Long): Workout?
     @Query("SELECT * FROM exercises WHERE id = :id") suspend fun exercise(id: Long): Exercise?
     @Query("SELECT * FROM exercises WHERE nameKey = :key LIMIT 1") suspend fun exerciseByKey(key: String): Exercise?
@@ -132,7 +148,7 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 11, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 12, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
@@ -145,7 +161,7 @@ abstract class FitDatabase : RoomDatabase() {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
                 .enableMultiInstanceInvalidation()
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.

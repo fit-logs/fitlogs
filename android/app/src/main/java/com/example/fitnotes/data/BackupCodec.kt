@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 9,
+    val version: Int = 10,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -38,12 +38,21 @@ object BackupCodec {
             backup.exercises.forEach { array.put(JSONObject().put("id", it.id).put("name", it.name).put("nameKey", it.nameKey)) }
         })
         root.put("workouts", JSONArray().also { array ->
-            backup.workouts.forEach {
+            if (backup.version < 10) require(backup.workouts.all { it.lastActionAt == null && it.autoFinishedAt == null && !it.timingEdited && !it.timingEstimated && !it.durationUnknown && it.timingNote.isEmpty() && it.autoFinishAcknowledged && it.resumeStartedAt == null && it.resumeBaseSeconds == null && it.staleSuppressedUntil == null && !it.historicalDraft && it.draftSourceKey.isEmpty() && !(it.startedAt == 0L && it.completedAt != null) }) { "Workout lifecycle metadata needs backup version 10." }
+        backup.workouts.forEach {
+            require(listOfNotNull(it.lastActionAt, it.autoFinishedAt, it.resumeStartedAt, it.staleSuppressedUntil).all { time -> time > 0 } && it.timingNote.length <= 2000 && it.draftSourceKey.length <= 256) { "Invalid workout lifecycle metadata." }
+            require(it.resumeBaseSeconds == null || (it.resumeBaseSeconds.isFinite() && it.resumeBaseSeconds >= 0)) { "Invalid resumed duration." }
+            require(!it.historicalDraft || it.finished) { "A historical draft cannot run a live timer." }
                 array.put(JSONObject().put("id", it.id).put("startedAt", it.startedAt)
                     .put("completedAt", it.completedAt ?: JSONObject.NULL).put("title", it.title).put("notes", it.notes).also { record ->
                         if (backup.version >= 4) record.put("activityType", it.activityType).put("activityLabel", it.activityLabel)
                             .put("sessionDate", it.sessionDate).put("finished", it.finished).put("durationSeconds", it.durationSeconds ?: JSONObject.NULL)
                             .put("effort", it.effort ?: JSONObject.NULL).put("distance", it.distance ?: JSONObject.NULL).put("distanceUnit", it.distanceUnit ?: JSONObject.NULL)
+                        if (backup.version >= 10) record.put("lastActionAt", it.lastActionAt ?: JSONObject.NULL).put("autoFinishedAt", it.autoFinishedAt ?: JSONObject.NULL)
+                            .put("timingEdited", it.timingEdited).put("timingEstimated", it.timingEstimated).put("durationUnknown", it.durationUnknown).put("timingNote", it.timingNote)
+                            .put("autoFinishAcknowledged", it.autoFinishAcknowledged).put("resumeStartedAt", it.resumeStartedAt ?: JSONObject.NULL)
+                            .put("resumeBaseSeconds", it.resumeBaseSeconds ?: JSONObject.NULL).put("staleSuppressedUntil", it.staleSuppressedUntil ?: JSONObject.NULL)
+                            .put("historicalDraft", it.historicalDraft).put("draftSourceKey", it.draftSourceKey)
                     })
             }
         })
@@ -101,7 +110,7 @@ object BackupCodec {
             val root = JSONObject(text)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..9) { "Unsupported backup version." }
+            require(version in 1..10) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
@@ -118,12 +127,18 @@ object BackupCodec {
                 },
                 workouts = root.objects("workouts", 100000).map {
                     if (version < 4) it.keysExactly("id", "startedAt", "completedAt", "title", "notes")
-                    else it.keysExactly("id", "startedAt", "completedAt", "title", "notes", "activityType", "activityLabel", "sessionDate", "finished", "durationSeconds", "effort", "distance", "distanceUnit")
+                    else it.keysExactly("id", "startedAt", "completedAt", "title", "notes", "activityType", "activityLabel", "sessionDate", "finished", "durationSeconds", "effort", "distance", "distanceUnit", *if (version >= 10) arrayOf("lastActionAt", "autoFinishedAt", "timingEdited", "timingEstimated", "durationUnknown", "timingNote", "autoFinishAcknowledged", "resumeStartedAt", "resumeBaseSeconds", "staleSuppressedUntil", "historicalDraft", "draftSourceKey") else emptyArray())
                     Workout(it.long("id"), it.long("startedAt"), if (it.isNull("completedAt")) null else it.long("completedAt"), it.string("title"), it.string("notes"),
                         if (version < 4) "strength" else it.string("activityType"), if (version < 4) "" else it.string("activityLabel"),
                         if (version < 4) "" else it.string("sessionDate"), if (version < 4) false else it.get("finished").also { value -> require(value is Boolean) }.let { value -> value as Boolean },
                         if (version < 4) null else it.optionalNumber("durationSeconds"), if (version < 4 || it.isNull("effort")) null else it.string("effort"),
-                        if (version < 4) null else it.optionalNumber("distance"), if (version < 4 || it.isNull("distanceUnit")) null else it.string("distanceUnit"))
+                        if (version < 4) null else it.optionalNumber("distance"), if (version < 4 || it.isNull("distanceUnit")) null else it.string("distanceUnit"),
+                        if (version < 10 || it.isNull("lastActionAt")) null else it.long("lastActionAt"),
+                        if (version < 10 || it.isNull("autoFinishedAt")) null else it.long("autoFinishedAt"),
+                        version >= 10 && it.bool("timingEdited"), version >= 10 && it.bool("timingEstimated"), version >= 10 && it.bool("durationUnknown"), if (version < 10) "" else it.string("timingNote"),
+                        version < 10 || it.bool("autoFinishAcknowledged"), if (version < 10 || it.isNull("resumeStartedAt")) null else it.long("resumeStartedAt"),
+                        if (version < 10) null else it.optionalNumber("resumeBaseSeconds"), if (version < 10 || it.isNull("staleSuppressedUntil")) null else it.long("staleSuppressedUntil"),
+                        version >= 10 && it.bool("historicalDraft"), if (version < 10) "" else it.string("draftSourceKey"))
                 },
                 entries = root.objects("entries", 200000).map {
                     if (version < 6) it.keysExactly("id", "workoutId", "exerciseId", "position") else it.keysExactly("id", "workoutId", "exerciseId", "position", "planNote", *if (version >= 7) arrayOf("supersetGroup") else emptyArray())
@@ -189,7 +204,7 @@ object BackupCodec {
     }
 
     fun validate(backup: Backup) {
-        require(backup.version in 1..9) { "Unsupported backup version." }
+        require(backup.version in 1..10) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
@@ -210,9 +225,13 @@ object BackupCodec {
         backup.exercises.forEach {
             require(InputRules.exerciseName(it.name) == it.name && it.nameKey == it.name.lowercase(Locale.ROOT)) { "Invalid exercise name." }
         }
-        require(backup.workouts.count { !it.isComplete } <= 1) { "Backup contains multiple unfinished sessions." }
+        require(backup.workouts.count { !it.isComplete && !it.historicalDraft } <= 1) { "Backup contains multiple unfinished sessions." }
+        if (backup.version < 10) require(backup.workouts.all { it.lastActionAt == null && it.autoFinishedAt == null && !it.timingEdited && !it.timingEstimated && !it.durationUnknown && it.timingNote.isEmpty() && it.autoFinishAcknowledged && it.resumeStartedAt == null && it.resumeBaseSeconds == null && it.staleSuppressedUntil == null && !it.historicalDraft && it.draftSourceKey.isEmpty() && !(it.startedAt == 0L && it.completedAt != null) }) { "Workout lifecycle metadata needs backup version 10." }
         backup.workouts.forEach {
-            require((it.startedAt > 0 || (it.startedAt == 0L && it.finished && validHistoryDate(it.sessionDate))) && (it.completedAt == null || (it.startedAt > 0 && it.completedAt >= it.startedAt))) { "Invalid session dates." }
+            require(listOfNotNull(it.lastActionAt, it.autoFinishedAt, it.resumeStartedAt, it.staleSuppressedUntil).all { time -> time > 0 } && it.timingNote.length <= 2000 && it.draftSourceKey.length <= 256) { "Invalid workout lifecycle metadata." }
+            require(it.resumeBaseSeconds == null || (it.resumeBaseSeconds.isFinite() && it.resumeBaseSeconds >= 0)) { "Invalid resumed duration." }
+            require(!it.historicalDraft || it.finished) { "A historical draft cannot run a live timer." }
+            require((it.startedAt > 0 || (it.startedAt == 0L && it.finished && validHistoryDate(it.sessionDate))) && (it.completedAt == null || (it.completedAt > 0 && (it.startedAt == 0L || it.completedAt >= it.startedAt)))) { "Invalid session dates." }
             require(ActivityType.entries.any { type -> type.key == it.activityType } && it.activityLabel.length <= 100 &&
                 (it.activityType != "other" || it.activityLabel.isNotBlank())) { "Invalid activity type or label." }
             require(it.sessionDate.isEmpty() || validHistoryDate(it.sessionDate)) { "Invalid session date." }
@@ -284,12 +303,17 @@ object BackupCodec {
     }
 
     fun analysis(backup: Backup): String {
-        val root = JSONObject(encode(backup.copy(version = 9, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null,
+        val actual = backup.workouts.filterNot { it.historicalDraft }; val ids = actual.map { it.id }.toSet()
+        val entries = backup.entries.filter { it.workoutId in ids }; val entryIds = entries.map { it.id }.toSet()
+        val sources = backup.healthSessions.filter { it.workoutId == null || it.workoutId in ids }; val sourceIds = sources.map { it.key }.toSet()
+        val root = JSONObject(encode(backup.copy(version = 10, workouts = actual, healthSessions = sources, healthSamples = backup.healthSamples.filter { it.sessionKey in sourceIds }, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null,
             plannedSets = emptyList(), planRuns = emptyList(), runTargets = emptyList(), restTimer = null, trainingPreferences = null, exerciseProgression = emptyList(),
-            entries = backup.entries.map { it.copy(planNote = "", supersetGroup = "") }, sets = backup.sets.map { it.copy(targetId = null) })))
+            entries = entries.map { it.copy(planNote = "", supersetGroup = "") }, sets = backup.sets.filter { it.entryId in entryIds }.map { it.copy(targetId = null) })))
         listOf("plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets", "restTimer", "trainingPreferences", "exerciseProgression").forEach(root::remove)
-        return root.put("format", "fitnotes-analysis").put("version", 4).put("backupSchemaVersion", 9).toString(2)
+        return root.put("format", "fitnotes-analysis").put("version", 5).put("backupSchemaVersion", 10).toString(2)
     }
+
+    private fun JSONObject.bool(key: String): Boolean = get(key).also { require(it is Boolean) { "Invalid boolean: $key" } } as Boolean
 
     private fun JSONObject.optionalNumber(key: String): Double? {
         if (isNull(key)) return null

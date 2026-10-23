@@ -3,9 +3,15 @@
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 (API 24) or later. One app module, Compose Material UI, Room database.
 
-Current formats: Room 11, training backup v9, analysis JSON v4.
+Current formats: Room 12, training backup v10, analysis JSON v5.
 
 ## Use
+
+**Log past workout** on Train/History starts a retrospective draft, defaulting to
+yesterday. Copy a recent workout/routine or start empty, log performed sets, then
+**Save completed**. Forgotten strength sessions are reconciled with editable
+estimated/unknown timing. [Lifecycle details and verification](docs/workout-lifecycle.md).
+
 
 **Train → Start empty workout** opens exercise selection immediately. Resume,
 Finish and Discard manage the active session; saved plans stay separate.
@@ -89,7 +95,7 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
 ## Backup and restore
 
 Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 9 file contains the entire exercise library, local session
+file picker. The version 10 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
 original fields, import fingerprints, planned workouts/targets and saved handoff
 preferences, individual target sets and workout suggestion snapshots, target/result
@@ -502,7 +508,7 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the current v9 JSON format excludes all photo files and photo
+opens. With it off, the current v10 JSON format excludes all photo files and photo
 metadata and clearly says so. Versions 1–7 restore; JSON restoration leaves
 existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
 can explicitly attach selected JPEG copies; its Copy action remains text only.

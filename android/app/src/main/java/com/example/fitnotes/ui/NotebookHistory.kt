@@ -19,7 +19,7 @@ import com.example.fitnotes.data.*
 
 @Composable
 fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit,
-    onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}) {
+    onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onPast: () -> Unit = {}) {
     val dateWidth = (48 * LocalDensity.current.fontScale).dp
     Column(Modifier.fillMaxSize()) {
         NotebookBar("History") {
@@ -36,6 +36,7 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
             }
         }
         LazyColumn(state = state, modifier = Modifier.testTag("history-list"), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+            item { OutlinedButton(onClick = onPast, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Log past workout") } }
             item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick=onProgress,modifier=Modifier.heightIn(min=48.dp)){Text("Strength progress")}
                 TextButton(onClick = onAsk, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }

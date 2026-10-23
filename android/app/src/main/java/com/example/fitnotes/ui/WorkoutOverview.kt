@@ -29,7 +29,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
     onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
-    onUseAsPlan: () -> Unit = {}, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    onSavePast: () -> Unit = {}, onEditTime: () -> Unit = {}, onUseAsPlan: () -> Unit = {}, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var reorder by rememberSaveable(session?.key) { mutableStateOf(false) }
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
@@ -38,7 +38,8 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     var finish by remember { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(false) }
     var provenance by remember { mutableStateOf(false) }
-    val showShareIcon = session != null && (session.completed || LocalDensity.current.fontScale <= 1.35f)
+    val pastDraft = session?.local?.workout?.historicalDraft == true
+    val showShareIcon = session != null && !pastDraft && (session.completed || LocalDensity.current.fontScale <= 1.35f)
     val plans by model.plans.collectAsState()
     val runs by model.planRuns.collectAsState()
     val run = session?.local?.workout?.id?.let { id -> runs.firstOrNull { it.run.workoutId == id } }
@@ -47,7 +48,8 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     Column(Modifier.fillMaxSize()) {
         NotebookBar("Workout", onBack) {
             if (showShareIcon && session != null) IconButton(onClick = { onShare(sessionContext(session, data)) }) { Icon(Icons.Filled.Share, "Copy or share workout") }
-            if (session?.local != null && !session.completed && !legacyEmpty) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
+            if (pastDraft) TextButton(onClick = onSavePast, enabled = !busy && session!!.count > 0) { Text("Save completed") }
+            if (session?.local != null && !session.completed && !pastDraft && !legacyEmpty) TextButton(onClick = { finish = true }, enabled = !busy) { Text(if (session.activity == "strength") "Finish workout" else "Finish session") }
             OverflowMenu { close ->
                 MenuAction("Strength progress") { close();onProgress() }
                 MenuAction("Exercise library") { close();onLibrary() }
@@ -55,13 +57,14 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             if (session != null) {
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }
                     if (recoverable) MenuAction("Convert empty import to plan") { close(); onRecoverPlan(session.local!!.workout.id) }
+                    if(session.local!=null) MenuAction("Edit time / duration") { close(); onEditTime() }
                     MenuAction("Workout information") { close(); provenance = true }
                     if (editable && session.local != null && session.activity == "strength" && session.exercises.size > 1)
                         MenuAction("Reorder exercises") { close(); reorder = true }
                     if (editable) MenuAction("Edit details") { close(); details = true }
                     if (session.completed && session.activity == "strength" && session.exercises.isNotEmpty())
                         MenuAction("Use as plan") { close(); onUseAsPlan() }
-                    MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
+                    if(!pastDraft) MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
                     if (session.completed && session.activity == "strength" && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
                     MenuAction("Delete workout") { close(); delete = true }
                 }
@@ -101,7 +104,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 }
             }
             if (session != null) {
-                if(session.local!=null && !session.completed) item { RestControls(model,session.local.workout.id,busy) }
+                if(session.local!=null && !session.completed && !pastDraft) item { RestControls(model,session.local.workout.id,busy) }
                 if (session.title.isNotBlank()) item {
                     Text(session.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -111,11 +114,13 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                         modifier = Modifier.fillMaxWidth().clickable { showNotes = true }.padding(vertical = 4.dp))
                 }
                 if (legacyEmpty) item { OutlinedButton(onClick = { onRecoverPlan(session.local!!.workout.id) }, enabled = !busy) { Text("Convert empty import to plan") } }
+                if (session.local != null && session.activity == "strength") item { WorkoutTimingPanel(session.local.workout, model, busy, onEditTime) }
+                if (pastDraft) item { val error by model.workoutTimeError.collectAsState(); error?.let { Text(it, color = MaterialTheme.colorScheme.error) } }
                 if (run != null) item { RunReference(run) }
                 if (session.local != null && session.activity != "strength") item { ActivityPanel(session, editable, model, busy) }
                 if (session.local != null && session.local.health.isNotEmpty()) item { ImportedActivityInfo(session.local.health) }
                 if (session.imported != null && session.imported.health.isNotEmpty()) item { ImportedActivityInfo(session.imported.health) }
-                if (!legacyEmpty && session.local?.health.isNullOrEmpty() && session.imported?.health.isNullOrEmpty()) item {
+                if (!pastDraft && !legacyEmpty && session.local?.health.isNullOrEmpty() && session.imported?.health.isNullOrEmpty()) item {
                     MissingHeartRateInfo(busy, onHealthImport)
                 }
                 items(session.exercises, key = { it.key }) { exercise ->
@@ -178,7 +183,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     if (finish && session?.local != null) NotebookConfirm("Finish workout?", "Unsaved draft input will not be included.", "Finish", busy, { finish = false }) {
         model.finish(session.local.workout.id) { finish = false; onFinished() }
     }
-    if (delete && session != null) NotebookConfirm("Delete workout?", "This deletes the workout and its saved sets.", "Delete", busy, { delete = false }) {
+    if (delete && session != null) NotebookConfirm(if(pastDraft)"Discard past workout draft?" else "Delete workout?", if(pastDraft)"This removes the unsaved draft and its draft sets." else "This deletes the workout and its saved sets.", if(pastDraft)"Discard" else "Delete", busy, { delete = false }) {
         if (session.local != null) model.deleteWorkout(session.local.workout.id) { delete = false; onDeleted() }
         else model.deleteImportedWorkout(session.imported!!.workout.id) { delete = false; onDeleted() }
     }

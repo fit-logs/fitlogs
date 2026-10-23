@@ -80,7 +80,7 @@ END_WORKOUT_PLAN"""
         repo.saveSet(db.dao().workoutEntries(actual).single().id, "40", "8")
         plans.savePreferences(HandoffPreferences(goals = "Synthetic goals", equipment = "Synthetic equipment", constraints = "Synthetic constraints", activityPreference = "strength", availableMinutes = 40, lastTargetDate = "2026-10-14"))
         val backup = repo.backup()
-        assertEquals(9, backup.version)
+        assertEquals(10, backup.version)
         val decoded = BackupCodec.decode(BackupCodec.encode(backup)); assertEquals(backup, decoded)
         db.planDao().delete(id); repo.restore(decoded)
         assertEquals(actual, db.planDao().detail(id)!!.plan.startedWorkoutId)
@@ -145,7 +145,7 @@ END_WORKOUT_PLAN"""
             old.execSQL("INSERT INTO progress_photos VALUES ('synthetic-photo', '2026-10-13', 'Front', 'Preserve photo', 'synthetic/reference')")
             old.version = 6
         }
-        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11).build(); repo = WorkoutRepository(db); plans = WorkoutPlanRepository(db)
+        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12).build(); repo = WorkoutRepository(db); plans = WorkoutPlanRepository(db)
         assertEquals("Preserve note", db.dao().workout(5)!!.notes); assertEquals("Preserve set", db.dao().sets().single().comment)
         assertEquals("Preserve photo", db.photoDao().all().single().note); assertTrue(db.planDao().plans().isEmpty())
     }

@@ -22,7 +22,7 @@ suspend fun <T> collectHealthPages(read: suspend (String?) -> HealthPage<T>): Li
     return records
 }
 fun matchingWorkouts(source: HealthSession, workouts: List<Workout>): List<Workout> = workouts.filter {
-    it.activityType == source.activityType && it.knownStart != null && it.startedAt < source.end &&
+    !it.historicalDraft && it.activityType == source.activityType && it.knownStart != null && it.startedAt < source.end &&
         (it.completedAt ?: System.currentTimeMillis()) > source.start
 }
 class HealthImportRepository(private val database: FitDatabase) {
@@ -52,7 +52,7 @@ class HealthImportRepository(private val database: FitDatabase) {
             database.dao().insertWorkout(Workout(startedAt = 0, sessionDate = day, finished = true,
                 activityType = s.activityType, activityLabel = if (s.activityType == "other") s.title.ifBlank { "Other (Health Connect type ${s.exerciseType})" }.take(100) else ""))
         }
-        if (workoutId != null) requireNotNull(database.dao().workout(workoutId)) { "The selected local session no longer exists." }
+        if (workoutId != null) requireNotNull(database.dao().workout(workoutId)) { "The selected local session no longer exists." }.also { require(!it.historicalDraft) { "Save the past-workout draft before attaching a source activity." } }
         val changed = existing != null && (existing.modifiedAt != s.modifiedAt || existing.start != s.start || existing.end != s.end ||
             existing.title != s.title || existing.notes != s.notes || existing.exerciseType != s.exerciseType)
         val intervalChanged = existing != null && (existing.start != s.start || existing.end != s.end)

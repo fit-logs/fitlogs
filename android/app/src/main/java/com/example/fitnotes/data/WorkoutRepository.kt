@@ -95,19 +95,19 @@ fun sessionText(workouts: List<WorkoutDetail>): String {
     }.trim()
 }
 
-class WorkoutRepository(val database: FitDatabase, private val restClock: RestClock? = null) {
+class WorkoutRepository(val database: FitDatabase, private val restClock: RestClock? = null, private val wallClock: () -> Long = System::currentTimeMillis) {
     private val dao = database.dao()
     val exercises = dao.observeExercises()
     val workouts = dao.observeWorkouts()
 
     suspend fun start(): Long = database.withTransaction {
-        dao.active()?.id ?: dao.insertWorkout(Workout(startedAt = System.currentTimeMillis()))
+        dao.active()?.id ?: dao.insertWorkout(Workout(startedAt = wallClock(), lastActionAt = wallClock()))
     }
 
     suspend fun startActivity(type: String, label: String, title: String, notes: String, effort: String?): Long = database.withTransaction {
         require(dao.active() == null) { "Resume, finish or delete the unfinished session before starting another." }
         validateActivity(type, label, title, notes, effort, null, null)
-        dao.insertWorkout(Workout(startedAt = System.currentTimeMillis(), activityType = type,
+        dao.insertWorkout(Workout(startedAt = wallClock(), lastActionAt = wallClock(), activityType = type,
             activityLabel = label.trim(), title = title.trim(), notes = notes.trim(), effort = effort))
     }
 
@@ -125,7 +125,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
     suspend fun saveActivityDetails(id: Long, title: String, notes: String, effort: String?, distance: Double?, unit: String?) = database.withTransaction {
         val old = requireNotNull(dao.workout(id)) { "Session no longer exists." }
         validateActivity(old.activityType, old.activityLabel, title, notes, effort, distance, unit)
-        dao.updateWorkout(old.copy(title = title.trim(), notes = notes.trim(), effort = effort,
+        dao.updateWorkout(old.copy(lastActionAt = if (!old.isComplete && !old.historicalDraft) wallClock() else old.lastActionAt, title = title.trim(), notes = notes.trim(), effort = effort,
             distance = distance, distanceUnit = if (distance == null) null else unit))
     }
 
@@ -138,6 +138,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
 
     suspend fun addExercise(workoutId: Long, exerciseId: Long) = database.withTransaction {
         requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
+        dao.touchWorkout(workoutId, wallClock())
         requireNotNull(dao.exercise(exerciseId)) { "Exercise no longer exists." }
         val entries = dao.workoutEntries(workoutId)
         if (entries.none { it.exerciseId == exerciseId }) {
@@ -147,6 +148,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
 
     suspend fun addExercises(workoutId: Long, exerciseIds: List<Long>) = database.withTransaction {
         requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
+        dao.touchWorkout(workoutId, wallClock())
         // Validate all selections before changing the workout; retain selection order.
         exerciseIds.distinct().forEach { requireNotNull(dao.exercise(it)) { "Exercise no longer exists." } }
         exerciseIds.distinct().forEach { addExercise(workoutId, it) }
@@ -163,6 +165,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         distance: String? = null, distanceUnit: String? = null, seconds: String? = null,
         targetId: Long? = null, loadMode: String? = null, isWarmUp: Boolean? = null): Long = database.withTransaction {
         val entry = requireNotNull(dao.entry(entryId)) { "Exercise no longer belongs to this session." }
+        dao.touchWorkout(entry.workoutId, wallClock())
         val old = setId?.let { requireNotNull(dao.set(it)) { "Set no longer exists." } }
         require(old == null || old.entryId == entryId) { "Set belongs to another exercise." }
         require(old==null || targetId==null || old.targetId==targetId) { "Editing a result cannot assign it to a different target." }
@@ -182,7 +185,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
             dao.insertSet(WorkoutSet(entryId = entryId, weightKg = values.weightKg, reps = values.reps,
                 position = (dao.entrySets(entryId).maxOfOrNull { it.position } ?: -1) + 1, comment = comment,
                 distance = dist, distanceUnit = if (dist == null) null else distanceUnit, durationSeconds = duration,
-                targetId = link, completedAt = if (!workout.isComplete && workout.knownStart != null) System.currentTimeMillis() else null,
+                targetId = link, completedAt = if (!workout.isComplete && !workout.historicalDraft && workout.knownStart != null) wallClock() else null,
                 loadMode = mode, isWarmUp = target?.isWarmUp ?: isWarmUp ?: false, weightSpecified = mode != LoadMode.REPS_ONLY && weight.isNotBlank()))
         } else {
             dao.updateSet(old.copy(weightKg = values.weightKg, reps = values.reps, comment = comment, loadMode = mode, isWarmUp = isWarmUp ?: old.isWarmUp, weightSpecified = mode != LoadMode.REPS_ONLY && weight.isNotBlank(),
@@ -195,13 +198,14 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
 
     suspend fun duplicateSet(id: Long) = database.withTransaction {
         val old = requireNotNull(dao.set(id)) { "Set no longer exists." }
+        dao.entry(old.entryId)?.let { dao.touchWorkout(it.workoutId, wallClock()) }
         val next = (dao.entrySets(old.entryId).maxOfOrNull { it.position } ?: -1) + 1
         dao.insertSet(old.copy(id = 0, position = next, targetId = null, completedAt =
-            if (dao.workout(dao.entry(old.entryId)!!.workoutId)?.isComplete == false) System.currentTimeMillis() else null))
+            if (dao.workout(dao.entry(old.entryId)!!.workoutId)?.let { !it.isComplete && !it.historicalDraft } == true) wallClock() else null))
     }
 
     suspend fun saveCardio(entryId: Long, distance: String, unit: String, seconds: String, comment: String, setId: Long? = null) = database.withTransaction {
-        requireNotNull(dao.entry(entryId)) { "Exercise no longer belongs to this session." }
+        requireNotNull(dao.entry(entryId)) { "Exercise no longer belongs to this session." }.let { dao.touchWorkout(it.workoutId, wallClock()) }
         val dist = optionalNonNegative(distance)
         val duration = optionalNonNegative(seconds)
         require(dist != null || duration != null) { "Enter a distance or duration." }
@@ -218,13 +222,15 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
     }
 
     suspend fun deleteSet(id: Long) = database.withTransaction {
+        dao.set(id)?.let { set -> dao.entry(set.entryId)?.let { dao.touchWorkout(it.workoutId, wallClock()) } }
         val target = dao.set(id)?.targetId
         dao.deleteSet(id)
         if (target != null && database.trainingDao().timer()?.sourceTargetId == target) database.trainingDao().clearTimer()
     }
-    suspend fun removeExercise(id: Long) = dao.deleteEntry(id)
+    suspend fun removeExercise(id: Long) = database.withTransaction { dao.entry(id)?.let { dao.touchWorkout(it.workoutId, wallClock()) }; dao.deleteEntry(id) }
     suspend fun reorderExercises(workoutId: Long, entryIds: List<Long>) = database.withTransaction {
         requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
+        dao.touchWorkout(workoutId, wallClock())
         val entries = dao.workoutEntries(workoutId)
         require(entryIds.size == entries.size && entryIds.toSet().size == entryIds.size &&
             entryIds.toSet() == entries.map { it.id }.toSet()) {
@@ -241,16 +247,22 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
     suspend fun saveDetails(id: Long, title: String, notes: String) = database.withTransaction {
         require(title.length <= 200 && notes.length <= 10000) { "Title or notes are too long." }
         val workout = requireNotNull(dao.workout(id)) { "Session no longer exists." }
-        dao.updateWorkout(workout.copy(title = title.trim(), notes = notes.trim()))
+        dao.touchWorkout(id, wallClock())
+        dao.updateWorkout(workout.copy(lastActionAt = if (!workout.isComplete && !workout.historicalDraft) wallClock() else workout.lastActionAt, title = title.trim(), notes = notes.trim()))
     }
 
     suspend fun finish(id: Long) = database.withTransaction {
         val workout = requireNotNull(dao.workout(id)) { "Session no longer exists." }
+        require(!workout.historicalDraft) { "Use Save completed for this past-workout draft." }
         if (workout.activityType == "strength") require(dao.workoutEntries(id).any { dao.entrySets(it.id).isNotEmpty() }) { "Save at least one set before finishing." }
         database.trainingDao().timer()?.takeIf { it.workoutId == id }?.let { database.trainingDao().clearTimer() }
         if (!workout.isComplete) {
-            val end = maxOf(workout.startedAt, System.currentTimeMillis())
-            dao.updateWorkout(workout.copy(completedAt = end, finished = true, durationSeconds = (end - workout.startedAt) / 1000.0))
+            val time = wallClock(); val anchor = workout.resumeStartedAt ?: workout.startedAt
+            val end = time.takeIf { it >= maxOf(anchor, workout.lastActionAt ?: anchor) }
+            val duration = end?.let { if (workout.resumeStartedAt != null) workout.resumeBaseSeconds?.plus((it - anchor) / 1000.0) else (it - anchor) / 1000.0 }
+            dao.updateWorkout(workout.copy(completedAt = end, finished = true, durationSeconds = duration, durationUnknown = duration == null,
+                timingEstimated = workout.timingEstimated || end == null, autoFinishAcknowledged = true,
+                timingNote = if (end == null) "Clock moved backwards; end/duration require review." else workout.timingNote))
         }
     }
 
@@ -258,7 +270,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         require(dao.active() == null) { "Finish or delete the unfinished workout before repeating a session." }
         val source = requireNotNull(dao.workout(id)) { "Session no longer exists." }
         require(source.isComplete) { "Only completed sessions can be repeated." }
-        val newId = dao.insertWorkout(Workout(startedAt = System.currentTimeMillis(), title = source.title))
+        val newId = dao.insertWorkout(Workout(startedAt = wallClock(), lastActionAt = wallClock(), title = source.title))
         dao.workoutEntries(id).forEachIndexed { position, entry ->
             dao.insertEntry(WorkoutExercise(workoutId = newId, exerciseId = entry.exerciseId, position = position))
         }
