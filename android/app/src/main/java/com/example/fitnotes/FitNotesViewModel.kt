@@ -253,6 +253,27 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun deleteImportedWorkout(id: String, done: () -> Unit) = change("Imported workout deleted.", done) { importer.deleteImportedWorkout(id) }
     fun saveImportedNotes(id: String, notes: String) = change("Notes saved.") { importer.saveNotes(id, notes) }
 
+    fun planFromSession(session: com.example.fitnotes.ui.NotebookSession) {
+        val preview = planFromCompletedSession(session, planRuns.value.flatMap { it.exercises }.flatMap { it.targets })
+        planImportError.value = null
+        planEdit.value = preview.spec.editable(preview.resolutions)
+    }
+    fun newPlan() {
+        cancelPlanImport()
+        planEdit.value = PlanSpec("New workout", "", 0, "", emptyList(), planFingerprint(java.util.UUID.randomUUID().toString())).editable(emptyList())
+    }
+    fun startEmpty(onReady: (Long) -> Unit) = change(null) { onReady(WorkoutStartRepository(database).startEmpty()) }
+    fun resolveActiveAndStart(id: Long, action: ActiveWorkoutAction, planId: String?, onReady: (Long) -> Unit) = change(null) {
+        val next = WorkoutStartRepository(database).resolveAndStart(id, action, planId)
+        restController.sync()
+        if (planId != null) { planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null }
+        onReady(next)
+    }
+    fun addExercisesAndOpen(workoutId: Long, ids: List<Long>, onReady: (Long?) -> Unit) = change(null) {
+        repository.addExercises(workoutId, ids)
+        val entry = ids.singleOrNull()?.let { id -> database.dao().workoutEntries(workoutId).firstOrNull { it.exerciseId == id }?.id }
+        onReady(entry)
+    }
     fun startOverview(onReady: (Long) -> Unit) = change(null) { onReady(repository.start()) }
     fun startActivity(type: String, label: String, title: String, notes: String, effort: String?, onReady: (Long) -> Unit) =
         change(null) { onReady(repository.startActivity(type, label, title, notes, effort)) }

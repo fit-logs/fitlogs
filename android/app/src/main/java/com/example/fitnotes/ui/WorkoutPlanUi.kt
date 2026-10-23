@@ -64,7 +64,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
         else {
             Button(onClick = { model.savePlan(onSaved = onSaved); focus.clearFocus(); keyboard?.hide() }, enabled = !busy && resolved && (draft!!.exercises.isNotEmpty() || draft!!.legacyGuidance.isNotBlank()),
                 modifier = Modifier.heightIn(min = 48.dp).testTag("save-plan")) { Text("Save plan") }
-            OutlinedButton(onClick = { saved?.let { onStart(it.plan.id) } }, enabled = savedUnchanged && resolved && !busy && data.active == null && saved?.exercises?.isNotEmpty() == true, modifier = Modifier.heightIn(min = 48.dp).testTag("editor-start-plan")) { Text("Start workout") }
+            OutlinedButton(onClick = { saved?.let { onStart(it.plan.id) } }, enabled = savedUnchanged && resolved && !busy && saved?.exercises?.isNotEmpty() == true, modifier = Modifier.heightIn(min = 48.dp).testTag("editor-start-plan")) { Text("Start workout") }
             TextButton(onClick = { if (draft?.editingId != null || draft?.recoveryWorkoutId != null) close() else { model.planEdit.value = null; model.planImportError.value = null } }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (draft?.editingId != null || draft?.recoveryWorkoutId != null) "Close without saving" else "Edit pasted text") }
         }
         TextButton(onClick = ::close, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel") }
@@ -192,7 +192,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
     HandoffScreen(if (selectedId == null) "Planned workouts" else "Saved plan", busy, { if (selectedId == null) onClose() else onSelect(null) }, "saved-plans-list", attention = error, footer = {
         if (selected != null) {
             val started = selected.plan.startedWorkoutId
-            Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy && (data.active == null || data.active?.workout?.id == started), modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
+            Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
             TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Apply progression suggestions") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }

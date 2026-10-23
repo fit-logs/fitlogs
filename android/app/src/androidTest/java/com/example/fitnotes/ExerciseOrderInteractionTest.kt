@@ -42,6 +42,7 @@ class ExerciseOrderInteractionTest {
         }
         ui.waitUntil(30000) { model.data.value.active?.workout?.id == workout && model.data.value.active!!.entries.first().sets.size == 1 && model.planRuns.value.isNotEmpty() }
         ui.mainClock.advanceTimeBy(10000)
+        ui.onNodeWithText("Resume workout").performClick()
         ui.onNodeWithTag("workout-overview").assertExists()
     }
     private fun capture(name: String) {

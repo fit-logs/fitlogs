@@ -133,28 +133,31 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     }.exceptionOrNull()?.message
     val untouched = listOf(weight, reps, distance, seconds).all { it.isBlank() }
     fun saveActual() {
+        if (busy || completionCooldown) return
+        // A quick second tap is the same save gesture, even if Room has already
+        // committed the first result. Identical later sets remain valid training.
+        if (selectedRecord == null) completionCooldown = true
 
-                        val completedTarget=if(selectedRecord==null && !cardio)currentTargetId else null
-                        if(completedTarget!=null)completionCooldown=true
-                        val done = {
-                            if(selectedRecord!=null)cancelEdit() else { selected=null;draft=arrayListOf<String>() }; focus.clearFocus(); keyboard?.hide()
-                            if(completedTarget!=null) {
-                                val next=runExercise?.ordered?.firstOrNull{t->t.id!=completedTarget&&!t.skipped&&exercise.sets.none{it.local?.targetId==t.id}}
-                                currentTargetId=next?.id;actualWarmUp=next?.isWarmUp ?: false;mode=next?.loadMode ?: LoadMode.EXTERNAL
-                                weight=suggestedWeight(next);reps=next?.repsMin?.toString().orEmpty();comment="";userEdited=false
-                                val global=run?.let{plannedSequence(it)}?.firstOrNull{t->t.id!=completedTarget&&!t.skipped&&session.local!!.entries.flatMap{it.sets}.none{it.targetId==t.id}}
-                                if(global!=null&&global.entryId!=exercise.entryId)session.exercises.firstOrNull{it.entryId==global.entryId}?.let{onSwitch(it.key)}
-                            }
-                            Unit
-                        }
-                        if (exercise.entryId != null) {
-                            if(completedTarget!=null && !mixed) model.completeTarget(completedTarget,weight,reps,comment,mode,done)
-                            else if (cardio) model.logCardio(exercise.entryId, distance, unit, seconds, comment, selectedRecord?.local?.id, done)
-                            else model.logStrength(exercise.entryId, weight, reps, selectedRecord?.local?.id, comment, done,
-                                if (mixed) distance else null, unit, if (mixed) seconds else null, loadMode=mode,isWarmUp=actualWarmUp)
-                        } else model.logImported(session.imported!!.workout.id, exercise.sourceName ?: exercise.name, exercise.category, selectedRecord?.imported?.id,
-                            if (cardio) "" else weight, if (cardio) "" else reps, if (cardio || mixed) distance else "", unit,
-                            if (cardio || mixed) seconds else "", comment, done)
+        val completedTarget=if(selectedRecord==null && !cardio)currentTargetId else null
+        val done = {
+            if(selectedRecord!=null)cancelEdit() else { selected=null;draft=arrayListOf<String>() }; focus.clearFocus(); keyboard?.hide()
+            if(completedTarget!=null) {
+                val next=runExercise?.ordered?.firstOrNull{t->t.id!=completedTarget&&!t.skipped&&exercise.sets.none{it.local?.targetId==t.id}}
+                currentTargetId=next?.id;actualWarmUp=next?.isWarmUp ?: false;mode=next?.loadMode ?: LoadMode.EXTERNAL
+                weight=suggestedWeight(next);reps=next?.repsMin?.toString().orEmpty();comment="";userEdited=false
+                val global=run?.let{plannedSequence(it)}?.firstOrNull{t->t.id!=completedTarget&&!t.skipped&&session.local!!.entries.flatMap{it.sets}.none{it.targetId==t.id}}
+                if(global!=null&&global.entryId!=exercise.entryId)session.exercises.firstOrNull{it.entryId==global.entryId}?.let{onSwitch(it.key)}
+            }
+            Unit
+        }
+        if (exercise.entryId != null) {
+            if(completedTarget!=null && !mixed) model.completeTarget(completedTarget,weight,reps,comment,mode,done)
+            else if (cardio) model.logCardio(exercise.entryId, distance, unit, seconds, comment, selectedRecord?.local?.id, done)
+            else model.logStrength(exercise.entryId, weight, reps, selectedRecord?.local?.id, comment, done,
+                if (mixed) distance else null, unit, if (mixed) seconds else null, loadMode=mode,isWarmUp=actualWarmUp)
+        } else model.logImported(session.imported!!.workout.id, exercise.sourceName ?: exercise.name, exercise.category, selectedRecord?.imported?.id,
+            if (cardio) "" else weight, if (cardio) "" else reps, if (cardio || mixed) distance else "", unit,
+            if (cardio || mixed) seconds else "", comment, done)
 
     }
     val actualEditor: @Composable () -> Unit = {
@@ -182,7 +185,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                     if (showComment) OutlinedTextField(comment, { comment = it.take(10000) }, label = { Text("Set note") },
                         modifier = Modifier.fillMaxWidth(), maxLines = 4, enabled = !busy)
                     if (!untouched && error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    Button(shape = MaterialTheme.shapes.small, onClick = ::saveActual                    , enabled = !busy && (!completionCooldown || currentTargetId==null || selectedRecord!=null) && (completionReady || currentTargetId==null || selectedRecord!=null) && error == null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Button(shape = MaterialTheme.shapes.small, onClick = ::saveActual, enabled = !busy && !completionCooldown && (completionReady || currentTargetId==null || selectedRecord!=null) && error == null, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                         Text(if (selectedRecord == null) "Save set" else "Update set")
                     }
                     if (selectedRecord != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
