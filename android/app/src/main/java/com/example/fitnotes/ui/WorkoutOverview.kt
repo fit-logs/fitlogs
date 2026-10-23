@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -29,6 +30,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
     onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
     onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    var reorder by rememberSaveable(session?.key) { mutableStateOf(false) }
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf(false) }
@@ -54,6 +56,8 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }
                     if (recoverable) MenuAction("Convert empty import to plan") { close(); onRecoverPlan(session.local!!.workout.id) }
                     MenuAction("Workout information") { close(); provenance = true }
+                    if (editable && session.local != null && session.activity == "strength" && session.exercises.size > 1)
+                        MenuAction("Reorder exercises") { close(); reorder = true }
                     if (editable) MenuAction("Edit details") { close(); details = true }
                     MenuAction("Share workout") { close(); onShare(sessionContext(session, data)) }
                     if (session.completed && session.activity == "strength" && data.active == null) MenuAction("Repeat exercises") { close(); onRepeat() }
@@ -144,6 +148,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             }
         }
     }
+    if (reorder && session?.local != null) ReorderExercisesDialog(session, busy, model) { reorder = false }
     if (showNotes && session != null) AlertDialog(onDismissRequest = { showNotes = false }, title = { Text("Workout notes") },
         text = { LazyColumn(Modifier.heightIn(max = 400.dp)) { item { Text(session.notes) } } },
         confirmButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },

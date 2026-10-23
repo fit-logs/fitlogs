@@ -449,6 +449,11 @@ JSON remains version 4; early files without the optional imported-history link
 also remain readable. Storage failures now show a clear error instead of an
 indefinite loading spinner.
 
+## Exercise order
+
+Local strength workouts support **More actions → Reorder exercises**.
+See [usage and verification](docs/exercise-order.md).
+
 ## Progress photos
 
 **Body → Measurements / Photos** keeps measurements separate from optional photos.

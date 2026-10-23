@@ -218,6 +218,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun deletePlan(id: String, done: () -> Unit) = change("Plan deleted.", done, failure = { planImportError.value = it }) { planImportError.value = null; planRepository.delete(id) }
     fun addExercise(workoutId: Long, exerciseId: Long, done: () -> Unit) =
         change("Exercise added.", done) { repository.addExercise(workoutId, exerciseId) }
+    fun reorderExercises(workoutId: Long, entryIds: List<Long>, done: () -> Unit, failure: (String) -> Unit) =
+        change("Exercise order saved.", done, failure = failure) { repository.reorderExercises(workoutId, entryIds) }
     fun addExercises(workoutId: Long, ids: List<Long>, done: () -> Unit) =
         change("Exercises added.", done) { repository.addExercises(workoutId, ids) }
     fun createExercise(workoutId: Long, name: String, done: () -> Unit) =
