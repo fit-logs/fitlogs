@@ -57,7 +57,12 @@ class LoadAdvicePersistenceTest {
     }
     @Test fun nextRelevantSessionRecomputesAfterRealResultsAndNeverUsesTheActiveWorkout()=runBlocking {
         history(20);history(22);val id=plan();val row=advice.plan(id).single();assertEquals("75",row.advice.loads.first().value)
-        val w=WorkoutPlanRepository(db).start(id);val entry=db.dao().workoutEntries(w).single();repeat(3){workouts.saveSet(entry.id,"72.5","8",loadMode=LoadMode.EXTERNAL,actualRir="1")}
+        val w=WorkoutPlanRepository(db).start(id)
+        // Keep the new result on the advice clock's date, regardless of when
+        // this test runs. Future workouts are deliberately excluded by advice.
+        val session=requireNotNull(db.dao().workout(w))
+        db.dao().updateWorkout(session.copy(sessionDate="2026-10-23"))
+        val entry=db.dao().workoutEntries(w).single();repeat(3){workouts.saveSet(entry.id,"72.5","8",loadMode=LoadMode.EXTERNAL,actualRir="1")}
         assertEquals("75",advice.plan(id).single().advice.loads.first().value);workouts.finish(w)
         val next=advice.plan(id).single();assertEquals("70",next.advice.loads.first().value);assertTrue(next.advice.explanation.contains("72.5 kg × 8"));assertEquals(9,db.dao().sets().size)
     }

@@ -322,6 +322,17 @@ Build reports are under `app/build/reports/`.
 
 ## Install
 
+Download the APK from [GitHub Releases](https://github.com/avivajpeyi/fitnotes/releases).
+Open it on your phone and allow installation from that download source. Version
+`1.0.0-beta.1` (code 2) uses the existing signing key to support updating earlier
+local builds. It is a release build with debugging disabled, signed with the
+existing development key; it is distributed as a beta, outside Google Play.
+
+Install as an update. Do not uninstall or clear data. A signature mismatch means
+the installed app uses a different key; retain the installed app and its data.
+Export a training backup first; include progress photos if you want to retain
+them in that backup. [Release details](docs/android-release.md).
+
 On your phone, enable Developer options and USB debugging, connect it by USB,
 and accept the computer authorization prompt. Then:
 

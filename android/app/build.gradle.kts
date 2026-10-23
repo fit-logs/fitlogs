@@ -14,8 +14,8 @@ android {
         applicationId = if (providers.gradleProperty("photoVerification").orNull == "true") "com.example.fitnotes.preview.photos" else "com.example.fitnotes"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.0-beta.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -23,8 +23,9 @@ android {
     buildTypes {
         release {
             optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+                // Partial library optimization breaks Kotlin class access at
+                // startup. Keep the first beta unoptimized and non-debuggable.
+                enable = false
             }
         }
     }
