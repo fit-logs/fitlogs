@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://avivajpeyi.github.io/fitnotes/data/programs/schema-v1.json",
+  "$id": "https://avivajpeyi.github.io/fitnotes/catalog/schema-v1.json",
   "title": "FitNotes portable program definition v1",
   "type": "object",
   "required": ["schemaVersion", "id", "programVersion", "name", "weeks", "days"],

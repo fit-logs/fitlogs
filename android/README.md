@@ -561,3 +561,7 @@ explicit exercise resolution, atomic installation, and clear file/PDF/URL fallba
 [History-based weight suggestions](docs/history-load-suggestions.md) use completed
 comparable sets, explicit equipment setup and optional actual RIR/RPE. Review
 then Use or Change; session locks and performed results protect existing targets.
+
+[Workout Library](docs/workout-library.md) browses original versioned programs,
+bundles three offline starters and installs through the shared program preview.
+Explicit public catalog GETs use the internet permission; workout data stays local.

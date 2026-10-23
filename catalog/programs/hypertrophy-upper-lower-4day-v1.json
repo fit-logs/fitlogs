@@ -1,0 +1,509 @@
+{
+  "schemaVersion": 1,
+  "id": "hypertrophy-upper-lower-4day",
+  "programVersion": "1",
+  "name": "Hypertrophy Upper / Lower",
+  "weeks": 4,
+  "daysPerWeek": 4,
+  "description": "Four sessions add selected accessories to a two-working-set foundation.",
+  "goals": [
+    "muscle"
+  ],
+  "level": "intermediate",
+  "equipment": [
+    "barbell",
+    "bench",
+    "cable",
+    "dumbbells",
+    "machine"
+  ],
+  "schedule": "Example: upper/lower, rest, upper/lower, two rest days. Reduce accessory sets in your local copy if recovery is limited.",
+  "progression": "Start with a manually calibrated load and leave the prescribed spare reps. Add reps within the range first. Review a small load increase only after completing all upper-range sets with headroom; never force an increase. The offline history engine supplies optional personal targets after comparable actual sessions.",
+  "notes": "Working sets only; warm-ups are separate. Adjust the local copy to equipment and recovery. If a movement causes pain, stop and choose an appropriate alternative rather than forcing the prescription.",
+  "source": {
+    "title": "FitNotes Workout Library",
+    "url": "https://avivajpeyi.github.io/fitnotes/library/",
+    "author": "FitNotes contributors",
+    "attribution": "FitNotes contributors — original Workout Library definitions."
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitNotes contributors — original Workout Library definitions."
+  },
+  "days": [
+    {
+      "id": "upper-volume-a",
+      "name": "Upper Volume A",
+      "durationMinutes": 60,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "bench-press",
+          "name": "Bench Press",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-cable-row",
+          "name": "Seated Cable Row",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lat-pulldown",
+          "name": "Lat Pulldown",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-overhead-press",
+          "name": "Dumbbell Overhead Press",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-curl",
+          "name": "Dumbbell Curl",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "cable-triceps-pressdown",
+          "name": "Cable Triceps Pressdown",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lower-volume-a",
+      "name": "Lower Volume A",
+      "durationMinutes": 60,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "squat",
+          "name": "Squat",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "romanian-deadlift",
+          "name": "Romanian Deadlift",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-curl",
+          "name": "Leg Curl",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "calf-raise",
+          "name": "Calf Raise",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "upper-volume-b",
+      "name": "Upper Volume B",
+      "durationMinutes": 60,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "incline-dumbbell-bench-press",
+          "name": "Incline Dumbbell Bench Press",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-row",
+          "name": "Dumbbell Row",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lat-pulldown",
+          "name": "Lat Pulldown",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-lateral-raise",
+          "name": "Dumbbell Lateral Raise",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-curl",
+          "name": "Dumbbell Curl",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "cable-triceps-pressdown",
+          "name": "Cable Triceps Pressdown",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lower-volume-b",
+      "name": "Lower Volume B",
+      "durationMinutes": 60,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "leg-press",
+          "name": "Leg Press",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-reverse-lunge",
+          "name": "Dumbbell Reverse Lunge",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-romanian-deadlift",
+          "name": "Dumbbell Romanian Deadlift",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-curl",
+          "name": "Leg Curl",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "calf-raise",
+          "name": "Calf Raise",
+          "notes": "Record the total implement load or this exact machine’s stack marking; confirm your load setup.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 2,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

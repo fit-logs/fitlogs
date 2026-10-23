@@ -78,6 +78,7 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
     }
     if(section=="templates") TemplatesDialog(model,busy,{section=""},onPlan,onNew,onAsk,onImport)
     if(section=="programs") ProgramsDialog(model,data,busy,{section=""},onProgramStart,onPlan,importProgram={section="";onImportProgram()})
-    if(section=="explore") AlertDialog(onDismissRequest={section=""},title={Text("Explore programs / Import")},text={Text("Paste a complete program, or build ordered workout days from your templates. Targets stay separate from performed training.")},confirmButton={TextButton(onClick={section="";onImportProgram()}){Text("Import program")}},dismissButton={TextButton(onClick={section="programs"}){Text("My programs")}})
+    if(section=="explore") AlertDialog(onDismissRequest={section=""},title={Text("Explore programs / Import")},text={Column{Text("Browse original programs, paste a complete program, or build ordered workout days from your templates.");TextButton(onClick={section="catalog"}){Text("Workout Library")}}},confirmButton={TextButton(onClick={section="";onImportProgram()}){Text("Import program")}},dismissButton={TextButton(onClick={section="programs"}){Text("My programs")}})
+    if(section=="catalog") ProgramCatalogDialog(model,busy,{section="";model.catalogBack()},{section="";model.catalogBack();onImportProgram()})
 }
 fun planSubtitle(exercises:Int,minutes:Int)= "$exercises ${if(exercises==1) "exercise" else "exercises"}" + if(minutes>0) " · About $minutes min" else ""

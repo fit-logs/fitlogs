@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "id": "dumbbell-home-3day",
+  "programVersion": "1",
+  "name": "Dumbbell Home",
+  "weeks": 4,
+  "daysPerWeek": 3,
+  "description": "Three sessions using dumbbells and a stable bench, without cable stacks or barbells.",
+  "goals": [
+    "general fitness"
+  ],
+  "level": "beginner",
+  "equipment": [
+    "bench",
+    "dumbbells"
+  ],
+  "schedule": "Train three nonconsecutive days. Bench pressing needs a stable bench; use the listed floor-press alternative only after explicitly selecting or creating that exercise.",
+  "progression": "Start with a manually calibrated load and leave the prescribed spare reps. Add reps within the range first. Review a small load increase only after completing all upper-range sets with headroom; never force an increase. The offline history engine supplies optional personal targets after comparable actual sessions.",
+  "notes": "Working sets only; warm-ups are separate. Adjust the local copy to equipment and recovery. If a movement causes pain, stop and choose an appropriate alternative rather than forcing the prescription.",
+  "source": {
+    "title": "FitNotes Workout Library",
+    "url": "https://avivajpeyi.github.io/fitnotes/library/",
+    "author": "FitNotes contributors",
+    "attribution": "FitNotes contributors — original Workout Library definitions."
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitNotes contributors — original Workout Library definitions."
+  },
+  "days": [
+    {
+      "id": "home-a",
+      "name": "Home A",
+      "durationMinutes": 40,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "goblet-squat",
+          "name": "Goblet Squat",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-bench-press",
+          "name": "Dumbbell Bench Press",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ],
+          "substitutions": [
+            "Dumbbell Floor Press"
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-row",
+          "name": "Dumbbell Row",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-romanian-deadlift",
+          "name": "Dumbbell Romanian Deadlift",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-b",
+      "name": "Home B",
+      "durationMinutes": 40,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "dumbbell-reverse-lunge",
+          "name": "Dumbbell Reverse Lunge",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-overhead-press",
+          "name": "Dumbbell Overhead Press",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-row",
+          "name": "Dumbbell Row",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-curl",
+          "name": "Dumbbell Curl",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home-c",
+      "name": "Home C",
+      "durationMinutes": 40,
+      "notes": "Prepare with easy warm-up sets, marked separately in the logger. Keep controlled reps and stop a set if technique breaks down.",
+      "exercises": [
+        {
+          "canonicalId": "goblet-squat",
+          "name": "Goblet Squat",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "incline-dumbbell-bench-press",
+          "name": "Incline Dumbbell Bench Press",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-romanian-deadlift",
+          "name": "Dumbbell Romanian Deadlift",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-lateral-raise",
+          "name": "Dumbbell Lateral Raise",
+          "notes": "Record one dumbbell / per-hand load consistently.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "rir": 3,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
