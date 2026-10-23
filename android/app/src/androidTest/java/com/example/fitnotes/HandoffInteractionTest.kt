@@ -31,7 +31,7 @@ class HandoffInteractionTest {
 END_WORKOUT_PLAN"""
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Run fixtures only in the isolated preview", context.packageName == "com.example.fitnotes.preview.activities")
+        assumeTrue("Run fixtures only in the isolated preview", context.packageName in setOf("com.example.fitnotes.preview.activities", "com.example.fitnotes.preview.photos"))
         val restored = java.util.concurrent.atomic.AtomicBoolean(false)
         val start = dayMillis(todayDate()) + 3600000
         val source = HealthSession(healthKey("org.synthetic", "source"), 10, "source", "org.synthetic", "Synthetic watch", null,
@@ -72,7 +72,11 @@ END_WORKOUT_PLAN"""
         image.recycle()
     }
     private fun paste(text: String) {
-        ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
+        if (ui.onAllNodesWithTag("train-screen").fetchSemanticsNodes().isNotEmpty()) {
+            ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false))
+            ui.onNodeWithText("My templates", substring = false).performClick()
+            ui.onNodeWithText("Import template", substring = false).performClick()
+        } else ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
         waitFor("Preview plan")
         val clipboard = ui.activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         ui.runOnIdle { clipboard.setPrimaryClip(ClipData.newPlainText("Synthetic plan", text)) }
@@ -84,6 +88,8 @@ END_WORKOUT_PLAN"""
         android.os.SystemClock.sleep(5000)
     }
     @Test fun preparePromptCopyOptionalDataAndAndroidShareSheet() {
+        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false))
+        ui.onNodeWithText("My templates", substring = false).performClick()
         ui.onNodeWithText("Ask ChatGPT").performScrollTo().performClick()
         waitFor("History: 30 days ▾")
         ui.onNodeWithTag("handoff-list").performScrollToNode(hasText("Available minutes (optional)"))
@@ -144,7 +150,7 @@ END_WORKOUT_PLAN""") + "\n```"
         ui.activityRule.scenario.recreate()
         waitFor("Edit planned workout")
         ui.onNodeWithText("Save plan").performClick()
-        waitFor("Saved plan")
+        waitFor("Saved template")
         ui.waitUntil(15000) { runBlocking { db.planDao().plans().size } == 1 }
         assertEquals(2, runBlocking { db.dao().workouts().size }); assertEquals(1, runBlocking { db.dao().sets().size })
         ui.onNodeWithText("Set 1: 8-10 reps · 100.25 lb").performScrollTo().assertIsDisplayed()
@@ -152,7 +158,7 @@ END_WORKOUT_PLAN""") + "\n```"
         val saved = runBlocking { db.planDao().plans().single() }
         assertEquals("", saved.scheduledDate)
         ui.activityRule.scenario.recreate()
-        waitFor("Saved plan")
+        waitFor("Saved template")
         ui.waitUntil(10000) { ui.onAllNodesWithTag("start-plan").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) == false }
         ui.onNodeWithTag("start-plan").performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().active() } != null }
@@ -179,7 +185,11 @@ END_WORKOUT_PLAN""") + "\n```"
         ui.onNodeWithText("Cancel", substring = false).performClick()
         val after = runBlocking { WorkoutRepository(db).backup() }
         assertEquals(before.copy(exportedAt = after.exportedAt), after)
-        ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
+        if (ui.onAllNodesWithTag("train-screen").fetchSemanticsNodes().isNotEmpty()) {
+            ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false))
+            ui.onNodeWithText("My templates", substring = false).performClick()
+            ui.onNodeWithText("Import template", substring = false).performClick()
+        } else ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
         ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextInput(simple.replace("\"repsMin\":8", "\"repsMin\":0"))
         ui.onNodeWithText("Preview plan").performClick()
         ui.waitUntil(10000) { runCatching { ui.onNode(hasText("Check rep minimum/maximum", substring = true)).assertIsDisplayed() }.isSuccess }
@@ -188,16 +198,16 @@ END_WORKOUT_PLAN""") + "\n```"
         Espresso.closeSoftKeyboard()
         ui.waitUntil(10000) { model.planImportText.value == simple && !model.busy.value }
         ui.onNodeWithText("Preview plan").performClick(); waitFor("Edit planned workout")
-        ui.onNodeWithText("Save plan").performClick(); waitFor("Saved plan")
+        ui.onNodeWithText("Save plan").performClick(); waitFor("Saved template")
         val id = runBlocking { db.planDao().plans().single().id }
         paste(simple)
         ui.onNodeWithText("Save plan").performClick(); waitFor("Plan already saved")
         capture("plan-duplicate-warning")
-        ui.onNodeWithText("Open existing plan").performClick(); waitFor("Saved plan")
+        ui.onNodeWithText("Open existing plan").performClick(); waitFor("Saved template")
         assertEquals(id, runBlocking { db.planDao().plans().single().id })
         paste(simple)
         ui.onNodeWithText("Save plan").performClick(); waitFor("Plan already saved")
-        ui.onNodeWithText("Save another copy").performClick(); waitFor("Saved plan")
+        ui.onNodeWithText("Save another copy").performClick(); waitFor("Saved template")
         assertEquals(2, runBlocking { db.planDao().plans().size })
         assertEquals(before.workouts, runBlocking { db.dao().workouts() }); assertEquals(before.sets, runBlocking { db.dao().sets() })
     }

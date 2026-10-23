@@ -25,7 +25,7 @@ class PlanLifecycleInteractionTest {
 END_WORKOUT_PLAN"""
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Synthetic fixtures require the isolated preview", context.packageName == "com.example.fitnotes.preview.activities")
+        assumeTrue("Synthetic fixtures require the isolated preview", context.packageName in setOf("com.example.fitnotes.preview.activities", "com.example.fitnotes.preview.photos"))
         val done = java.util.concurrent.atomic.AtomicBoolean(false)
         ui.activityRule.scenario.onActivity {
             model = ViewModelProvider(it)[FitNotesViewModel::class.java]
@@ -43,7 +43,11 @@ END_WORKOUT_PLAN"""
         File(instrumentation.targetContext.filesDir, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }; image.recycle()
     }
     private fun pasteAndPreview() {
-        ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
+        if (ui.onAllNodesWithTag("train-screen").fetchSemanticsNodes().isNotEmpty()) {
+            ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false))
+            ui.onNodeWithText("My templates", substring = false).performClick()
+            ui.onNodeWithText("Import template", substring = false).performClick()
+        } else ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick()
         waitFor("Preview plan")
         ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextInput(block)
         ui.onNodeWithText("Preview plan").performClick(); waitFor("Edit planned workout")
@@ -56,22 +60,22 @@ END_WORKOUT_PLAN"""
         scroll(hasTestTag("target-row:${exercise.targets.first().key}"))
         capture("after-import-editable-set-rows")
         ui.onNodeWithTag("save-plan").performTouchInput { doubleClick() }
-        waitFor("Saved plan")
+        waitFor("Saved template")
         val saved = runBlocking { db.planDao().plans().single() }
         assertEquals("", saved.scheduledDate); assertEquals(0, saved.durationMinutes)
         assertTrue(runBlocking { db.dao().workouts().isEmpty() }); assertTrue(runBlocking { db.dao().sets().isEmpty() }); assertNull(runBlocking { db.dao().active() })
         capture("after-saved-plan-no-training")
         ui.onNodeWithText("Close", substring = false).performClick()
         ui.activityRule.scenario.recreate()
-        ui.onAllNodesWithText("Plans (1)").onFirst().performClick(); waitFor("Planned workouts")
-        ui.onNodeWithText("Synthetic editable plan").performClick(); waitFor("Saved plan")
+        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false)); ui.onNodeWithText("My templates", substring = false).performClick(); waitFor("My templates")
+        ui.onNodeWithText("Synthetic editable plan").performClick(); waitFor("Saved template")
         ui.onNodeWithText("Edit plan").performClick(); waitFor("Edit planned workout")
         val set = model.planEdit.value!!.exercises.single().targets.first()
         scroll(hasTestTag("target-row:${set.key}"))
         ui.onNodeWithTag("target-row:${set.key}").onChildren().fetchSemanticsNodes() // material fields remain editable
         ui.onAllNodes(hasSetTextAction() and hasText("Weight + unit (optional)")).onFirst().performTextReplacement("41.25 kg")
         ui.onNodeWithTag("editor-start-plan").assertIsNotEnabled()
-        Espresso.closeSoftKeyboard(); ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved plan")
+        Espresso.closeSoftKeyboard(); ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved template")
         assertTrue(runBlocking { db.dao().workouts().isEmpty() }); assertTrue(runBlocking { db.dao().sets().isEmpty() })
         ui.waitUntil(10000) { ui.onAllNodesWithTag("start-plan").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled) == false }
         val before = System.currentTimeMillis()
@@ -105,7 +109,7 @@ END_WORKOUT_PLAN"""
         }
         ui.waitUntil(15000) { ready.get() && !model.busy.value && model.data.value.workouts.size == 2 }
         waitFor("Backup restored."); ui.waitUntil(10000) { ui.onAllNodesWithText("Backup restored.").fetchSemanticsNodes().isEmpty() }
-        pasteAndPreview(); ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved plan")
+        pasteAndPreview(); ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved template")
         assertEquals(2, runBlocking { db.dao().sets().size })
         ui.onNodeWithText("Edit plan").performClick(); waitFor("Edit planned workout")
         ui.onNodeWithTag("editor-start-plan").assertIsEnabled().performClick(); waitFor("Workout started.")
@@ -134,10 +138,10 @@ END_WORKOUT_PLAN"""
         assertTrue(model.planEdit.value!!.exercises.single().targets.isEmpty())
         assertNotNull(runBlocking { db.dao().workout(20) })
         capture("after-legacy-conversion-preview")
-        ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved plan")
+        ui.onNodeWithTag("save-plan").performClick(); waitFor("Saved template")
         assertNull(runBlocking { db.dao().workout(20) }); assertNull(runBlocking { db.dao().active() }); assertTrue(runBlocking { db.dao().sets().isEmpty() })
         assertEquals(raw, runBlocking { db.planDao().plans().single().legacyGuidance })
-        ui.activityRule.scenario.recreate(); waitFor("Saved plan")
+        ui.activityRule.scenario.recreate(); waitFor("Saved template")
         assertTrue(runBlocking { db.dao().workouts().isEmpty() })
     }
 }

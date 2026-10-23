@@ -181,22 +181,26 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
 @Composable
 fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, selectedId: String?, onSelect: (String?) -> Unit,
     onClose: () -> Unit, onPaste: () -> Unit, onEdit: (String) -> Unit, onStart: (String) -> Unit, onOpenWorkout: (Long) -> Unit) {
-    val plans by model.plans.collectAsState()
-    val selected = plans.firstOrNull { it.plan.id == selectedId }
+    val allPlans by model.plans.collectAsState()
+    val programs by model.programs.collectAsState()
+    val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
+    val plans = allPlans.filter { it.plan.id !in owned && !it.plan.archived }
+    val selected = allPlans.firstOrNull { it.plan.id == selectedId }
+    val programDay = selectedId in owned
     val error by model.planImportError.collectAsState()
     var startReady by remember(selected?.plan?.id) { mutableStateOf(false) }
     LaunchedEffect(selected?.plan?.id) {
         selected?.let { kotlinx.coroutines.delay(1500); startReady = true }
     }
     var deleting by remember { mutableStateOf(false) }
-    HandoffScreen(if (selectedId == null) "Planned workouts" else "Saved plan", busy, { if (selectedId == null) onClose() else onSelect(null) }, "saved-plans-list", attention = error, footer = {
+    HandoffScreen(if (selectedId == null) "My templates" else if(programDay) "Program day" else "Saved template", busy, { if (selectedId == null) onClose() else onSelect(null) }, "saved-plans-list", attention = error, footer = {
         if (selected != null) {
             val started = selected.plan.startedWorkoutId
-            Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
+            if(!programDay) Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
             TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Apply progression suggestions") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
-            TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete plan") }
+            if(!programDay) TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete template") }
         }
         TextButton(onClick = onPaste, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
         TextButton(onClick = onClose, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Close") }
@@ -219,6 +223,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
             item {
                 Text(selected.plan.title, style = MaterialTheme.typography.headlineSmall)
                 Text("${selected.plan.scheduledDate.ifBlank { "Unscheduled" }} · ${selected.plan.durationMinutes.takeIf { it > 0 }?.let { "$it min" } ?: "No time budget"}", style = MaterialTheme.typography.bodyMedium)
+                if(programDay)Text("Program prescription. Start the next day from Train to associate performed results with this program.")
                 Text("Targets only · no completed sets", color = MaterialTheme.colorScheme.primary)
                 if (selected.plan.notes.isNotBlank()) Text(selected.plan.notes)
             }

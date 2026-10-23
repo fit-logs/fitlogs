@@ -285,6 +285,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
             plannedWorkouts = database.planDao().plans(), plannedExercises = database.planDao().exercises(), handoffPreferences = database.planDao().preferences(),
             plannedSets = database.planDao().sets(), planRuns = database.planDao().runs(), runTargets = database.planDao().runTargets(), exerciseAliases = database.trainingDao().aliases(), exerciseMappings = database.trainingDao().mappings(),
             exerciseRedirects = database.trainingDao().redirects(), exerciseProgression = database.trainingDao().progression(), trainingPreferences = database.trainingDao().preferences(),
+            programs = database.programDao().programs(), programDays = database.programDao().days(), programSessions = database.programDao().sessions(), programSteps = database.programDao().steps(),
             restTimer = database.trainingDao().timer()?.let { timer -> timer.copy(running = false, remainingMillis = restClock?.let { timer.recovered(it).remaining(it) } ?: timer.remainingMillis, anchorElapsed = 0) })
     }
 
@@ -292,6 +293,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         // Validate again at the mutation boundary, including programmatic callers.
         BackupCodec.validate(backup)
         database.withTransaction {
+            database.programDao().clear()
             database.planDao().clearPlans()
             if (backup.version >= 5) database.planDao().clearPreferences()
             database.healthDao().clear()
@@ -336,6 +338,10 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
                     }
                 }
             }
+            backup.programs.forEach { database.programDao().insert(it) }
+            database.programDao().insertDays(backup.programDays)
+            backup.programSessions.forEach { database.programDao().insertSession(it) }
+            backup.programSteps.forEach { database.programDao().insertStep(it) }
             dao.insertSets(backup.sets)
             val training = database.trainingDao()
             backup.exerciseAliases.forEach { training.putAlias(it) }; backup.exerciseMappings.forEach { training.putMapping(it) }

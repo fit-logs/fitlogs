@@ -9,6 +9,7 @@ internal object PlanBackupJson {
             array.put(JSONObject().put("id", p.id).put("title", p.title).put("scheduledDate", p.scheduledDate)
                 .put("durationMinutes", p.durationMinutes).put("notes", p.notes).put("createdAt", p.createdAt)
                 .put("sourceFingerprint", p.sourceFingerprint).put("startedWorkoutId", p.startedWorkoutId ?: JSONObject.NULL).also { row ->
+                    if (backup.version >= 11) row.put("archived", p.archived).put("pinned", p.pinned)
                     if (backup.version >= 6) row.put("warmUp", p.warmUp).put("legacyGuidance", p.legacyGuidance)
                 })
         } })
@@ -23,9 +24,9 @@ internal object PlanBackupJson {
         } ?: JSONObject.NULL)
     }
     fun plans(root: JSONObject, version: Int): List<PlannedWorkout> = objects(root, "plannedWorkouts", 100000).map { o ->
-        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId") + if (version >= 6) setOf("warmUp", "legacyGuidance") else emptySet())
+        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId") + (if (version >= 6) setOf("warmUp", "legacyGuidance") else emptySet()) + (if(version >= 11) setOf("archived", "pinned") else emptySet()))
         PlannedWorkout(text(o, "id"), text(o, "title"), text(o, "scheduledDate"), int(o, "durationMinutes"), text(o, "notes"),
-            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"))
+            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"), version >= 11 && bool(o,"archived"), version >= 11 && bool(o,"pinned"))
     }
     fun targets(root: JSONObject, version: Int): List<PlannedExercise> = objects(root, "plannedExercises", 1000000).map { o ->
         keys(o, setOf("id", "planId", "exerciseId", "position", "sourceName", "sets", "repsMin", "repsMax", "weightValue", "weightUnit", "note") + if (version >= 7) setOf("supersetGroup") else emptySet())
@@ -41,6 +42,7 @@ internal object PlanBackupJson {
             if (o.isNull("availableMinutes")) null else int(o, "availableMinutes"), text(o, "lastTargetDate"))
     }
     private fun keys(o: JSONObject, fields: Set<String>) { require(o.keys().asSequence().toSet() == fields) { "Invalid planned-workout backup fields." } }
+    private fun bool(o: JSONObject, key: String) = (o.get(key) as? Boolean) ?: throw IllegalArgumentException("Expected boolean for $key.")
     private fun text(o: JSONObject, field: String) = (o.get(field) as? String) ?: throw IllegalArgumentException("Expected text for $field.")
     private fun long(o: JSONObject, field: String): Long { val v = o.get(field); require(v is Int || v is Long) { "Expected an integer for $field." }; return (v as Number).toLong() }
     private fun int(o: JSONObject, field: String): Int { val v = long(o, field); require(v in Int.MIN_VALUE..Int.MAX_VALUE); return v.toInt() }

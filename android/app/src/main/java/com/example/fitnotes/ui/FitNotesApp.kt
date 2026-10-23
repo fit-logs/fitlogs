@@ -182,6 +182,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                         onFinish = { finishActiveId = data.active?.workout?.id },
                         onDiscard = { discardActiveId = data.active?.workout?.id; discardForStart = false },
                         onPast = ::openPast, onDraft = { id -> enterWorkout(id) }, onEditTime = ::editTime, onResumeFinished = { id -> model.resumeFinishedWorkout(id) { enterWorkout(id) } }, onDiscardDraft = { discardPastId = it },
+                        onProgramStart = { id -> model.startProgramDay(id) { enterWorkout(it) } },
                         onPlan = { selectedPlan = it; plansMenu = true }, onNew = { model.newPlan(); pastePlan = true },
                         onAsk = { askChatGpt = true }, onImport = { model.cancelPlanImport(); pastePlan = true })
                 }

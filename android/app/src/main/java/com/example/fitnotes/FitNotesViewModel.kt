@@ -36,6 +36,10 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val workoutTimeError = MutableStateFlow<String?>(null)
     private var staleWorkoutJob: kotlinx.coroutines.Job? = null
     private val planRepository = WorkoutPlanRepository(database)
+    private val programRepository = TrainingProgramRepository(database)
+    val programs = database.programDao().observe().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val programSessions = database.programDao().observeSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val programError = MutableStateFlow<String?>(null)
     private val training = TrainingRepository(database)
     private val identity = ExerciseIdentityRepository(database)
     val restController = RestTimerController(application, database)
@@ -223,6 +227,18 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveRunSuggestion(id: Long, edit: EditableTarget, name: String, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
         planRepository.updateRunTarget(id, edit.validated(name)); done()
     }
+    fun deleteTemplate(id: String, done: () -> Unit) = change("Template deleted.", done, failure = { programError.value = it }) { programError.value = null; planRepository.delete(id) }
+    fun renameTemplate(id: String, title: String, done: () -> Unit) = change(null, done, failure = { programError.value = it }) { programError.value = null; planRepository.rename(id, title) }
+    fun archiveTemplate(id: String, archived: Boolean) = change(null, failure = { programError.value = it }) { programError.value = null; planRepository.archive(id, archived) }
+    fun pinTemplate(id: String, pinned: Boolean) = change(null, failure = { programError.value = it }) { programError.value = null; planRepository.pin(id, pinned) }
+    fun duplicateTemplate(id: String) = change("Template copied.", failure = { programError.value = it }) { programError.value = null; planRepository.duplicate(id) }
+    fun createProgram(title: String, weeks: Int, days: List<String>, done: () -> Unit) = change("Program saved.", done, failure = { programError.value = it }) { programError.value = null; programRepository.create(title, weeks, days) }
+    fun activateProgram(id: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.activate(id) }
+    fun pauseProgram(id: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.pause(id) }
+    fun postponeProgram(id: String, date: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.postpone(id, date) }
+    fun skipProgramDay(id: String) = change("Day skipped; no workout marked completed.", failure = { programError.value = it }) { programError.value = null; programRepository.skip(id) }
+    fun completeProgramDay(id: String, workoutId: Long) = change("Program day completed.", failure = { programError.value = it }) { programError.value = null; programRepository.complete(id, workoutId) }
+    fun startProgramDay(id: String, done: (Long) -> Unit) = change(null, failure = { programError.value = it }) { programError.value = null; done(programRepository.start(id)) }
     fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; val workout = planRepository.start(id); planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null; onReady(workout) }
     fun deletePlan(id: String, done: () -> Unit) = change("Plan deleted.", done, failure = { planImportError.value = it }) { planImportError.value = null; planRepository.delete(id) }
     fun addExercise(workoutId: Long, exerciseId: Long, done: () -> Unit) =

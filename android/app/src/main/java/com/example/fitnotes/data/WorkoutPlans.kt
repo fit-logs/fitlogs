@@ -12,7 +12,8 @@ import java.util.UUID
     indices = [Index("scheduledDate"), Index("sourceFingerprint"), Index(value = ["startedWorkoutId"], unique = true)])
 data class PlannedWorkout(@PrimaryKey val id: String, val title: String, val scheduledDate: String, val durationMinutes: Int,
     val notes: String, val createdAt: Long, val sourceFingerprint: String, val startedWorkoutId: Long? = null,
-    @ColumnInfo(defaultValue = "''") val warmUp: String = "", @ColumnInfo(defaultValue = "''") val legacyGuidance: String = "")
+    @ColumnInfo(defaultValue = "''") val warmUp: String = "", @ColumnInfo(defaultValue = "''") val legacyGuidance: String = "",
+    @ColumnInfo(defaultValue = "0") val archived: Boolean = false, @ColumnInfo(defaultValue = "0") val pinned: Boolean = false)
 
 @Entity(tableName = "planned_exercises", foreignKeys = [
     ForeignKey(entity = PlannedWorkout::class, parentColumns = ["id"], childColumns = ["planId"], onDelete = ForeignKey.CASCADE),
@@ -40,7 +41,7 @@ data class HandoffPreferences(@PrimaryKey val id: Int = 1, val goals: String = "
     @Transaction @Query("SELECT * FROM planned_workouts WHERE id = :id") suspend fun detail(id: String): PlannedWorkoutDetail?
     @Query("SELECT * FROM planned_workouts ORDER BY id") suspend fun plans(): List<PlannedWorkout>
     @Query("SELECT * FROM planned_exercises ORDER BY planId, position, id") suspend fun exercises(): List<PlannedExercise>
-    @Query("SELECT * FROM planned_workouts WHERE sourceFingerprint = :fingerprint ORDER BY createdAt, id LIMIT 1") suspend fun duplicate(fingerprint: String): PlannedWorkout?
+    @Query("SELECT * FROM planned_workouts WHERE sourceFingerprint = :fingerprint AND id NOT IN (SELECT planId FROM program_days) ORDER BY createdAt, id LIMIT 1") suspend fun duplicate(fingerprint: String): PlannedWorkout?
     @Insert suspend fun insert(plan: PlannedWorkout)
     @Insert suspend fun insertTargets(targets: List<PlannedExercise>): List<Long>
     @Insert suspend fun insertSets(sets: List<PlannedSet>)
@@ -166,7 +167,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
         val planId = existing?.id ?: UUID.randomUUID().toString()
         val spec = preview.spec
         val plan = PlannedWorkout(planId, spec.title.trim(), spec.date, spec.durationMinutes, spec.note, existing?.createdAt ?: System.currentTimeMillis(),
-            spec.fingerprint, existing?.startedWorkoutId, spec.warmUp, spec.legacyGuidance)
+            spec.fingerprint, existing?.startedWorkoutId, spec.warmUp, spec.legacyGuidance, existing?.archived ?: false, existing?.pinned ?: false)
         if (existing == null) dao.insert(plan) else { dao.updatePlan(plan); dao.clearTargets(planId) }
         val exerciseIds = dao.insertTargets(preview.resolutions.mapIndexed { position, resolution ->
             val target = resolution.prescription
@@ -183,6 +184,7 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
     }
     suspend fun start(planId: String): Long = database.withTransaction {
         val plan = requireNotNull(dao.detail(planId)) { "The planned workout no longer exists." }
+        require(!plan.plan.archived) { "Unarchive this template before starting." }
         val active = database.dao().active()
         if (active != null) {
             require(dao.run(active.id)?.planId == planId) { "Finish or delete the unfinished workout before starting a plan." }
@@ -243,5 +245,23 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
             }
             require(applied>0) { "Hold: no enabled exercise met every eligible working-set target." }
     }
-    suspend fun delete(id: String) = dao.delete(id)
+    suspend fun rename(id: String, title: String) = database.withTransaction {
+        require(title.trim().isNotEmpty() && title.trim().length <= 200 && title.none(Char::isISOControl)) { "Enter a readable title (up to 200 characters)." }
+        val plan = requireNotNull(dao.detail(id)); dao.updatePlan(plan.plan.copy(title = title.trim()))
+    }
+    suspend fun archive(id: String, archived: Boolean) = database.withTransaction {
+        require(database.programDao().days().none { it.planId == id }) { "Program days cannot be archived as templates." }
+        val p = requireNotNull(dao.detail(id)); dao.updatePlan(p.plan.copy(archived = archived))
+    }
+    suspend fun pin(id: String, pinned: Boolean) = database.withTransaction {
+        val p = requireNotNull(dao.detail(id)); dao.updatePlan(p.plan.copy(pinned = pinned))
+    }
+    suspend fun duplicate(id: String): String = database.withTransaction {
+        val p = requireNotNull(dao.detail(id)); val spec = p.spec.copy(title = p.plan.title.take(193) + " (copy)", date = "")
+        (save(PlanPreview(spec, p.ordered.map { ResolvedPlanExercise(it.prescription, it.exercise.id, supersetGroup = it.target.supersetGroup) }), allowDuplicate = true) as PlanSaveResult.Saved).id
+    }
+    suspend fun delete(id: String) = database.withTransaction {
+        require(database.programDao().days().none { it.planId == id }) { "This prescription belongs to a program. Its history is retained." }
+        dao.delete(id)
+    }
 }

@@ -128,7 +128,7 @@ class ActivitySummaryTest {
             }
             old.version = 9
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13).build()
         try {
             assertEquals("Keep title", db.dao().workout(1)!!.title)
             assertFalse(db.healthDao().session(source().key)!!.isSourceCreated)
