@@ -47,6 +47,19 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// The public JSON is the source of truth; bundle three exact starter files.
+val syncStarterCatalog = tasks.register<Sync>("syncStarterCatalog") {
+    from("../../web/public/catalog") {
+        include("manifest.json", "exercises.json", "LICENSE.txt",
+            "programs/full-body-beginner-3day-v1.json",
+            "programs/full-body-express-2day-v1.json",
+            "programs/dumbbell-home-3day-v1.json")
+    }
+    into(layout.buildDirectory.dir("generated/catalogAssets/catalog"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/catalogAssets").get().asFile)
+tasks.named("preBuild").configure { dependsOn(syncStarterCatalog) }
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.work:work-runtime-ktx:2.12.0")

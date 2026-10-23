@@ -28,6 +28,33 @@ data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: Li
 data class HandoffPreferenceState(val loading: Boolean = true, val value: HandoffPreferences = HandoffPreferences())
 
 class FitNotesViewModel(application: Application) : AndroidViewModel(application) {
+    private val catalogRepository=ProgramCatalogRepository(application)
+    val catalog=MutableStateFlow<CatalogSnapshot?>(null)
+    val catalogBusy=MutableStateFlow(false)
+    val catalogError=MutableStateFlow<String?>(null)
+    val catalogEntry=MutableStateFlow<CatalogEntry?>(null)
+    val catalogProgram=MutableStateFlow<PortableProgram?>(null)
+    private fun catalogTask(block:suspend()->Unit) {
+        if(catalogBusy.value)return
+        catalogBusy.value=true;catalogError.value=null
+        viewModelScope.launch {
+            try {block()} catch(e:Exception){if(e is kotlinx.coroutines.CancellationException)throw e;catalogError.value=if(e is java.io.IOException)"Can't reach the library. Check your connection and retry." else e.message ?: "Catalog unavailable. Try again later."}
+            finally {catalogBusy.value=false}
+        }
+    }
+    fun loadCatalog(){if(catalog.value==null)catalogTask{catalog.value=catalogRepository.load()}}
+    fun refreshCatalog()=catalogTask{if(catalog.value==null)catalog.value=catalogRepository.load();catalog.value=catalogRepository.refresh()}
+    fun openCatalogEntry(entry:CatalogEntry) {
+        if(catalogBusy.value)return
+        catalogEntry.value=entry;catalogProgram.value=null
+        catalogTask{val snapshot=requireNotNull(catalog.value);catalogProgram.value=catalogRepository.program(entry,snapshot.manifest);catalog.value=snapshot.copy(available=snapshot.available+entry.id)}
+    }
+    fun catalogBack(){catalogEntry.value=null;catalogError.value=null}
+    fun reviewCatalogProgram() {
+        if(busy.value || catalogBusy.value)return
+        val p=catalogProgram.value ?: return
+        receiveProgramShare(p.json);previewProgram()
+    }
     private val notices = Channel<String>(Channel.BUFFERED)
     private val database = FitDatabase.open(application)
     private val repository = WorkoutRepository(database,AndroidRestClock(application))

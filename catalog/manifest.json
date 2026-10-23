@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026.10.23.1",
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitNotes contributors — original Workout Library definitions."
+  },
+  "exercises": [
+    {
+      "id": "bench-press",
+      "name": "Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "squat",
+      "name": "Squat",
+      "equipment": "barbell"
+    },
+    {
+      "id": "romanian-deadlift",
+      "name": "Romanian Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "lat-pulldown",
+      "name": "Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-overhead-press",
+      "name": "Dumbbell Overhead Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "seated-cable-row",
+      "name": "Seated Cable Row",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-bench-press",
+      "name": "Dumbbell Bench Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-row",
+      "name": "Dumbbell Row",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "leg-press",
+      "name": "Leg Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "leg-curl",
+      "name": "Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-lateral-raise",
+      "name": "Dumbbell Lateral Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "cable-triceps-pressdown",
+      "name": "Cable Triceps Pressdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-curl",
+      "name": "Dumbbell Curl",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "calf-raise",
+      "name": "Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "goblet-squat",
+      "name": "Goblet Squat",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-romanian-deadlift",
+      "name": "Dumbbell Romanian Deadlift",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-reverse-lunge",
+      "name": "Dumbbell Reverse Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "incline-dumbbell-bench-press",
+      "name": "Incline Dumbbell Bench Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-floor-press",
+      "name": "Dumbbell Floor Press",
+      "equipment": "dumbbells"
+    }
+  ],
+  "programs": [
+    {
+      "id": "full-body-beginner-3day",
+      "programVersion": "1",
+      "path": "programs/full-body-beginner-3day-v1.json",
+      "sha256": "1ee28fea118cebd94f133f2beda1157619f75b6597c47e609a72e2dc8c5723b9",
+      "title": "Full Body Beginner",
+      "description": "Practice basic gym movements across three short sessions, with two working sets per exercise.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "full-body-express-2day",
+      "programVersion": "1",
+      "path": "programs/full-body-express-2day-v1.json",
+      "sha256": "3c1a3e0c1094cc978ad453daf904609052677765c11542f8b3fa976259e57669",
+      "title": "Full Body Express",
+      "description": "Two concise sessions combine a squat or leg press, a hinge, a press and a pull.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 2,
+      "minutesPerDay": 35,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "upper-lower-4day",
+      "programVersion": "1",
+      "path": "programs/upper-lower-4day-v1.json",
+      "sha256": "bfa5817161efc1dd11bc7a41404508105720504695b8343297e352ac973b82cc",
+      "title": "Upper / Lower",
+      "description": "Alternate upper and lower sessions using a modest two-set starting volume.",
+      "goal": "strength",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 50,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ppl-3day",
+      "programVersion": "1",
+      "path": "programs/ppl-3day-v1.json",
+      "sha256": "5341751e89eec5fb5874824ee0a1244499430eb1bb4a611a49666a0a107b9798",
+      "title": "Push / Pull / Legs — 3 days",
+      "description": "A low-frequency split for people who prefer separate push, pull and leg sessions.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ppl-6day",
+      "programVersion": "1",
+      "path": "programs/ppl-6day-v1.json",
+      "sha256": "0890b7bfeae560bf691f7b552842ad62606e3d5911045319d0d694df11b07d61",
+      "title": "Push / Pull / Legs — 6 days",
+      "description": "Six brief sessions repeat movement groups with two working sets per exercise.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 6,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "strength-3day",
+      "programVersion": "1",
+      "path": "programs/strength-3day-v1.json",
+      "sha256": "ccf76e22534170f152ff98cd3e3c9090cdc485adc556aa2d95af7191c13e42b7",
+      "title": "Strength Fundamentals",
+      "description": "Three main movements per day with longer rests and a bounded four-to-six rep range.",
+      "goal": "strength",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 55,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "dumbbell-home-3day",
+      "programVersion": "1",
+      "path": "programs/dumbbell-home-3day-v1.json",
+      "sha256": "0ecbd65656eb226bb18e80be043375793d823064db323d0b3448418ed7e522ce",
+      "title": "Dumbbell Home",
+      "description": "Three sessions using dumbbells and a stable bench, without cable stacks or barbells.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "bench",
+        "dumbbells"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 40,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "hypertrophy-upper-lower-4day",
+      "programVersion": "1",
+      "path": "programs/hypertrophy-upper-lower-4day-v1.json",
+      "sha256": "08960adaa19b6afad3ce53e5375dfb670006b257ae99573028bd2b9fa726f001",
+      "title": "Hypertrophy Upper / Lower",
+      "description": "Four sessions add selected accessories to a two-working-set foundation.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 60,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    }
+  ]
+}

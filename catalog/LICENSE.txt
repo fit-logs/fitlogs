@@ -1,0 +1,13 @@
+The original program definitions, exercise references, and catalog descriptions
+in this directory are licensed under Creative Commons Attribution 4.0
+International (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+Legal terms: https://creativecommons.org/licenses/by/4.0/legalcode
+
+Attribution: FitNotes contributors — FitNotes Workout Library.
+Source: https://avivajpeyi.github.io/fitnotes/library/
+
+These generic routines and descriptions were independently authored for this
+library. No third-party routine articles, branded packages, screenshots or images
+are reproduced. No claim of endorsement by another organization is made.
+Software and the portable schema retain their repository/module licenses.
