@@ -10,7 +10,9 @@ import java.util.UUID
 
 @Entity(tableName = "training_programs")
 data class TrainingProgram(@PrimaryKey val id: String, val title: String, val weeks: Int, val status: String = "paused",
-    val nextIndex: Int = 0, val notBefore: String = "", val createdAt: Long = System.currentTimeMillis())
+    val nextIndex: Int = 0, val notBefore: String = "", val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "''") val definitionId: String = "", @ColumnInfo(defaultValue = "''") val definitionVersion: String = "",
+    @ColumnInfo(defaultValue = "''") val definitionJson: String = "", @ColumnInfo(defaultValue = "''") val sourceFingerprint: String = "")
 @Entity(tableName = "program_days", foreignKeys = [
     ForeignKey(entity = TrainingProgram::class, parentColumns = ["id"], childColumns = ["programId"], onDelete = ForeignKey.CASCADE),
     ForeignKey(entity = PlannedWorkout::class, parentColumns = ["id"], childColumns = ["planId"], onDelete = ForeignKey.RESTRICT)],

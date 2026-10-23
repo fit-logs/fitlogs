@@ -102,7 +102,7 @@ END_WORKOUT_PLAN
     @Test fun backupSixRetainsTargetsRunsGuidanceAndOldFiveBackupsExpandUniformSets() = runBlocking {
         val id = save(); plans.start(id)
         val repo = WorkoutRepository(db); val backup = repo.backup()
-        assertEquals(11, backup.version); val decoded = BackupCodec.decode(BackupCodec.encode(backup)); assertEquals(backup, decoded)
+        assertEquals(12, backup.version); val decoded = BackupCodec.decode(BackupCodec.encode(backup)); assertEquals(backup, decoded)
         repo.restore(decoded); assertEquals(backup.plannedSets, db.planDao().sets()); assertEquals(backup.runTargets, db.planDao().runTargets())
         val plan = backup.plannedWorkouts.single().copy(warmUp = "", legacyGuidance = "")
         val exercise = backup.plannedExercises.single().copy(sets = 2)
@@ -181,7 +181,7 @@ END_WORKOUT_PLAN
             old.execSQL("INSERT INTO planned_exercises VALUES (8, 'plan', 1, 0, 'Synthetic press', 3, 8, 10, '40.50', 'lb', 'Exercise guidance')")
             old.version = 7
         }
-        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13).build(); plans = WorkoutPlanRepository(db)
+        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build(); plans = WorkoutPlanRepository(db)
         assertEquals(3, db.planDao().sets().size); assertEquals(3, db.planDao().runTargets().size)
         assertEquals("Preserve actual", db.dao().sets().single().comment); assertEquals("40.50", db.planDao().sets().first().weightValue)
         assertEquals(1000, db.dao().workout(5)!!.startedAt); assertEquals("Exercise guidance", db.dao().entries().single().planNote)

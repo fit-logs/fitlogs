@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 11,
+    val version: Int = 12,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -113,7 +113,7 @@ object BackupCodec {
             val root = JSONObject(text)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..11) { "Unsupported backup version." }
+            require(version in 1..12) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
@@ -122,7 +122,7 @@ object BackupCodec {
             else if (version == 6) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets")
             else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets", *TrainingBackupJson.rootKeys, *if(version >= 11) ProgramBackupJson.keys else emptyArray())
             val backup = Backup(
-                programs = if(version >= 11) ProgramBackupJson.programs(root) else emptyList(), programDays = if(version >= 11) ProgramBackupJson.days(root) else emptyList(),
+                programs = if(version >= 11) ProgramBackupJson.programs(root,version) else emptyList(), programDays = if(version >= 11) ProgramBackupJson.days(root) else emptyList(),
                 programSessions = if(version >= 11) ProgramBackupJson.sessions(root) else emptyList(), programSteps = if(version >= 11) ProgramBackupJson.steps(root) else emptyList(),
                 version = root.integer("version"),
                 exportedAt = root.long("exportedAt"),
@@ -210,7 +210,7 @@ object BackupCodec {
 
     fun validate(backup: Backup) {
         ProgramBackupJson.validate(backup)
-        require(backup.version in 1..11) { "Unsupported backup version." }
+        require(backup.version in 1..12) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
@@ -359,6 +359,7 @@ object BackupCodec {
 private val jsonNumberSyntax = Regex("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?")
 internal class StrictJson(private val text: String) {
     private var offset = 0
+    val failureOffset: Int get() = offset
     fun check() {
         value(0)
         whitespace()

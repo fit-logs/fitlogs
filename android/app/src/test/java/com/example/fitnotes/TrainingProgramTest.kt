@@ -94,6 +94,7 @@ class TrainingProgramTest {
         val t=template();val id=programs.create("Program",2,listOf(t,t));programs.activate(id);programs.skip(id)
         val w=programs.start(id);perform(w);programs.complete(id,w);plans.archive(t,true);plans.pin(t,true)
         val before=workouts.backup();val decoded=BackupCodec.decode(BackupCodec.encode(before));assertEquals(before,decoded)
+        val legacyProgram=before.copy(version=11);assertEquals(legacyProgram,BackupCodec.decode(BackupCodec.encode(legacyProgram)))
         workouts.restore(decoded);val after=workouts.backup();assertEquals(before.copy(exportedAt=after.exportedAt),after)
         assertFalse(JSONObject(BackupCodec.analysis(after)).has("programs"));assertEquals(1,JSONObject(BackupCodec.analysis(after)).getJSONArray("sets").length())
         reject{BackupCodec.encode(before.copy(version=10))}
@@ -124,7 +125,7 @@ class TrainingProgramTest {
             old.execSQL("INSERT INTO planned_workouts(id,title,scheduledDate,durationMinutes,notes,createdAt,sourceFingerprint) VALUES ('old','Keep template','',30,'Keep target',1000,'${"a".repeat(64)}')")
             old.version=12
         }
-        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_MIGRATION_12_13).build()
+        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build()
         assertEquals("Keep note",db.dao().workout(1)!!.notes);assertEquals(25.0,db.dao().sets().single().weightKg,0.0);assertFalse(db.planDao().detail("old")!!.plan.archived);assertFalse(db.planDao().detail("old")!!.plan.pinned);assertTrue(db.programDao().programs().isEmpty())
         db.close();context.deleteDatabase(name);Unit
     }

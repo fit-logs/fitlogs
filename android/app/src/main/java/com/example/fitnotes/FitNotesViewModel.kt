@@ -37,6 +37,14 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private var staleWorkoutJob: kotlinx.coroutines.Job? = null
     private val planRepository = WorkoutPlanRepository(database)
     private val programRepository = TrainingProgramRepository(database)
+    private val programImporter = ProgramImportRepository(database)
+    val programImportText = MutableStateFlow("")
+    val programImportDraft = MutableStateFlow<ProgramImportDraft?>(null)
+    val programImportError = MutableStateFlow<String?>(null)
+    val programImportHelp = MutableStateFlow<String?>(null)
+    val programImportSourceUrl = MutableStateFlow("")
+    val duplicateProgramId = MutableStateFlow<String?>(null)
+    val programImportRequestVersion = MutableStateFlow(0L)
     val programs = database.programDao().observe().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val programSessions = database.programDao().observeSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val programError = MutableStateFlow<String?>(null)
@@ -227,6 +235,63 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveRunSuggestion(id: Long, edit: EditableTarget, name: String, done: () -> Unit) = change(null, failure = { planImportError.value = it }) {
         planRepository.updateRunTarget(id, edit.validated(name)); done()
     }
+    fun receiveProgramShare(text: String) {
+        if(busy.value){notices.trySend("Finish the current save, then share the program again.");return}
+        cancelProgramImportState()
+        if(text.toByteArray(Charsets.UTF_8).size>PortableProgramParser.MAX_INPUT) { programImportError.value="Shared program exceeds 256 KB. Paste a shorter definition.";programImportRequestVersion.value+=1;return }
+        programImportDraft.value=null;duplicateProgramId.value=null;programImportError.value=null
+        if(text.trim().startsWith("http") && PortableProgramParser.validUrl(text.trim())) {
+            programImportSourceUrl.value=text.trim();programImportText.value="";programImportHelp.value="This importer does not fetch webpages. Convert the linked routine to program JSON with your chosen tool, then paste it here. The link is retained as source; nothing is uploaded."
+        } else { programImportText.value=text;programImportHelp.value=null;programImportSourceUrl.value="" }
+        programImportRequestVersion.value+=1
+    }
+    fun receiveProgramFileShare(uri:Uri) {
+        if(busy.value){notices.trySend("Finish the current save, then share the program again.");return}
+        cancelProgramImportState()
+        if(uri.scheme!="content")programImportError.value="Share a file through an Android content provider, or use Choose PDF / file."
+        else readProgramFile(uri)
+        programImportRequestVersion.value+=1
+    }
+    fun previewProgram() = change(null,failure={programImportError.value=it}) {
+        programImportError.value=null;val current=data.value
+        require(!current.loading && !current.imported.loading && current.storageError==null) { "Wait for the exercise catalogue to load." }
+        val parsed=withContext(Dispatchers.Default) { PortableProgramParser.parse(programImportText.value) }
+        val source=programImportSourceUrl.value
+        val definition=if(source.isBlank())parsed else {
+            require(PortableProgramParser.validUrl(source)) { "Check the source URL." }
+            val root=parsed.document;val metadata=root.getJSONObject("source")
+            require(metadata.optString("url").isBlank() || metadata.optString("url")==source) { "The pasted source URL differs from the selected link. Clear or correct the link before previewing." }
+            metadata.put("url",source);PortableProgramParser.parse(root.toString())
+        }
+        val incompatible=incompatiblePlanExercises(current.exercises,current.workouts.flatMap{it.entries.map{e->e.entry}},current.workouts.flatMap{it.entries.flatMap{e->e.sets}},current.imported.workouts.flatMap{it.sets},canonicalImportedSetIds(current))
+        programImportDraft.value=withContext(Dispatchers.Default) { PortableProgramParser.draft(definition,current.exercises,current.exerciseAliases,incompatible) }
+    }
+    fun readProgramFile(uri: Uri) = change(null,failure={programImportError.value=it}) {
+        programImportError.value=null
+        val resolver=getApplication<Application>().contentResolver
+        val pdf=withContext(Dispatchers.IO) {
+            resolver.getType(uri)=="application/pdf" || requireNotNull(resolver.openInputStream(uri)).use{input->
+                val head=ByteArray(5);var length=0
+                while(length<head.size){val count=input.read(head,length,head.size-length);if(count<=0)break;length+=count}
+                length==5 && head.toString(Charsets.US_ASCII)=="%PDF-"
+            }
+        }
+        if(pdf) programImportHelp.value="PDF text extraction is not supported by this offline importer. Convert this PDF to program JSON using your chosen tool, then Paste. The PDF is not uploaded or stored and training is unchanged."
+        else {
+            val text=withContext(Dispatchers.IO){readUtf8(uri,PortableProgramParser.MAX_INPUT)}
+            programImportText.value=text;programImportDraft.value=null;duplicateProgramId.value=null;programImportHelp.value="Text/JSON file loaded. Preview and resolve exercises before saving."
+        }
+    }
+    fun saveImportedProgram(allowDuplicate:Boolean=false,done:(String)->Unit)=change(null,failure={programImportError.value=it}) {
+        programImportError.value=null
+        when(val result=programImporter.save(requireNotNull(programImportDraft.value),allowDuplicate)) {
+            is ProgramImportResult.Duplicate->duplicateProgramId.value=result.id
+            is ProgramImportResult.Saved->{cancelProgramImportState();done(result.id);notices.send("Program saved. Targets are separate from performed training.")}
+        }
+    }
+    private fun cancelProgramImportState() { programImportText.value="";programImportDraft.value=null;programImportError.value=null;programImportHelp.value=null;duplicateProgramId.value=null;programImportSourceUrl.value="" }
+    fun cancelProgramImport() { if(!busy.value)cancelProgramImportState() }
+    fun editProgramIdentity(id:String,title:String,description:String,done:()->Unit)=change(null,done,failure={programError.value=it}) { programError.value=null;programImporter.editIdentity(id,title,description) }
     fun deleteTemplate(id: String, done: () -> Unit) = change("Template deleted.", done, failure = { programError.value = it }) { programError.value = null; planRepository.delete(id) }
     fun renameTemplate(id: String, title: String, done: () -> Unit) = change(null, done, failure = { programError.value = it }) { programError.value = null; planRepository.rename(id, title) }
     fun archiveTemplate(id: String, archived: Boolean) = change(null, failure = { programError.value = it }) { programError.value = null; planRepository.archive(id, archived) }
@@ -609,6 +674,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         change("Backup restored.", {
             pendingRestore.value = null
             pendingPhotoRestore.value = null
+            cancelProgramImportState()
             done()
         }) {
             automaticHealthJob?.cancel()

@@ -36,6 +36,8 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets.getByName("main").assets.srcDir("../../data/programs")
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }

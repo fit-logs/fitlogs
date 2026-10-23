@@ -7,7 +7,7 @@ internal object ProgramBackupJson {
     val keys = arrayOf("programs", "programDays", "programSessions", "programSteps")
     fun add(root: JSONObject, b: Backup) {
         fun rows(key: String, values: List<JSONObject>) { root.put(key, JSONArray(values)) }
-        rows("programs", b.programs.map { JSONObject().put("id", it.id).put("title", it.title).put("weeks", it.weeks).put("status", it.status).put("nextIndex", it.nextIndex).put("notBefore", it.notBefore).put("createdAt", it.createdAt) })
+        rows("programs", b.programs.map { JSONObject().put("id", it.id).put("title", it.title).put("weeks", it.weeks).put("status", it.status).put("nextIndex", it.nextIndex).put("notBefore", it.notBefore).put("createdAt", it.createdAt).also { row -> if(b.version>=12)row.put("definitionId",it.definitionId).put("definitionVersion",it.definitionVersion).put("definitionJson",it.definitionJson).put("sourceFingerprint",it.sourceFingerprint) } })
         rows("programDays", b.programDays.map { JSONObject().put("id", it.id).put("programId", it.programId).put("position", it.position).put("planId", it.planId) })
         rows("programSessions", b.programSessions.map { JSONObject().put("workoutId", it.workoutId).put("programId", it.programId).put("dayIndex", it.dayIndex) })
         rows("programSteps", b.programSteps.map { JSONObject().put("id", it.id).put("programId", it.programId).put("dayIndex", it.dayIndex).put("action", it.action).put("workoutId", it.workoutId ?: JSONObject.NULL).put("recordedAt", it.recordedAt) })
@@ -19,7 +19,7 @@ internal object ProgramBackupJson {
     private fun text(o: JSONObject, k: String) = (o.get(k) as? String) ?: throw IllegalArgumentException("Expected text for $k.")
     private fun long(o: JSONObject, k: String): Long { val v = o.get(k); require(v is Int || v is Long); return (v as Number).toLong() }
     private fun int(o: JSONObject, k: String): Int = long(o,k).also { require(it in Int.MIN_VALUE..Int.MAX_VALUE) }.toInt()
-    fun programs(r: JSONObject) = rows(r,"programs",setOf("id","title","weeks","status","nextIndex","notBefore","createdAt")).map { TrainingProgram(text(it,"id"),text(it,"title"),int(it,"weeks"),text(it,"status"),int(it,"nextIndex"),text(it,"notBefore"),long(it,"createdAt")) }
+    fun programs(r: JSONObject,version:Int) = rows(r,"programs",setOf("id","title","weeks","status","nextIndex","notBefore","createdAt") + if(version>=12)setOf("definitionId","definitionVersion","definitionJson","sourceFingerprint") else emptySet()).map { TrainingProgram(text(it,"id"),text(it,"title"),int(it,"weeks"),text(it,"status"),int(it,"nextIndex"),text(it,"notBefore"),long(it,"createdAt"),if(version<12)"" else text(it,"definitionId"),if(version<12)"" else text(it,"definitionVersion"),if(version<12)"" else text(it,"definitionJson"),if(version<12)"" else text(it,"sourceFingerprint")) }
     fun days(r: JSONObject) = rows(r,"programDays",setOf("id","programId","position","planId")).map { ProgramDay(text(it,"id"),text(it,"programId"),int(it,"position"),text(it,"planId")) }
     fun sessions(r: JSONObject) = rows(r,"programSessions",setOf("workoutId","programId","dayIndex")).map { ProgramSession(long(it,"workoutId"),text(it,"programId"),int(it,"dayIndex")) }
     fun steps(r: JSONObject) = rows(r,"programSteps",setOf("id","programId","dayIndex","action","workoutId","recordedAt")).map { ProgramStep(text(it,"id"),text(it,"programId"),int(it,"dayIndex"),text(it,"action"),if(it.isNull("workoutId"))null else long(it,"workoutId"),long(it,"recordedAt")) }
@@ -29,6 +29,13 @@ internal object ProgramBackupJson {
         }
         fun ids(values: List<String>) { require(values.all { it.isNotBlank() && it.length <= 128 } && values.distinct().size == values.size) { "Invalid or duplicate program IDs." } }
         ids(b.programs.map { it.id }); ids(b.programDays.map { it.id }); ids(b.programSteps.map { it.id })
+        b.programs.forEach { p ->
+            if(b.version<12)require(p.definitionId.isEmpty() && p.definitionVersion.isEmpty() && p.definitionJson.isEmpty() && p.sourceFingerprint.isEmpty()) { "Portable program metadata needs backup version 12." }
+            if(p.definitionJson.isNotEmpty()) {
+                val d=PortableProgramParser.parse(p.definitionJson)
+                require(d.id==p.definitionId && d.version==p.definitionVersion && d.name==p.title && Regex("[a-f0-9]{64}").matches(p.sourceFingerprint)) { "Invalid portable program metadata." }
+            } else require(p.definitionId.isEmpty() && p.definitionVersion.isEmpty() && p.sourceFingerprint.isEmpty()) { "Missing portable program definition." }
+        }
         val programs = b.programs.associateBy { it.id }; val plans = b.plannedWorkouts.associateBy { it.id }; val workouts = b.workouts.associateBy { it.id }
         require(b.programs.count { it.status == "active" } <= 1) { "Only one primary program can be active." }
         require(b.programDays.map { it.planId }.distinct().size == b.programDays.size) { "Each program day owns its prescription." }
