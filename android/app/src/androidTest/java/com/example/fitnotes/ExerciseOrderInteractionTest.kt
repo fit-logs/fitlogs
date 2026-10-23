@@ -41,7 +41,7 @@ class ExerciseOrderInteractionTest {
             active
         }
         ui.waitUntil(30000) { model.data.value.active?.workout?.id == workout && model.data.value.active!!.entries.first().sets.size == 1 && model.planRuns.value.isNotEmpty() }
-        ui.waitUntil(10000) { ui.onAllNodesWithText("Backup restored.").fetchSemanticsNodes().isEmpty() }
+        ui.mainClock.advanceTimeBy(10000)
         ui.onNodeWithTag("workout-overview").assertExists()
     }
     private fun capture(name: String) {
@@ -94,7 +94,9 @@ class ExerciseOrderInteractionTest {
         ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("run-target:${pending.id}"))
         capture("exercise-order-logger")
         assertEquals(1, runBlocking { db.dao().sets().size })
-        ui.onNodeWithTag("complete-target:${pending.id}").performClick()
+        ui.onNodeWithTag("logger-list").performScrollToNode(hasText("Save set"))
+        ui.waitUntil(10000) { model.completionReady.value && !model.busy.value }
+        ui.onNodeWithText("Save set").performScrollTo().assertIsDisplayed().performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().sets().size } == 2 && !model.busy.value }
         val actual = runBlocking { db.dao().sets().single { it.targetId == pending.id } }
         assertEquals(entries[1].id, actual.entryId)
