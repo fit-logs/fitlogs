@@ -56,7 +56,7 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
                             }
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(ActivityType.from(session.activity).symbol + " " + session.title.ifBlank { if (session.activity == "strength") "Workout" else session.activityTitle }, style = MaterialTheme.typography.titleMedium)
-                                Text(if (session.activity == "strength") session.exercises.joinToString(", ") { it.name } else session.notes.ifBlank { session.local?.health?.firstOrNull()?.session?.title.orEmpty() }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (session.activity == "strength") session.exercises.joinToString(", ") { it.name } else session.notes.ifBlank { session.summary?.preferred?.session?.notes.orEmpty() }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (session.activity == "strength") "${session.exercises.size} exercises · ${session.count} sets" else session.summary?.metricText ?: durationText(session.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (session.activity != "strength") Text(session.timeLabel + " · " + session.activityTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
