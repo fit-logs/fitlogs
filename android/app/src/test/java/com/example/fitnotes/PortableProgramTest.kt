@@ -116,7 +116,7 @@ class PortableProgramTest {
     }
     @Test fun backupRestoreRetainsDefinitionAttributionLocalEditsAndLeavesActualAnalysisUnpolluted()=runBlocking {
         val id=(importer.save(resolved()) as ProgramImportResult.Saved).id;importer.editIdentity(id,"Local title","Local description")
-        val before=workouts.backup();assertEquals(12,before.version);val decoded=BackupCodec.decode(BackupCodec.encode(before));assertEquals(before,decoded)
+        val before=workouts.backup();assertEquals(13,before.version);val decoded=BackupCodec.decode(BackupCodec.encode(before));assertEquals(before,decoded)
         workouts.restore(decoded);val after=workouts.backup();assertEquals(before.copy(exportedAt=after.exportedAt),after)
         val metadata=JSONObject(after.programs.single().definitionJson);assertEquals("Local description",metadata.getString("description"));assertEquals("https://example.org/program",metadata.getJSONObject("source").getString("url"))
         val analysis=JSONObject(BackupCodec.analysis(after));assertFalse(analysis.has("programs"));assertEquals(0,analysis.getJSONArray("sets").length());assertEquals(0,analysis.getJSONArray("workouts").length())
@@ -130,7 +130,7 @@ class PortableProgramTest {
             old.execSQL("CREATE TABLE room_master_table(id INTEGER PRIMARY KEY,identity_hash TEXT)");old.execSQL("INSERT INTO room_master_table VALUES(42,?)",arrayOf(schema.getString("identityHash")))
             old.execSQL("INSERT INTO training_programs VALUES('keep','Keep program',4,'paused',0,'',1000)");old.execSQL("INSERT INTO planned_workouts(id,title,scheduledDate,durationMinutes,notes,createdAt,sourceFingerprint,archived,pinned) VALUES('template','Keep template','',30,'Keep notes',1000,'${"a".repeat(64)}',1,1)");old.version=13
         }
-        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_IMPORT_MIGRATION_13_14).build();val p=db.programDao().programs().single();assertEquals("Keep program",p.title);assertEquals("",p.definitionJson);assertTrue(db.planDao().detail("template")!!.plan.archived);assertTrue(db.planDao().detail("template")!!.plan.pinned)
+        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build();val p=db.programDao().programs().single();assertEquals("Keep program",p.title);assertEquals("",p.definitionJson);assertTrue(db.planDao().detail("template")!!.plan.archived);assertTrue(db.planDao().detail("template")!!.plan.pinned)
         db.close();context.deleteDatabase(name);Unit
     }
 }

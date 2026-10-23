@@ -4,10 +4,10 @@ import androidx.room.withTransaction
 
 class TrainingRepository(val database: FitDatabase) {
     private val dao = database.trainingDao()
-    suspend fun complete(targetId: Long, weight: String, reps: String, note: String, mode: String): Boolean = database.withTransaction {
+    suspend fun complete(targetId: Long, weight: String, reps: String, note: String, mode: String, actualRir:String?=null, actualRpe:String?=null): Boolean = database.withTransaction {
         val target = requireNotNull(dao.target(targetId)) { "Target no longer exists." }
         if (dao.result(targetId) != null) return@withTransaction false
-        WorkoutRepository(database).saveSet(target.entryId, weight, reps, comment = note, targetId = target.id, loadMode = mode, isWarmUp = target.isWarmUp)
+        WorkoutRepository(database).saveSet(target.entryId, weight, reps, comment = note, targetId = target.id, loadMode = mode, isWarmUp = target.isWarmUp,actualRir=actualRir,actualRpe=actualRpe)
         true
     }
     suspend fun skip(targetId: Long, skipped: Boolean) = database.withTransaction {

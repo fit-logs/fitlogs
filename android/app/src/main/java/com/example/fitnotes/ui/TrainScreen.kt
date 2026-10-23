@@ -43,6 +43,7 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
             }
             item {
                 ProgramNextCard(primary, data, programSessions, busy, { primary?.let { onProgramStart(it.program.id) } }, { section = "programs" }, { id -> primary?.let { model.completeProgramDay(it.program.id,id) } })
+                primary?.next?.let{next->TextButton(onClick={model.reviewPlanWeights(next.day.planId)},enabled=!busy){Text("Suggested weights · Review / Change")}}
                 programError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
             item { Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {

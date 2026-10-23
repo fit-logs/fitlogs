@@ -197,7 +197,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
         if (selected != null) {
             val started = selected.plan.startedWorkoutId
             if(!programDay) Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
-            TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Apply progression suggestions") }
+            TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Review suggested weights") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
             if(!programDay) TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete template") }
@@ -295,6 +295,10 @@ fun SetTargetEditor(value: EditableTarget, number: Int, busy: Boolean, onChange:
             LoadModePicker(value.loadMode,{onChange(value.copy(loadMode=it))},!busy)
             Row { Checkbox(value.isWarmUp,{onChange(value.copy(isWarmUp=it))},enabled=!busy);Text("Warm-up set",Modifier.padding(top=12.dp)) }
             OutlinedTextField(value.rest, { onChange(value.copy(rest = it)) }, label = { Text("Rest seconds (optional)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), enabled = !busy)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value.rir,{onChange(value.copy(rir=it))},label={Text("Target RIR (optional)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.weight(1f),enabled=!busy)
+                OutlinedTextField(value.rpe,{onChange(value.copy(rpe=it))},label={Text("Target RPE (optional)")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.weight(1f),enabled=!busy)
+            }
         }
     }
 }

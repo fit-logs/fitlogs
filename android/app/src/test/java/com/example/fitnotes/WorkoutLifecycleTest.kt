@@ -169,7 +169,7 @@ class WorkoutLifecycleTest {
             old.execSQL("INSERT INTO workout_exercises(id,workoutId,exerciseId,position) VALUES(1,7,1,0)")
             old.execSQL("INSERT INTO workout_sets(id,entryId,weightKg,reps,position) VALUES(1,1,42.5,8,0)"); old.version = 11
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
         try { assertEquals("Keep note", migrated.dao().workout(7)!!.notes); assertNull(migrated.dao().workout(7)!!.lastActionAt); assertNull(migrated.dao().sets().single().completedAt) }
         finally { migrated.close(); context.deleteDatabase(name) }
     }

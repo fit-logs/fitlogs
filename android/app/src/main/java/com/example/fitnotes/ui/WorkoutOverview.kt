@@ -53,6 +53,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             OverflowMenu { close ->
                 MenuAction("Strength progress") { close();onProgress() }
                 MenuAction("Exercise library") { close();onLibrary() }
+                if(session?.local!=null && !session.completed && !pastDraft)MenuAction("Suggested weights") {close();session.local.entries.firstOrNull()?.let{model.reviewEntryWeights(it.entry.id)}}
                 MenuAction("Training settings") { close();onTrainingSettings() }
             if (session != null) {
                     if (session.completed && !editable) MenuAction("Edit workout") { close(); onEdit() }

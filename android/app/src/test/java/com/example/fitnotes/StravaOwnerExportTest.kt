@@ -137,7 +137,7 @@ class StravaOwnerExportTest {
         WorkoutRepository(db).restore(backup)
         importer.apply((candidates + ignored).map { StravaImportChoice(it) }); assertEquals(20, db.dao().workouts().size)
         assertEquals(STRAVA_EXPORT_PROVIDER, db.healthDao().session(ignored.session.key)!!.provider)
-        val analysis = JSONObject(BackupCodec.analysis(backup)); assertEquals(10, analysis.getInt("backupSchemaVersion"))
+        val analysis = JSONObject(BackupCodec.analysis(backup)); assertEquals(13, analysis.getInt("backupSchemaVersion"))
         try { BackupCodec.encode(backup.copy(version = 8)); fail() } catch (_: IllegalArgumentException) { }
     }
     @Test fun matchSuggestionsNeverUseDateOrTitleAloneAndDistanceMismatchPreventsSuggestion() {
@@ -188,7 +188,7 @@ class StravaOwnerExportTest {
             old.execSQL("INSERT INTO health_sessions(" + keys.joinToString(",") { "`$it`" } + ") VALUES(" + keys.joinToString(",") { "?" } + ")", keys.map { if (json.isNull(it)) null else json.get(it) }.toTypedArray())
             old.version = 10
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
         try { assertEquals("Keep note", migrated.dao().workout(1)!!.notes); assertEquals(HEALTH_CONNECT_PROVIDER, migrated.healthDao().sessions().single().provider) }
         finally { migrated.close(); context.deleteDatabase(name) }
     }

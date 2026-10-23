@@ -3,7 +3,7 @@
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 (API 24) or later. One app module, Compose Material UI, Room database.
 
-Current formats: Room 14, training backup v12, analysis JSON v5.
+Current formats: Room 15, training backup v13, analysis JSON v6.
 
 ## Use
 
@@ -557,3 +557,7 @@ with an explicit next-day cursor and completion/skip records.
 
 [Whole-program import](docs/portable-programs.md) supports offline JSON/text preview,
 explicit exercise resolution, atomic installation, and clear file/PDF/URL fallbacks.
+
+[History-based weight suggestions](docs/history-load-suggestions.md) use completed
+comparable sets, explicit equipment setup and optional actual RIR/RPE. Review
+then Use or Change; session locks and performed results protect existing targets.

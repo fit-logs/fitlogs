@@ -37,6 +37,7 @@ import java.util.Locale
 fun FitNotesApp(model: FitNotesViewModel) {
     val data by model.data.collectAsState()
     val busy by model.busy.collectAsState()
+    val loadAdviceOpen by model.loadAdviceOpen.collectAsState()
     val healthSyncing by model.healthSyncing.collectAsState()
     val pending by model.pendingRestore.collectAsState()
     val photoRestore by model.pendingPhotoRestore.collectAsState()
@@ -273,6 +274,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
+    if(loadAdviceOpen) LoadAdviceDialog(model,data,busy)
     if(programImport) ProgramImportDialog(model,data,busy,{programImport=false}) { programImport=false;programsMenu=true }
     if(programsMenu) ProgramsDialog(model,data,busy,{programsMenu=false},{id->programsMenu=false;model.startProgramDay(id){enterWorkout(it)}},{id->programsMenu=false;selectedPlan=id;plansMenu=true},importProgram={programsMenu=false;programImport=true})
     if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
