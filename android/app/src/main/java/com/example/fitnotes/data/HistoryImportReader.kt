@@ -299,8 +299,8 @@ private fun Cursor.json(): JSONObject = JSONObject().also { json ->
     }
 }
 
-private data class CsvRow(val line: Int, val fields: List<String>)
-private object CsvTable {
+internal data class CsvRow(val line: Int, val fields: List<String>)
+internal object CsvTable {
     fun read(text: String): List<CsvRow> {
         val rows = mutableListOf<CsvRow>()
         val fields = mutableListOf<String>()

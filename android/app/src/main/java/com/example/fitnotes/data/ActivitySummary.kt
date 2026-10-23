@@ -14,7 +14,13 @@ fun preferredActivitySource(details: List<HealthDetail>): HealthDetail? = detail
         .thenByDescending { isGarminOrigin(it.session.originPackage) }
         .thenBy { it.session.originPackage }.thenBy { it.session.key }).firstOrNull()
 
-fun sourceSport(s: HealthSession): String = when (s.exerciseType) {
+fun sourceSport(s: HealthSession): String = if (s.provider == STRAVA_EXPORT_PROVIDER) when {
+    s.activityType == "running" -> "Running"
+    s.sportLabel.replace(" ", "").equals("Hike", true) -> "Hiking"
+    s.activityType == "walking" -> "Walking"
+    s.sportLabel.replace(" ", "").lowercase() in setOf("ride", "virtualride", "ebikeride", "mountainbikeride", "gravelride") -> "Cycling"
+    else -> s.sportLabel.ifBlank { ActivityType.from(s.activityType).label }
+} else when (s.exerciseType) {
     ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL -> "Running"
     ExerciseSessionRecord.EXERCISE_TYPE_WALKING -> "Walking"
     ExerciseSessionRecord.EXERCISE_TYPE_HIKING -> "Hiking"

@@ -55,6 +55,12 @@ data class HealthSession(
     @ColumnInfo(defaultValue = "''") val elevationStatus: String = "",
     val movingSeconds: Double? = null,
     @ColumnInfo(defaultValue = "''") val movingOrigin: String = "",
+    @ColumnInfo(defaultValue = "'health_connect'") val provider: String = HEALTH_CONNECT_PROVIDER,
+    @ColumnInfo(defaultValue = "''") val accountId: String = "",
+    val averageBpm: Double? = null,
+    val maximumBpm: Double? = null,
+    @ColumnInfo(defaultValue = "''") val heartOrigin: String = "",
+    @ColumnInfo(defaultValue = "''") val sportLabel: String = "",
 )
 @Entity(tableName = "health_samples", foreignKeys = [ForeignKey(entity = HealthSession::class,
     parentColumns = ["key"], childColumns = ["sessionKey"], onDelete = ForeignKey.CASCADE)], indices = [Index("sessionKey")])
@@ -130,15 +136,18 @@ fun heartRateText(detail: HealthDetail): String = buildString {
 fun healthContext(details: List<HealthDetail>): String = details.sortedBy { it.session.key }.joinToString("\n\n") { health ->
     val source = health.session
     buildString {
-        appendLine("Health Connect source: ${source.sourceName} (${source.originPackage})")
+        appendLine("${sourceProviderName(source)} source: ${source.sourceName} (${source.originPackage})")
         appendLine("Source timing: ${sourceTime(source.start, source.startOffsetSeconds)} to ${sourceTime(source.end, source.endOffsetSeconds)} · interval " + durationText((source.end - source.start) / 1000.0))
         source.distanceMeters?.let { appendLine("Imported distance: " + weightText(it / 1000) + " km · " + source.distanceOrigins) }
         source.elevationMeters?.let { appendLine("Imported elevation gain: " + weightText(it) + " m · " + source.elevationOrigins) }
         source.movingSeconds?.let { appendLine("Source-reported moving time: " + durationText(it) + " · " + source.movingOrigin) }
         appendLine("Source sport: " + sourceSport(source))
+        if (source.sportLabel.isNotBlank()) appendLine("Original sport: " + source.sportLabel)
         appendLine("Distance context: " + source.distanceStatus)
         if (source.title.isNotBlank()) appendLine("Source title: " + source.title)
         if (source.notes.isNotBlank()) appendLine("Source notes: " + source.notes)
+        if (source.averageBpm != null || source.maximumBpm != null) appendLine("Source-reported heart rate: " +
+            listOfNotNull(source.averageBpm?.let { "average ${weightText(it)} bpm" }, source.maximumBpm?.let { "maximum ${weightText(it)} bpm" }).joinToString(", ") + " · ${source.heartOrigin}")
         appendLine(heartRateText(health))
         appendLine("Last import: " + timestampText(source.importedAt) + " · " + source.sourceStatus)
     }.trim()
@@ -154,5 +163,21 @@ val ACTIVITY_SUMMARY_MIGRATION_9_10 = object : Migration(9, 10) {
         db.execSQL("ALTER TABLE health_sessions ADD COLUMN movingSeconds REAL")
         db.execSQL("ALTER TABLE health_sessions ADD COLUMN movingOrigin TEXT NOT NULL DEFAULT ''")
         db.execSQL("UPDATE health_sessions SET sourceCreated = 1 WHERE substr(sourceStatus, 1, ?) = ?", arrayOf<Any>(SOURCE_CREATED_STATUS_PREFIX.length, SOURCE_CREATED_STATUS_PREFIX))
+    }
+}
+
+const val HEALTH_CONNECT_PROVIDER = "health_connect"
+const val STRAVA_EXPORT_PROVIDER = "strava_owner_export"
+fun activitySourceKey(provider: String, account: String, origin: String, record: String): String =
+    if (provider == HEALTH_CONNECT_PROVIDER) healthKey(origin, record) else "$provider:$account:$record"
+fun sourceProviderName(s: HealthSession) = if (s.provider == STRAVA_EXPORT_PROVIDER) "Strava owner export" else "Health Connect"
+val ACTIVITY_PROVIDER_MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN provider TEXT NOT NULL DEFAULT 'health_connect'")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN accountId TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN averageBpm REAL")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN maximumBpm REAL")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN heartOrigin TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN sportLabel TEXT NOT NULL DEFAULT ''")
     }
 }

@@ -80,7 +80,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
                 checkCurrent(generation, reason)
                 val candidates = snapshot.filter { it.session.originPackage in settings.origins && it.session.activityType in settings.activities }
                 val keys = candidates.map { it.session.key }.toSet()
-                val missing = database.healthDao().sessions().filter { it.originPackage in settings.origins && it.activityType in settings.activities &&
+                val missing = database.healthDao().sessions().filter { it.provider == HEALTH_CONNECT_PROVIDER && it.originPackage in settings.origins && it.activityType in settings.activities &&
                     it.start in start.toEpochMilli() until end.toEpochMilli() && it.key !in keys && (it.workoutId != null || it.importedWorkoutId != null) }
                 missing.forEach { database.healthDao().updateSession(it.withSourceStatus("Not returned in the completed reconciliation window. Local activity retained; source availability is uncertain.")) }
                 checkCurrent(generation, reason); missing.size
@@ -100,7 +100,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
                     applySessions(page.sessions, access, generation, reason)
                     database.withTransaction {
                         checkCurrent(generation, reason)
-                        database.healthDao().sessions().filter { it.recordId in page.deletedIds }.forEach {
+                        database.healthDao().sessions().filter { it.provider == HEALTH_CONNECT_PROVIDER && it.recordId in page.deletedIds }.forEach {
                             database.healthDao().updateSession(it.withSourceStatus("Deleted at source. Local activity and previously read data retained."))
                         }
                         checkCurrent(generation, reason)
@@ -110,7 +110,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
                     // Distance deletions contain only a record ID, not its old
                     // interval. Re-read all linked intervals conservatively; never
                     // guess which workout lost the deleted distance record.
-                    val linked = importer.known().filter { (it.workoutId != null || it.importedWorkoutId != null) && !it.sourceStatus.removePrefix(SOURCE_CREATED_STATUS_PREFIX).startsWith("Deleted at source") }
+                    val linked = importer.known().filter { it.provider == HEALTH_CONNECT_PROVIDER && (it.workoutId != null || it.importedWorkoutId != null) && !it.sourceStatus.removePrefix(SOURCE_CREATED_STATUS_PREFIX).startsWith("Deleted at source") }
                     applySessions(linked.map { HealthCandidate(it) }, access, generation, reason, metricsOnly = true)
                 }
                 checkCurrent(generation, reason)
@@ -137,7 +137,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
                 for (candidate in enriched) {
                     val s = candidate.session
                     val known = importer.known()
-                    val sameClient = known.filter { it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId }
+                    val sameClient = known.filter { it.provider == s.provider && it.accountId == s.accountId && it.originPackage == s.originPackage && !s.clientRecordId.isNullOrBlank() && it.clientRecordId == s.clientRecordId }
                     val prior = known.firstOrNull { it.key == s.key } ?: sameClient.maxWithOrNull(compareBy<HealthSession> { it.clientRecordVersion }.thenBy { it.modifiedAt }.thenBy { if (it.workoutId != null || it.importedWorkoutId != null) 1 else 0 })
                     if (prior != null && prior.workoutId == null && prior.importedWorkoutId == null) {
                         // Extend a durable ignore/deletion decision across a source
