@@ -86,6 +86,7 @@ fun ActivityEntryDialog(busy: Boolean, model: FitNotesViewModel, onCancel: () ->
 fun ActivityPanel(session: NotebookSession, editable: Boolean, model: FitNotesViewModel, busy: Boolean) {
     val local = session.local ?: return
     val workout = local.workout
+    val summary = activitySummary(local)
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(workout.id, workout.isComplete) {
         while (!workout.isComplete) { now = System.currentTimeMillis(); delay(1000) }
@@ -97,13 +98,18 @@ fun ActivityPanel(session: NotebookSession, editable: Boolean, model: FitNotesVi
             Text("Started " + shortTime(workout.startedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Text(compactActivityDuration(session.duration), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text(if (localDuration(workout) == null && local.health.isNotEmpty()) "Imported duration" else if (workout.sessionDate.isNotBlank()) "Reported duration" else "Elapsed time",
+            Text(summary.durationBasis,
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(if (workout.knownStart == null) "Local start time unknown" else "Logged time · " + compactTimeRange(workout.startedAt, workout.completedAt, includeDate = false),
+            Text(if (summary.sourceTiming) "Source start · " + sourceTime(summary.preferred!!.session.start, summary.preferred.session.startOffsetSeconds) else if (workout.knownStart == null) "Local start time unknown" else "Logged time · " + compactTimeRange(workout.startedAt, workout.completedAt, includeDate = false),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         workout.effort?.let { Text("Effort · $it", style = MaterialTheme.typography.bodyMedium) }
-        workout.distance?.let { Text(weightText(it) + " " + workout.distanceUnit, style = MaterialTheme.typography.titleMedium) }
+        summary.distanceLabel?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
+        summary.pace?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        summary.preferred?.session?.let { source ->
+            source.elevationMeters?.let { Text("Elevation gain · " + weightText(it) + " m", style = MaterialTheme.typography.bodyMedium) }
+            source.movingSeconds?.let { Text("Source-reported moving time · " + durationText(it), style = MaterialTheme.typography.bodyMedium) }
+        }
         if (!workout.isComplete) Text(WATCH_NOTE, style = MaterialTheme.typography.bodySmall)
         if (editable) {
             var details by remember { mutableStateOf(false) }
@@ -152,7 +158,7 @@ fun MissingHeartRateInfo(busy: Boolean, onImport: () -> Unit) {
 
 @Composable
 fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
-    healthDetails.forEach { health ->
+    listOfNotNull(preferredActivitySource(healthDetails)).forEach { health ->
         val s = health.session
         val samples = remember(health.samples) { health.samples.sortedBy { it.time } }
         var expanded by rememberSaveable(s.key) { mutableStateOf(false) }
@@ -167,7 +173,7 @@ fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
                     else -> null
                 }
                 heartIssue?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                if (s.sourceStatus.startsWith("Not returned")) Text("Source not returned at last sync; showing saved data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                if (s.sourceStatus.removePrefix(SOURCE_CREATED_STATUS_PREFIX).startsWith("Not returned")) Text("Source not returned at last sync; showing saved data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 if (samples.isEmpty()) {
                     Text("No heart-rate samples found for this session", style = MaterialTheme.typography.bodyMedium)
                 } else {
@@ -201,7 +207,7 @@ fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
                     Text("Coverage may be sparse.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 s.distanceMeters?.let { Text("Imported distance · " + weightText(it / 1000) + " km", style = MaterialTheme.typography.bodyMedium) }
-                Text("Imported time · " + compactTimeRange(s.start, s.end, includeDate = true) + " · " + compactActivityDuration((s.end - s.start) / 1000.0),
+                Text("Imported time · " + sourceTime(s.start, s.startOffsetSeconds) + " to " + sourceTime(s.end, s.endOffsetSeconds) + " · " + compactActivityDuration((s.end - s.start) / 1000.0),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Updated " + shortImportTime(s.importedAt), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -212,10 +218,17 @@ fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
                 }
                 if (expanded) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (healthDetails.size > 1) ImportDetail("Summary selection", "Creator link first, then Garmin, then source package/ID. Other attachments are retained; their metrics are not added.")
+                    healthDetails.filter { it.session.key != s.key }.sortedBy { it.session.key }.forEach { other ->
+                        ImportDetail("Other source attachment", "${other.session.sourceName} (${other.session.originPackage})\n${sourceTime(other.session.start, other.session.startOffsetSeconds)}\n${other.session.key}")
+                    }
+                    s.elevationMeters?.let { ImportDetail("Elevation gain", weightText(it) + " m · " + s.elevationOrigins) }
+                    if (s.elevationStatus.isNotBlank()) ImportDetail("Elevation context", s.elevationStatus)
+                    ImportDetail("Moving time", s.movingSeconds?.let { durationText(it) + " · " + s.movingOrigin } ?: "Not provided by this source. Elapsed time is shown separately.")
                     ImportDetail("Source app", "${s.sourceName}\n${s.originPackage}")
                     if (s.title.isNotBlank()) ImportDetail("Source title", s.title)
-                    ImportDetail("Source start", timestampText(s.start))
-                    ImportDetail("Source end", timestampText(s.end))
+                    ImportDetail("Source start", sourceTime(s.start, s.startOffsetSeconds))
+                    ImportDetail("Source end", sourceTime(s.end, s.endOffsetSeconds))
                     ImportDetail("Source duration", durationText((s.end - s.start) / 1000.0))
                     if (s.notes.isNotBlank()) ImportDetail("Source notes", s.notes)
                     if (samples.isNotEmpty()) {

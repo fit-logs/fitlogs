@@ -3,14 +3,18 @@ package com.example.fitnotes.data
 import org.json.JSONObject
 
 object HealthBackupJson {
-    fun encode(s: HealthSession) = JSONObject().put("key", s.key).put("workoutId", s.workoutId ?: JSONObject.NULL)
+    fun encode(s: HealthSession, version: Int = 8) = JSONObject().put("key", s.key).put("workoutId", s.workoutId ?: JSONObject.NULL)
         .put("recordId", s.recordId).put("originPackage", s.originPackage).put("sourceName", s.sourceName)
         .put("clientRecordId", s.clientRecordId ?: JSONObject.NULL).put("clientRecordVersion", s.clientRecordVersion)
         .put("modifiedAt", s.modifiedAt).put("importedAt", s.importedAt).put("start", s.start).put("end", s.end)
         .put("startOffsetSeconds", s.startOffsetSeconds ?: JSONObject.NULL).put("endOffsetSeconds", s.endOffsetSeconds ?: JSONObject.NULL)
         .put("activityType", s.activityType).put("exerciseType", s.exerciseType).put("title", s.title).put("notes", s.notes)
         .put("distanceMeters", s.distanceMeters ?: JSONObject.NULL).put("distanceOrigins", s.distanceOrigins)
-        .put("hrStatus", s.hrStatus).put("distanceStatus", s.distanceStatus).put("sourceStatus", s.sourceStatus).put("device", s.device).put("importedWorkoutId", s.importedWorkoutId ?: JSONObject.NULL)
+        .put("hrStatus", s.hrStatus).put("distanceStatus", s.distanceStatus).put("sourceStatus", s.sourceStatus).put("device", s.device).put("importedWorkoutId", s.importedWorkoutId ?: JSONObject.NULL).also {
+            if (version >= 8) it.put("sourceCreated", s.isSourceCreated).put("elevationMeters", s.elevationMeters ?: JSONObject.NULL)
+                .put("elevationOrigins", s.elevationOrigins).put("elevationStatus", s.elevationStatus)
+                .put("movingSeconds", s.movingSeconds ?: JSONObject.NULL).put("movingOrigin", s.movingOrigin)
+        }
     fun encode(s: HealthSample) = JSONObject().put("key", s.key).put("sessionKey", s.sessionKey).put("recordId", s.recordId)
         .put("originPackage", s.originPackage).put("time", s.time).put("bpm", s.bpm)
     private fun JSONObject.string(k: String) = get(k).also { require(it is String) { "Invalid health field: $k" } } as String
@@ -23,14 +27,20 @@ object HealthBackupJson {
     fun session(j: JSONObject): HealthSession {
         j.fields("key", "workoutId", "recordId", "originPackage", "sourceName", "clientRecordId", "clientRecordVersion", "modifiedAt", "importedAt",
             "start", "end", "startOffsetSeconds", "endOffsetSeconds", "activityType", "exerciseType", "title", "notes", "distanceMeters",
-            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", *if (j.has("importedWorkoutId")) arrayOf("importedWorkoutId") else emptyArray())
+            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", *if (j.has("importedWorkoutId")) arrayOf("importedWorkoutId") else emptyArray(),
+            *if (j.has("sourceCreated")) arrayOf("sourceCreated", "elevationMeters", "elevationOrigins", "elevationStatus", "movingSeconds", "movingOrigin") else emptyArray())
         return HealthSession(j.string("key"), j.optionalLong("workoutId"), j.string("recordId"), j.string("originPackage"), j.string("sourceName"),
             j.optionalString("clientRecordId"), j.long("clientRecordVersion"), j.long("modifiedAt"), j.long("importedAt"), j.long("start"), j.long("end"),
             j.optionalLong("startOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.optionalLong("endOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.string("activityType"), j.long("exerciseType").also { require(it in 0..Int.MAX_VALUE) }.toInt(), j.string("title"), j.string("notes"),
             if (j.isNull("distanceMeters")) null else (j.get("distanceMeters") as? Number)?.toDouble() ?: error("Invalid distance"),
-            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), if (j.has("importedWorkoutId")) j.optionalString("importedWorkoutId") else null)
+            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), if (j.has("importedWorkoutId")) j.optionalString("importedWorkoutId") else null,
+            if (j.has("sourceCreated")) j.get("sourceCreated").also { require(it is Boolean) } as Boolean else j.string("sourceStatus").startsWith(SOURCE_CREATED_STATUS_PREFIX),
+            if (!j.has("elevationMeters") || j.isNull("elevationMeters")) null else (j.get("elevationMeters") as? Number)?.toDouble() ?: error("Invalid elevation"),
+            if (j.has("elevationOrigins")) j.string("elevationOrigins") else "", if (j.has("elevationStatus")) j.string("elevationStatus") else "",
+            if (!j.has("movingSeconds") || j.isNull("movingSeconds")) null else (j.get("movingSeconds") as? Number)?.toDouble() ?: error("Invalid moving time"),
+            if (j.has("movingOrigin")) j.string("movingOrigin") else "")
     }
     fun sample(j: JSONObject): HealthSample {
         j.fields("key", "sessionKey", "recordId", "originPackage", "time", "bpm")
@@ -48,6 +58,8 @@ fun validateHealthBackup(sessions: List<HealthSession>, samples: List<HealthSamp
             (it.importedWorkoutId == null || it.importedWorkoutId in importedWorkouts) && (it.workoutId == null || it.importedWorkoutId == null)) { "Invalid health session." }
         require(ActivityType.entries.any { type -> type.key == it.activityType } && it.modifiedAt >= 0 && it.clientRecordVersion >= 0) { "Invalid health provenance." }
         require(it.distanceMeters == null || (it.distanceMeters.isFinite() && it.distanceMeters >= 0)) { "Invalid imported distance." }
+        require(it.elevationMeters == null || (it.elevationMeters.isFinite() && it.elevationMeters >= 0 && it.elevationOrigins.isNotBlank())) { "Invalid elevation provenance." }
+        require(it.movingSeconds == null || (it.movingSeconds.isFinite() && it.movingSeconds > 0 && it.movingSeconds <= (it.end - it.start) / 1000.0 && it.movingOrigin.isNotBlank())) { "Invalid moving time provenance." }
         require(it.startOffsetSeconds == null || it.startOffsetSeconds in -64800..64800) { "Invalid source offset." }
         require(it.endOffsetSeconds == null || it.endOffsetSeconds in -64800..64800) { "Invalid source offset." }
     }

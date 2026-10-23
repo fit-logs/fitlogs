@@ -49,6 +49,12 @@ data class HealthSession(
     val sourceStatus: String = "available",
     val device: String = "",
     val importedWorkoutId: String? = null,
+    @ColumnInfo(defaultValue = "0") val sourceCreated: Boolean = false,
+    val elevationMeters: Double? = null,
+    @ColumnInfo(defaultValue = "''") val elevationOrigins: String = "",
+    @ColumnInfo(defaultValue = "''") val elevationStatus: String = "",
+    val movingSeconds: Double? = null,
+    @ColumnInfo(defaultValue = "''") val movingOrigin: String = "",
 )
 @Entity(tableName = "health_samples", foreignKeys = [ForeignKey(entity = HealthSession::class,
     parentColumns = ["key"], childColumns = ["sessionKey"], onDelete = ForeignKey.CASCADE)], indices = [Index("sessionKey")])
@@ -121,16 +127,32 @@ fun heartRateText(detail: HealthDetail): String = buildString {
     append("\n" + detail.session.hrStatus)
 }
 
-fun healthContext(details: List<HealthDetail>): String = details.joinToString("\n\n") { health ->
+fun healthContext(details: List<HealthDetail>): String = details.sortedBy { it.session.key }.joinToString("\n\n") { health ->
     val source = health.session
     buildString {
         appendLine("Health Connect source: ${source.sourceName} (${source.originPackage})")
-        appendLine("Source timing: ${timestampText(source.start)} to ${timestampText(source.end)} · interval " + durationText((source.end - source.start) / 1000.0))
+        appendLine("Source timing: ${sourceTime(source.start, source.startOffsetSeconds)} to ${sourceTime(source.end, source.endOffsetSeconds)} · interval " + durationText((source.end - source.start) / 1000.0))
         source.distanceMeters?.let { appendLine("Imported distance: " + weightText(it / 1000) + " km · " + source.distanceOrigins) }
+        source.elevationMeters?.let { appendLine("Imported elevation gain: " + weightText(it) + " m · " + source.elevationOrigins) }
+        source.movingSeconds?.let { appendLine("Source-reported moving time: " + durationText(it) + " · " + source.movingOrigin) }
+        appendLine("Source sport: " + sourceSport(source))
         appendLine("Distance context: " + source.distanceStatus)
         if (source.title.isNotBlank()) appendLine("Source title: " + source.title)
         if (source.notes.isNotBlank()) appendLine("Source notes: " + source.notes)
         appendLine(heartRateText(health))
         appendLine("Last import: " + timestampText(source.importedAt) + " · " + source.sourceStatus)
     }.trim()
+}
+
+/** Only the explicit marker from the earlier importer identifies ownership. */
+val ACTIVITY_SUMMARY_MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN sourceCreated INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN elevationMeters REAL")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN elevationOrigins TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN elevationStatus TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN movingSeconds REAL")
+        db.execSQL("ALTER TABLE health_sessions ADD COLUMN movingOrigin TEXT NOT NULL DEFAULT ''")
+        db.execSQL("UPDATE health_sessions SET sourceCreated = 1 WHERE substr(sourceStatus, 1, ?) = ?", arrayOf<Any>(SOURCE_CREATED_STATUS_PREFIX.length, SOURCE_CREATED_STATUS_PREFIX))
+    }
 }

@@ -76,10 +76,8 @@ fun sessionText(workouts: List<WorkoutDetail>): String {
         workouts.forEach { detail ->
             val workout = detail.workout
             appendLine()
-            appendLine(workout.title.ifBlank { activityName(workout) } + " · " + localWorkoutDate(workout) +
-                (workout.knownStart?.let { " · " + date.format(Date(it)) } ?: " · start time unknown"))
-            appendLine("Activity: " + activityName(workout))
-            appendLine((if (workout.sessionDate.isNotBlank() && localDuration(workout) != null) "Reported duration: " else "Local elapsed wall time: ") + durationText(localDuration(workout)))
+            appendLine(activitySummaryContext(detail))
+            if (activitySummary(detail).sourceTiming) appendLine("Local recorded start: unknown; display uses the separate source interval.")
             if (!workout.isComplete) appendLine("In progress · saved data only")
             workout.effort?.let { appendLine("Effort: " + it) }
             workout.distance?.let { appendLine("Local distance: " + weightText(it) + " " + workout.distanceUnit) }

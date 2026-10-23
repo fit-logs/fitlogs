@@ -14,7 +14,7 @@ data class HealthSyncSettings(
     val origins: Set<String> = setOf(GARMIN_PACKAGE),
     val activities: Set<String> = ActivityType.entries.map { it.key }.toSet(),
 )
-enum class HealthFeed { EXERCISE, HEART_RATE, DISTANCE }
+enum class HealthFeed { EXERCISE, HEART_RATE, DISTANCE, ELEVATION }
 enum class HealthSyncReason { MANUAL, FOREGROUND, BACKGROUND }
 data class HealthSyncState(
     val settings: HealthSyncSettings = HealthSyncSettings(), val generation: Long = 0,

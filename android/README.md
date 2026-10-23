@@ -342,6 +342,12 @@ that source. Use the same APK/signing key for later updates.
 
 ## Activities and Health Connect
 
+Imported activity presentation uses one [source-aware summary](docs/activity-summaries.md)
+for History, details and sharing, including source offsets, sport labels, elapsed
+pace and optional elevation gain. Local edits and date-only attachments retain
+separate local timing. Room 9 → 10 and backup v8 preserve this metadata.
+
+
 - **Start workout** opens the activity selector. Choose Strength training for the
   existing exercises/sets flow, or Running, Walking/hiking, Climbing/bouldering,
   Soccer, Martial arts or Other (custom label). The current unfinished session
@@ -358,7 +364,7 @@ that source. Use the same APK/signing key for later updates.
   neither assumes Garmin's active/moving time.
 - **Import history → Import activities (Health Connect)** offers the last 7 or
   30 days, or custom dates. Grant read permissions through Android's Health Connect UI, then load
-  a preview. Exercise access is required; heart rate and distance are optional.
+  a preview. Exercise access is required; heart rate, distance and elevation gain are optional.
   Missing/revoked permissions and unavailable/setup states explain the next step.
   Leaving the foreground stops an in-progress read.
 - Preview sources include their real origin package. Garmin Connect is selected

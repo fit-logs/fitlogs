@@ -5,6 +5,7 @@ import androidx.annotation.RequiresApi
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
+import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -19,6 +20,7 @@ class HealthConnectSyncSource(context: Context, private val client: HealthConnec
         HealthFeed.EXERCISE -> ExerciseSessionRecord::class
         HealthFeed.HEART_RATE -> HeartRateRecord::class
         HealthFeed.DISTANCE -> DistanceRecord::class
+        HealthFeed.ELEVATION -> ElevationGainedRecord::class
     }
     override suspend fun token(feed: HealthFeed) = client.getChangesToken(ChangesTokenRequest(setOf(type(feed))))
     override suspend fun sessions(start: Instant, end: Instant) = reader.sessions(start, end)

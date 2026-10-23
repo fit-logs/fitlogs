@@ -52,7 +52,7 @@ class ActivityMigrationTest {
             old.execSQL("INSERT INTO workout_sets(id, entryId, weightKg, reps, position, comment) VALUES (6, 8, 42.5, 8, 0, 'Keep set note')")
             old.execSQL("INSERT INTO history_imports VALUES ('synthetic', 'Synthetic', 'fixture', 1000, 'kg', 0, '', '{}')")
             old.execSQL("INSERT INTO imported_workouts VALUES ('original', 'synthetic', '2026-10-12', NULL, NULL, 'Keep original note')")
-            val json = HealthBackupJson.encode(source); json.remove("importedWorkoutId")
+            val json = HealthBackupJson.encode(source, 7); json.remove("importedWorkoutId")
             val keys = json.keys().asSequence().toList()
             old.execSQL("INSERT INTO health_sessions(" + keys.joinToString(",") { "`$it`" } + ") VALUES (" + keys.joinToString(",") { "?" } + ")",
                 keys.map { if (json.isNull(it)) null else json.get(it) }.toTypedArray())
@@ -61,7 +61,7 @@ class ActivityMigrationTest {
             if (!localOnly) old.execSQL("UPDATE health_sessions SET workoutId = NULL, importedWorkoutId = 'original'")
             old.version = 4
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10).build()
         try {
             assertEquals(7L, db.dao().workouts().single().id); assertEquals("Keep note", db.dao().workouts().single().notes)
             assertEquals(6L, db.dao().sets().single().id); assertEquals("Keep set note", db.dao().sets().single().comment)
