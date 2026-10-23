@@ -37,6 +37,15 @@ class ActivitySummaryTest {
         val session = notebookSessions(AppData(workouts = listOf(d))).single()
         assertFalse(session.dateOnly); assertEquals(summary.start, session.startedMillis); assertEquals(summary.date, session.date)
     }
+    @Test fun explicitLocalUnknownTimingAndDateAreNotReplacedBySourceFacts() {
+        val d = detail().let { it.copy(workout = it.workout.copy(timingEdited = true, durationUnknown = true, sessionDate = "2026-10-21")) }
+        val summary = activitySummary(d)
+        assertEquals("2026-10-21", summary.date); assertNull(summary.start); assertNull(summary.seconds)
+        assertFalse(summary.sourceTiming); assertNotNull(summary.preferred)
+        val endOnly = d.copy(workout = d.workout.copy(completedAt = start, sessionDate = "2026-10-22"))
+        val session = notebookSessions(AppData(workouts = listOf(endOnly))).single()
+        assertFalse(session.dateOnly); assertTrue(session.timeLabel.startsWith("End ")); assertNull(session.startedMillis)
+    }
     @Test fun activitiesSortByKnownSourceTimesAndSourceCorrectionsMoveOnlyOwnedSessions() {
         val late = detail(source("late").copy(workoutId = 2, start = start + 3600000, end = start + 5400000), detail().workout.copy(id = 2))
         val data = AppData(workouts = listOf(detail(), late))
@@ -90,7 +99,7 @@ class ActivitySummaryTest {
             assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
             WorkoutRepository(db).restore(backup)
             val actual = WorkoutRepository(db).backup(); assertEquals(listOf(s), actual.healthSessions)
-            val analysis = JSONObject(BackupCodec.analysis(actual)); assertEquals(9, analysis.getInt("backupSchemaVersion"))
+            val analysis = JSONObject(BackupCodec.analysis(actual)); assertEquals(10, analysis.getInt("backupSchemaVersion"))
             assertEquals(123.5, analysis.getJSONArray("healthSessions").getJSONObject(0).getDouble("elevationMeters"), 0.0)
             val text = rangeContext(AppData(workouts = listOf(detail(s))), "2026-10-23", "2026-10-23")!!
             assertEquals(1, Regex("FitNotes training context").findAll(text).count()); assertTrue(text.contains("6:00 min/km elapsed pace"))
@@ -119,7 +128,7 @@ class ActivitySummaryTest {
             }
             old.version = 9
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12).build()
         try {
             assertEquals("Keep title", db.dao().workout(1)!!.title)
             assertFalse(db.healthDao().session(source().key)!!.isSourceCreated)

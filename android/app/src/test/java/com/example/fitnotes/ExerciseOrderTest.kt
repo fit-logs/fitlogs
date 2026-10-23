@@ -51,7 +51,8 @@ class ExerciseOrderTest {
         assertEquals(order, db.dao().workoutEntries(workout).map { it.id })
         assertEquals(order.mapIndexed { position, id -> entries.single { it.id == id }.copy(position = position) }, db.dao().workoutEntries(workout))
         assertEquals(listOf(0, 1, 2), db.dao().workoutEntries(workout).map { it.position })
-        assertEquals(before.copy(exportedAt = after.exportedAt, entries = after.entries), after)
+        assertEquals(before.workouts.map { it.copy(lastActionAt = null) }, after.workouts.map { it.copy(lastActionAt = null) })
+        assertEquals(before.copy(exportedAt = after.exportedAt, entries = after.entries, workouts = after.workouts), after)
         val firstPending = nextPlannedSet(db.planDao().runDetail(workout)!!, db.dao().sets())!!
         assertEquals(entries[1].id, firstPending.entryId)
         db.close(); open()

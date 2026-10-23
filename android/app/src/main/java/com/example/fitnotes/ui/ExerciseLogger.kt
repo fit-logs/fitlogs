@@ -23,7 +23,7 @@ import com.example.fitnotes.data.*
 @Composable
 fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: List<NotebookSession>, data: AppData,
     model: FitNotesViewModel, busy: Boolean, editable: Boolean, onBack: () -> Unit, onSwitch: (String) -> Unit,
-    onAdd: () -> Unit, onEditWorkout: () -> Unit, onHistory: (String) -> Unit) {
+    onAdd: () -> Unit, onEditWorkout: () -> Unit, onHistory: (String) -> Unit, onSavePast: () -> Unit = {}) {
     val completionReady by model.completionReady.collectAsState()
     var manualRest by remember { mutableStateOf(false) }
     var manualRestSeconds by rememberSaveable { mutableStateOf("90") }
@@ -31,7 +31,17 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     var switcher by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf(false) }
-    val previous = remember(all, session.key, exercise.key) { previousExerciseSessions(all, session, exercise) }
+    val pastDraft = session.local?.workout?.historicalDraft == true
+    val copiedKey = session.local?.workout?.draftSourceKey.orEmpty()
+    val previous = remember(all, session.key, exercise.key, copiedKey) {
+        val regular = previousExerciseSessions(all, session, exercise)
+        val source = if(pastDraft) all.firstOrNull { it.key == copiedKey } else null
+        val copied = source?.exercises?.singleOrNull { it.canonicalId == exercise.canonicalId && it.sets.isNotEmpty() }
+        if(source!=null && copied!=null) listOf(source to copied) + regular.filter { it.first.key != source.key } else regular
+    }
+    val copiedPlans by model.plans.collectAsState()
+    val copiedRoutine = if(pastDraft && copiedKey.startsWith("plan:")) copiedPlans.firstOrNull { it.plan.id == copiedKey.substringAfter(':') }?.ordered?.firstOrNull { it.exercise.id == exercise.canonicalId } else null
+    val copiedTarget = copiedRoutine?.takeIf { exercise.sets.isEmpty() }?.sets?.minByOrNull { it.position }?.target
     val runs by model.planRuns.collectAsState()
     val run = session.local?.workout?.id?.let { id -> runs.firstOrNull { it.run.workoutId == id } }
     val runExercise = run?.exercises?.firstOrNull { it.entry.id == exercise.entryId }
@@ -47,13 +57,13 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     val firstPending = runExercise?.let { pendingTargets(it,exercise.sets.mapNotNull { set->set.local }).firstOrNull() }
     val seed = exercise.sets.lastOrNull() ?: previous.firstOrNull()?.second?.sets?.lastOrNull()
     var currentTargetId by rememberSaveable { mutableStateOf(firstPending?.id) }
-    var mode by rememberSaveable { mutableStateOf(firstPending?.loadMode ?: seed?.local?.loadMode?.takeIf{it!=LoadMode.UNKNOWN} ?: LoadMode.EXTERNAL) }
+    var mode by rememberSaveable { mutableStateOf(firstPending?.loadMode ?: copiedTarget?.loadMode ?: seed?.local?.loadMode?.takeIf{it!=LoadMode.UNKNOWN} ?: LoadMode.EXTERNAL) }
     var actualWarmUp by rememberSaveable { mutableStateOf(firstPending?.isWarmUp ?: false) }
     var completionCooldown by remember { mutableStateOf(false) }
     LaunchedEffect(completionCooldown) { if(completionCooldown) { kotlinx.coroutines.delay(1000);completionCooldown=false } }
     val firstTarget = firstPending?.target
-    var weight by rememberSaveable { mutableStateOf(if (runExercise != null) suggestedWeight(firstPending) else seed?.weight?.let(::weightText) ?: "") }
-    var reps by rememberSaveable { mutableStateOf(if (runExercise != null) firstTarget?.repsMin?.toString().orEmpty() else seed?.reps?.toString() ?: "") }
+    var weight by rememberSaveable { mutableStateOf(if (runExercise != null) suggestedWeight(firstPending) else copiedTarget?.let(::suggestedActualWeight)?.takeIf { it.isNotBlank() } ?: seed?.weight?.let(::weightText) ?: "") }
+    var reps by rememberSaveable { mutableStateOf(if (runExercise != null) firstTarget?.repsMin?.toString().orEmpty() else copiedTarget?.repsMin?.toString() ?: seed?.reps?.toString() ?: "") }
     var distance by rememberSaveable { mutableStateOf(if (runExercise != null) "" else seed?.distance?.let(::weightText) ?: "") }
     var seconds by rememberSaveable { mutableStateOf(if (runExercise != null) "" else seed?.seconds?.let(::weightText) ?: "") }
     var unit by rememberSaveable { mutableStateOf(seed?.unit ?: "km") }
@@ -113,6 +123,14 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
     LaunchedEffect(previousSlots.map{it?.key},currentTargetId) {
         val target=runExercise?.ordered?.firstOrNull{it.id==currentTargetId}
         if(target!=null && selected==null && !userEdited && weight.isBlank())weight=suggestedWeight(target)
+    }
+    LaunchedEffect(copiedTarget) {
+        if (pastDraft && copiedTarget != null && selected == null && !userEdited && exercise.sets.isEmpty()) {
+            mode = copiedTarget.loadMode
+            weight = suggestedActualWeight(copiedTarget).ifBlank { seed?.weight?.let(::weightText).orEmpty() }
+            reps = copiedTarget.repsMin?.toString() ?: seed?.reps?.toString().orEmpty()
+            suggested = true
+        }
     }
     LaunchedEffect(seed?.key) {
         if (runExercise == null && !suggested && selected == null && listOf(weight, reps, distance, seconds).all { it.isBlank() } && seed != null) {
@@ -202,7 +220,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
         NotebookBar(exercise.name, onBack, "Back to workout") {
             IconButton(onClick = { switcher = true }) { Icon(Icons.AutoMirrored.Filled.List, "Switch") }
             OverflowMenu { close ->
-                if(session.local!=null&&!session.completed)MenuAction("Rest timer") { close();manualRest=true }
+                if(session.local!=null&&!session.completed&&!pastDraft)MenuAction("Rest timer") { close();manualRest=true }
                 if (!editable) MenuAction("Edit workout") { close(); onEditWorkout() }
                 if (editable && selected == null) MenuAction(if (cardio) "Log strength sets" else "Log cardio") {
                     close(); userEdited = true; cardio = !cardio; mixed = false; weight = ""; reps = ""; distance = ""; seconds = ""; suggested = true
@@ -237,7 +255,7 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
         } else LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("logger-list"), contentPadding = PaddingValues(16.dp)) {
             if (run != null && run.run.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", run.run.warmUp) }
             if (run != null && run.run.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Additional instructions", run.run.legacyGuidance) }
-            if (!session.completed && session.local != null) item { RestControls(model,session.local.workout.id,busy) }
+            if (!session.completed && session.local != null && !pastDraft) item { RestControls(model,session.local.workout.id,busy) }
             if (editable && runExercise!=null) item { actualEditor() }
             if (runExercise != null) item { Box(Modifier.padding(bottom = 12.dp)) {
                 RunSuggestions(runExercise, model, busy, editable, exercise.sets, previousSlots, previousRun?.ordered?.isNotEmpty()==true && previousEntry?.sets?.any{it.local?.targetId!=null}==true, currentTargetId,
@@ -263,7 +281,9 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
                 Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val last = previous.firstOrNull()
-                    Text(if (last != null) "Previous · " + prettyDay(last.first.date) else if (data.imported.loading) "Loading previous session…" else "No previous session.",
+                    if(pastDraft) Text("Copied values are drafts. Save each performed set, then Save completed.", style=MaterialTheme.typography.bodySmall)
+                    copiedTarget?.let { Text("Routine suggestion · " + it.text, style=MaterialTheme.typography.bodyMedium) }
+                    Text(if (last != null && copiedKey==last.first.key) "Copied reference · " + prettyDay(last.first.date) else if (last != null) "Previous · " + prettyDay(last.first.date) else if (data.imported.loading) "Loading previous session…" else "No previous session.",
                         style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (last != null) Text(compactResults(last.second.sets), style = MaterialTheme.typography.bodyMedium)
                 }
@@ -271,7 +291,8 @@ fun ExerciseLogger(session: NotebookSession, exercise: NotebookExercise, all: Li
             }
             if (editable && runExercise==null) item { actualEditor() }
             val columns = setColumns(exercise.sets)
-            item { Text("Recorded sets · ${exercise.sets.size}", Modifier.padding(top = 20.dp, bottom = 10.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if(pastDraft) item { Button(onClick=onSavePast,enabled=!busy && session.count>0,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Save completed")};val error by model.workoutTimeError.collectAsState();error?.let{Text(it,color=MaterialTheme.colorScheme.error)} }
+            item { Text((if(pastDraft) "Draft sets · " else "Recorded sets · ") + exercise.sets.size, Modifier.padding(top = 20.dp, bottom = 10.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             val visibleSets=if(runExercise==null)exercise.sets else exercise.sets.filter{it.local?.targetId==null}
             if (visibleSets.isNotEmpty()) item { NotebookSetHeader(columns) }
             if (exercise.sets.isEmpty()) item { Text("No sets yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }

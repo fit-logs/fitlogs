@@ -19,7 +19,7 @@ fun durationText(seconds: Double?): String = seconds?.let {
     if (h > 0) "${h}h ${m}m ${s}s" else "${m}m ${s}s"
 } ?: "Duration unknown"
 fun timestampText(millis: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss XXX", Locale.getDefault()).format(Date(millis))
-fun localDuration(w: Workout): Double? = w.durationSeconds ?: w.completedAt?.let { end -> w.knownStart?.let { (end - it) / 1000.0 } }
+fun localDuration(w: Workout): Double? = if (w.durationUnknown) null else w.durationSeconds ?: w.completedAt?.let { end -> w.knownStart?.let { (end - it) / 1000.0 } }
 
 @Entity(tableName = "health_sessions", foreignKeys = [ForeignKey(entity = Workout::class,
     parentColumns = ["id"], childColumns = ["workoutId"], onDelete = ForeignKey.SET_NULL),

@@ -21,7 +21,7 @@ data class ImportedData(val imports: List<HistoryImport> = emptyList(), val work
 data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: List<WorkoutDetail> = emptyList(), val loading: Boolean = true,
     val imported: ImportedData = ImportedData(), val storageError: String? = null,
     val exerciseAliases: List<ExerciseAlias> = emptyList(), val exerciseMappings: List<ExerciseSourceMapping> = emptyList(), val exerciseRedirects: List<ExerciseRedirect> = emptyList()) {
-    val active get() = workouts.firstOrNull {  !it.workout.isComplete }
+    val active get() = workouts.firstOrNull { !it.workout.isComplete && !it.workout.historicalDraft }
     val history get() = workouts.filter { it.workout.isComplete }
         .sortedWith(compareByDescending<WorkoutDetail> { it.workout.completedAt }.thenByDescending { it.workout.id })
 }
@@ -31,6 +31,10 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private val notices = Channel<String>(Channel.BUFFERED)
     private val database = FitDatabase.open(application)
     private val repository = WorkoutRepository(database,AndroidRestClock(application))
+    private val workoutLifecycle = WorkoutLifecycleRepository(database)
+    val pastDrafts = database.dao().observePastDrafts().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val workoutTimeError = MutableStateFlow<String?>(null)
+    private var staleWorkoutJob: kotlinx.coroutines.Job? = null
     private val planRepository = WorkoutPlanRepository(database)
     private val training = TrainingRepository(database)
     private val identity = ExerciseIdentityRepository(database)
@@ -84,7 +88,10 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val healthMessage = MutableStateFlow("Choose a period, grant read permissions, then load a preview.")
     private val localData = combine(repository.exercises, repository.workouts) { exercises, workouts ->
         AppData(exercises, workouts, loading = false)
-    }.catch {
+    }.transform { value ->
+        // Reconcile before exposing a stale active timer, including after restore.
+        if (workoutLifecycle.reconcile() == null) emit(value)
+    }.flowOn(Dispatchers.IO).catch {
         notices.send("Unable to read workouts. Restart the app to retry.")
         emit(AppData(loading = false, storageError = "Unable to read workouts. Your database has not been reset. Close and reopen FitNotes after updating the app to retry."))
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppData())
@@ -285,6 +292,21 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveActivityDetails(id: Long, title: String, notes: String, effort: String?, distance: Double?, unit: String?, done: () -> Unit) =
         change(null, done) { repository.saveActivityDetails(id, title, notes, effort, distance, unit) }
 
+    fun beginPastWorkout(input: WorkoutTimeInput, source: String, done: (Long) -> Unit) = change(null, failure = { workoutTimeError.value = it }) {
+        workoutTimeError.value = null; done(workoutLifecycle.beginPast(input, source))
+    }
+    fun savePastWorkout(id: Long, done: () -> Unit) = change("Past workout saved.", done, failure = { workoutTimeError.value = it }) {
+        workoutTimeError.value = null; workoutLifecycle.savePast(id)
+    }
+    fun editWorkoutTime(id: Long, input: WorkoutTimeInput, done: () -> Unit) = change("Workout timing saved.", done, failure = { workoutTimeError.value = it }) {
+        workoutTimeError.value = null; workoutLifecycle.editTime(id, input); restController.sync()
+    }
+    fun resumeFinishedWorkout(id: Long, done: () -> Unit = {}) = change("Workout resumed; the unlogged gap stays excluded.", done, failure = { workoutTimeError.value = it }) {
+        workoutTimeError.value = null; workoutLifecycle.resume(id)
+    }
+    fun allowLongWorkout(id: Long) = change("Stale checks paused for six hours.") { workoutLifecycle.allowLongWorkout(id) }
+    fun acknowledgeAutoFinish(id: Long) = change(null) { workoutLifecycle.acknowledge(id) }
+
     val stravaExportText = MutableStateFlow("")
     val stravaExportHeaders = MutableStateFlow<List<String>>(emptyList())
     val stravaExportPreview = MutableStateFlow<StravaExportPreview?>(null)
@@ -345,10 +367,19 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     }
     fun healthForeground() {
         healthForeground = true
+        if (staleWorkoutJob?.isActive != true) staleWorkoutJob = viewModelScope.launch(Dispatchers.IO) {
+            localData.first { !it.loading }
+            while (healthForeground) {
+                try { workoutLifecycle.reconcile() }
+                catch (error: Exception) { if (error is kotlinx.coroutines.CancellationException) throw error; notices.send("Workout time check failed. Saved sets are retained; review time manually.") }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
         syncHealthOnOpen()
     }
     fun healthBackground() {
         healthForeground = false
+        staleWorkoutJob?.cancel()
         automaticHealthJob?.cancel()
         cancelHealthRead()
     }

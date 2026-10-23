@@ -102,11 +102,11 @@ END_WORKOUT_PLAN
     @Test fun backupSixRetainsTargetsRunsGuidanceAndOldFiveBackupsExpandUniformSets() = runBlocking {
         val id = save(); plans.start(id)
         val repo = WorkoutRepository(db); val backup = repo.backup()
-        assertEquals(9, backup.version); val decoded = BackupCodec.decode(BackupCodec.encode(backup)); assertEquals(backup, decoded)
+        assertEquals(10, backup.version); val decoded = BackupCodec.decode(BackupCodec.encode(backup)); assertEquals(backup, decoded)
         repo.restore(decoded); assertEquals(backup.plannedSets, db.planDao().sets()); assertEquals(backup.runTargets, db.planDao().runTargets())
         val plan = backup.plannedWorkouts.single().copy(warmUp = "", legacyGuidance = "")
         val exercise = backup.plannedExercises.single().copy(sets = 2)
-        val old = backup.copy(version = 5, plannedWorkouts = listOf(plan), plannedExercises = listOf(exercise), plannedSets = emptyList(), planRuns = emptyList(), runTargets = emptyList(), entries = backup.entries.map { it.copy(planNote = "") })
+        val old = backup.copy(version = 5, workouts = backup.workouts.map { it.copy(lastActionAt = null) }, plannedWorkouts = listOf(plan), plannedExercises = listOf(exercise), plannedSets = emptyList(), planRuns = emptyList(), runTargets = emptyList(), entries = backup.entries.map { it.copy(planNote = "") })
         repo.restore(BackupCodec.decode(BackupCodec.encode(old)))
         assertEquals(2, db.planDao().sets().size); assertEquals(2, db.planDao().runTargets().size)
         assertEquals("Keep shoulder position steady.", db.dao().entries().single().planNote)
@@ -181,7 +181,7 @@ END_WORKOUT_PLAN
             old.execSQL("INSERT INTO planned_exercises VALUES (8, 'plan', 1, 0, 'Synthetic press', 3, 8, 10, '40.50', 'lb', 'Exercise guidance')")
             old.version = 7
         }
-        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11).build(); plans = WorkoutPlanRepository(db)
+        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12).build(); plans = WorkoutPlanRepository(db)
         assertEquals(3, db.planDao().sets().size); assertEquals(3, db.planDao().runTargets().size)
         assertEquals("Preserve actual", db.dao().sets().single().comment); assertEquals("40.50", db.planDao().sets().first().weightValue)
         assertEquals(1000, db.dao().workout(5)!!.startedAt); assertEquals("Exercise guidance", db.dao().entries().single().planNote)
