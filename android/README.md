@@ -565,3 +565,6 @@ then Use or Change; session locks and performed results protect existing targets
 [Workout Library](docs/workout-library.md) browses original versioned programs,
 bundles three offline starters and installs through the shared program preview.
 Explicit public catalog GETs use the internet permission; workout data stays local.
+
+[Program workflow verification](docs/program-workflow-verification.md) traces
+conversion, exercise confirmation, actual logging and fresh next-session targets.
