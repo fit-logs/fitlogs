@@ -25,7 +25,7 @@ class TrainingAdoptionInteractionTest {
 END_WORKOUT_PLAN"""
     @Before fun setup() {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
-        assumeTrue("Fixtures require the isolated preview",context.packageName=="com.example.fitnotes.preview.activities")
+        assumeTrue("Fixtures require the isolated preview",context.packageName in setOf("com.example.fitnotes.preview.activities", "com.example.fitnotes.preview.photos"))
         val ready=java.util.concurrent.atomic.AtomicBoolean(false)
         ui.activityRule.scenario.onActivity{model=ViewModelProvider(it)[FitNotesViewModel::class.java];model.setAutomaticHealth(false);model.pendingRestore.value=Backup(exercises=listOf(Exercise(1,"Synthetic press","synthetic press"),Exercise(2,"Synthetic press duplicate","synthetic press duplicate")),workouts=emptyList(),entries=emptyList(),sets=emptyList());model.confirmRestore{ready.set(true)}}
         ui.waitUntil(30000){ready.get()&&!model.busy.value&&!model.data.value.imported.loading}
@@ -79,14 +79,18 @@ END_WORKOUT_PLAN"""
         ui.onNodeWithText("Save set").performScrollTo().performClick()
     }
     @Test fun targetsAdvanceAndRemainEditableWhileSkipsUndoExtrasAndRestStaySeparate() {
-        ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick();waitFor("Preview plan")
+        if (ui.onAllNodesWithTag("train-screen").fetchSemanticsNodes().isNotEmpty()) {
+            ui.onNodeWithTag("train-screen").performScrollToNode(hasText("My templates", substring = false))
+            ui.onNodeWithText("My templates", substring = false).performClick()
+            ui.onNodeWithText("Import template", substring = false).performClick()
+        } else ui.onAllNodes(hasText("Paste plan") and hasClickAction()).onLast().performClick();waitFor("Preview plan")
         ui.onNode(hasSetTextAction() and hasText("Plan reply")).performScrollTo().performTextInput(block)
         ui.onNodeWithText("Preview plan").performClick();waitFor("Edit planned workout")
         val draft=model.planEdit.value!!.exercises.single()
         ui.onNodeWithTag("plan-import-list").performScrollToNode(hasTestTag("target-row:${draft.targets.first().key}"));capture("adoption-editable-plan")
-        ui.onNodeWithTag("save-plan").performClick();waitFor("Saved plan")
+        ui.onNodeWithTag("save-plan").performClick();waitFor("Saved template")
         assertTrue(runBlocking{db.dao().workouts().isEmpty()});assertNull(runBlocking{db.trainingDao().timer()})
-        ui.activityRule.scenario.recreate();waitFor("Saved plan")
+        ui.activityRule.scenario.recreate();waitFor("Saved template")
         ui.waitUntil(10000){ui.onAllNodesWithTag("start-plan").fetchSemanticsNodes().singleOrNull()?.config?.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)==false}
         ui.onNodeWithTag("start-plan").performClick();waitFor("Workout started.")
         ui.waitUntil(10000){ui.onAllNodesWithText("Workout started.").fetchSemanticsNodes().isEmpty()}

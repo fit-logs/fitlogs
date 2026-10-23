@@ -188,7 +188,7 @@ class StravaOwnerExportTest {
             old.execSQL("INSERT INTO health_sessions(" + keys.joinToString(",") { "`$it`" } + ") VALUES(" + keys.joinToString(",") { "?" } + ")", keys.map { if (json.isNull(it)) null else json.get(it) }.toTypedArray())
             old.version = 10
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13).build()
         try { assertEquals("Keep note", migrated.dao().workout(1)!!.notes); assertEquals(HEALTH_CONNECT_PROVIDER, migrated.healthDao().sessions().single().provider) }
         finally { migrated.close(); context.deleteDatabase(name) }
     }

@@ -3,7 +3,7 @@
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 (API 24) or later. One app module, Compose Material UI, Room database.
 
-Current formats: Room 12, training backup v10, analysis JSON v5.
+Current formats: Room 13, training backup v11, analysis JSON v5.
 
 ## Use
 
@@ -14,11 +14,13 @@ estimated/unknown timing. [Lifecycle details and verification](docs/workout-life
 
 
 **Train → Start empty workout** opens exercise selection immediately. Resume,
-Finish and Discard manage the active session; saved plans stay separate.
+Finish and Discard manage the active session; reusable templates stay separate.
 See [unplanned workout flow and verification](docs/empty-workouts.md).
 
-- **Train:** tap **Start empty workout** or **Resume workout**. Saved plans remain
-  below the workout actions. Other activities are under Settings. In the workout
+- **Train:** the active program shows its next workout. **Start empty workout**,
+  **Resume workout** and **Log past workout** keep ad-hoc logging quick.
+  **My programs** and **My templates** have separate lists and management controls.
+  Other activities are under Settings. In the workout
   overview, date arrows and the date picker browse existing sessions; they never
   create a workout. A selector appears when a day has multiple sessions.
 - Tap **Add exercise** to search Recent / Favourites / All, select multiple exercises,
@@ -58,7 +60,7 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
 - **Paste plan** reads the clipboard only when **Paste** is tapped; manual text
   entry also works. Review and edit the strength plan, resolve exercise names,
   then **Save plan**. This saves targets without recorded sets.
-  **Plans / Planned workouts** lists saved plans. Starting one creates an actual
+  **My templates** lists reusable single-session recipes. Starting one creates an actual
   session with empty exercise entries and keeps its targets visible separately.
   Targets appear in editable per-set rows, including rest and original units.
   The logger compares Previous / Target / Actual and links completion to a target.
@@ -508,7 +510,7 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the current v10 JSON format excludes all photo files and photo
+opens. With it off, the current v11 JSON format excludes all photo files and photo
 metadata and clearly says so. Versions 1–7 restore; JSON restoration leaves
 existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
 can explicitly attach selected JPEG copies; its Copy action remains text only.
@@ -549,3 +551,6 @@ and the detailed verification record are kept in ignored
 The Android module is distributed under [AGPL-3.0](LICENSE). It contains an
 adapted exercise-search scorer from LiftLog; see [source attribution and revision](THIRD_PARTY_NOTICES.md).
 The licence and notices are bundled under **More actions → Open-source notices**.
+
+Train now separates [programs and reusable templates](docs/programs-and-templates.md),
+with an explicit next-day cursor and completion/skip records.

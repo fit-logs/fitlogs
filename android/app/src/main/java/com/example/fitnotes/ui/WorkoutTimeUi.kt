@@ -30,7 +30,9 @@ fun PastWorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolea
     var start by rememberSaveable { mutableStateOf("") }; var end by rememberSaveable { mutableStateOf("") }
     var endDate by rememberSaveable { mutableStateOf(date) }; var minutes by rememberSaveable { mutableStateOf("") }
     var picker by remember { mutableStateOf(false) }
-    val plans by model.plans.collectAsState(); val error by model.workoutTimeError.collectAsState()
+    val allPlans by model.plans.collectAsState(); val programs by model.programs.collectAsState()
+    val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
+    val plans = allPlans.filter { !it.plan.archived && it.plan.id !in owned }; val error by model.workoutTimeError.collectAsState()
     val recent = notebookSessions(data).filter { it.completed && it.activity == "strength" && it.exercises.isNotEmpty() }.take(12)
     AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text("Log past workout") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {

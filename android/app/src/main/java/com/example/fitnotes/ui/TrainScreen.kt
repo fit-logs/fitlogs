@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -18,8 +19,12 @@ val LocalSettingsAction = staticCompositionLocalOf<() -> Unit> { {} }
 @Composable fun SettingsButton() { val open=LocalSettingsAction.current;IconButton(onClick=open){Icon(Icons.Filled.Settings,"Settings")} }
 
 @Composable
-fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onImport:()->Unit,onPast:()->Unit={},onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={}) {
-    val plans by model.plans.collectAsState()
+fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onImport:()->Unit,onPast:()->Unit={},onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={},onProgramStart:(String)->Unit={}) {
+    var section by rememberSaveable { mutableStateOf("") }
+    val programs by model.programs.collectAsState()
+    val programSessions by model.programSessions.collectAsState()
+    val programError by model.programError.collectAsState()
+    val primary = programs.firstOrNull { it.program.status == "active" }
     val drafts by model.pastDrafts.collectAsState()
     val notice = (data.workouts + drafts).filter { it.workout.autoFinishedAt != null && !it.workout.autoFinishAcknowledged }.maxByOrNull { it.workout.autoFinishedAt!! }
     Column(Modifier.fillMaxSize()) {
@@ -35,6 +40,10 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
                         TextButton(onClick={model.acknowledgeAutoFinish(notice.workout.id)},enabled=!busy){Text("Dismiss")}
                     }
                 } }
+            }
+            item {
+                ProgramNextCard(primary, data, programSessions, busy, { primary?.let { onProgramStart(it.program.id) } }, { section = "programs" }, { id -> primary?.let { model.completeProgramDay(it.program.id,id) } })
+                programError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
             item { Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 data.active?.let { Text(it.workout.title.ifBlank{"Workout in progress"},style=MaterialTheme.typography.titleMedium);Text("${it.entries.size} exercises · ${it.entries.sumOf{e->e.sets.size}} sets",style=MaterialTheme.typography.bodyMedium) }
@@ -58,20 +67,16 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
                     FlowRow{TextButton(onClick={onDraft(draft.workout.id)},enabled=!busy){Text("Continue entry")};TextButton(onClick={onDiscardDraft(draft.workout.id)},enabled=!busy){Text("Discard draft")}}
                 }}
             }
-            item { HorizontalDivider(Modifier.padding(top=8.dp));Text("Saved plans",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp)) }
-            item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick=onNew,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("New plan")}
-                TextButton(onClick=onAsk,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Ask ChatGPT")}
-                TextButton(onClick=onImport,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Import plan")}
+            item { HorizontalDivider(); FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick={section="programs"},enabled=!busy){Text("My programs")}
+                OutlinedButton(onClick={section="templates"},enabled=!busy){Text("My templates")}
             } }
-            if(plans.isEmpty())item{Text("Save a plan for your next workout.",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-            items(plans,key={it.plan.id}) { plan ->
-                Surface(onClick={onPlan(plan.plan.id)}) { Column(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Text(plan.plan.title,style=MaterialTheme.typography.titleMedium)
-                    Text(planSubtitle(plan.exercises.size,plan.plan.durationMinutes),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                } };HorizontalDivider()
-            }
+            item { TextButton(onClick={section="explore"},enabled=!busy){Text("Explore programs / Import")} }
+
         }
     }
+    if(section=="templates") TemplatesDialog(model,busy,{section=""},onPlan,onNew,onAsk,onImport)
+    if(section=="programs") ProgramsDialog(model,data,busy,{section=""},onProgramStart,onPlan)
+    if(section=="explore") AlertDialog(onDismissRequest={section=""},title={Text("Explore programs / Import")},text={Text("Build a multi-day program from your templates in My programs, or import and review a workout template. Targets stay separate from performed training.")},confirmButton={TextButton(onClick={section="programs"}){Text("My programs")}},dismissButton={TextButton(onClick={section="";onImport()}){Text("Import template")}})
 }
-fun planSubtitle(exercises:Int,minutes:Int)= "$exercises exercises" + if(minutes>0) " · About $minutes min" else ""
+fun planSubtitle(exercises:Int,minutes:Int)= "$exercises ${if(exercises==1) "exercise" else "exercises"}" + if(minutes>0) " · About $minutes min" else ""
