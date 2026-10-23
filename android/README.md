@@ -357,14 +357,14 @@ that source. Use the same APK/signing key for later updates.
   elapsed wall time, while imported duration is the source start/end interval;
   neither assumes Garmin's active/moving time.
 - **Import history → Import activities (Health Connect)** offers the last 7 or
-  30 days. Grant read permissions through Android's Health Connect UI, then load
+  30 days, or custom dates. Grant read permissions through Android's Health Connect UI, then load
   a preview. Exercise access is required; heart rate and distance are optional.
   Missing/revoked permissions and unavailable/setup states explain the next step.
   Leaving the foreground stops an in-progress read.
 - Preview sources include their real origin package. Garmin Connect is selected
   when records from `com.garmin.android.apps.connectmobile` are present. Other
   sources remain inspectable. Import as new, explicitly attach to any saved
-  session, or skip. Only matching activity types with known overlapping local
+  session, or persistently ignore it. Only matching activity types with known overlapping local
   times are suggested; date-only history can be attached by explicit selection.
 - Attachments preserve local IDs, sets, notes, titles and timing. Source timing,
   title, notes, record/client IDs, offsets, device, origin, last modification and
@@ -381,19 +381,15 @@ that source. Use the same APK/signing key for later updates.
   **Import details** expands source identifiers, full timestamps, coverage and
   sync messages. Activity duration and logged times are kept separate from watch
   timing. Missing/revoked access and refresh failures remain visible on the card.
-- **Sync when FitNotes opens** is enabled by default, with a switch and last-sync
-  result in **Import activities**. It reads the accessible last 30 days on launch
-  or return, refreshes existing links (including explicitly attached original
-  history), and attaches a new Garmin record only to a completed local session
-  with known times and the same activity type. The overlap must cover at least
-  60% of both intervals, with exactly one overlapping local session and one
-  Garmin source record. Generic Other types, already linked sessions, date-only,
-  unfinished and ambiguous entries require preview/review. Unmatched source
-  records never automatically create workouts. Deleted links stay deleted.
-- Automatic reads stop on leaving the foreground; logging and explicit imports
-  take priority. A 60-second cooldown avoids repeated reads on rapid returns or
-  rotation. Every attachment is rechecked atomically against current local data
-  before writing. There are no additional permissions or background services.
+- **Settings → Garmin via Health Connect** has an opt-in automatic import switch,
+  source/activity filters, Sync now and last-attempt/completion/error counters.
+  New selected-source activities become completed sessions; possible duplicates
+  require review. Existing links refresh by stable source/client identity.
+- Foreground/resume, manual and optional WorkManager reads share one coordinator
+  and SDK lock. SDK reads never hold a Room write transaction or the workout
+  logger's busy flag. Logging can continue during slow reads. Leaving the
+  foreground pauses foreground reads; Android can run separately permitted
+  background imports. See [connection details and verification](docs/health-sync.md).
 - Sessions without an attached Health Connect import show **No heart-rate data
   imported for this session** and a direct **Import activities** action. Sync the
   watch with Garmin Connect and return to FitNotes; use the preview for entries
@@ -411,14 +407,15 @@ that source. Use the same APK/signing key for later updates.
 
 Record on your watch separately. Garmin data can be attached after sync. The app
 never starts or controls the watch, records GPS, receives live heart rate, logs
-into Garmin, or performs background sync. A query result does not establish that
+into Garmin, or connects directly to Garmin. A query result does not establish that
 Garmin finished syncing or that no activity occurred.
 
 The integration uses the official stable Health Connect SDK 1.1.0. Offline
 logging retains API 24 support; all Health Connect entry points are guarded for
 API 28+. API 24 has a synthetic offline persistence check. Default history access
-starts 30 days before the first permission grant; this app requests neither
-extended history nor background permissions. Older/batched data outside the
+starts 30 days before the first permission grant. Older-history and background
+permissions are optional, requested separately only when supported. Custom date
+ranges support deliberate history review. Older/batched data outside the
 accessible lookback can be incomplete. Garmin must first write data to Health
 Connect on the phone; install/update and enable its sharing there as needed.
 
@@ -439,7 +436,7 @@ matching and export code uses `knownStart` rather than interpreting zero as time
 Automated checks use synthetic records and private test databases. The SDK reader
 is exercised with the official FakeHealthConnectClient, including >500 records,
 permissions, source preference and batched samples crossing boundaries. UI tests
-must use the isolated package `com.example.fitnotes.preview.activities` on an
+must use the isolated package `com.example.fitnotes.preview.photos` on an
 emulator. Never run synthetic fixtures against the personal application ID.
 
 

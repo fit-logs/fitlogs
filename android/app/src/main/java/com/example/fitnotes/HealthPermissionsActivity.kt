@@ -17,8 +17,8 @@ class HealthPermissionsActivity : ComponentActivity() {
         setContent { FitNotesTheme {
             Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(24.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Health Connect & your training history", style = MaterialTheme.typography.titleLarge)
-                Text("FitNotes reads exercise sessions, heart-rate samples and distance when you use Import activities or when sync on open is enabled. It stops reading when you leave the app. You can turn automatic sync off in Import activities, or deny and revoke permissions in Health Connect.")
-                Text("A preview lets you import, attach to a local session or skip. Saved data remains on this device. FitNotes never writes to Health Connect and has no account or cloud upload. Backups and text leave the app only through your explicit export or sharing action.")
+                Text("FitNotes reads exercise sessions, heart-rate samples and distance from your selected Health Connect sources. Automatic import runs when you open FitNotes after you enable it; Sync now and date-range previews are also available. Optional background permission allows Android-scheduled reads, and optional history permission allows older available records. Neither permission is required for manual workout logging. You can disable import and revoke access at any time.")
+                Text("New selected-source activities can import automatically. Possible duplicates need review; a preview lets you attach to a local session or ignore a source record. Saved data remains on this device. FitNotes never writes to Health Connect and has no account or cloud upload. Backups and text leave the app only through your explicit export or sharing action.")
                 Text("Record on your watch separately. Garmin data can be attached after sync.")
                 Text("The local timer does not start your watch, record GPS or receive live heart rate.")
                 TextButton(onClick = { finish() }) { Text("Close") }

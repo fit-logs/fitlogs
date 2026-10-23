@@ -70,13 +70,15 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private val healthImporter = HealthImportRepository(database)
     private var healthReadJob: kotlinx.coroutines.Job? = null
     private var automaticHealthJob: kotlinx.coroutines.Job? = null
-    private val healthReadMutex = Mutex()
-    private val healthPreferences = application.getSharedPreferences("fitnotes-health-sync", android.content.Context.MODE_PRIVATE)
+    private val healthConnection = HealthSyncRuntime.connection(application)
+    val healthConnectionState = healthConnection.first.state
+    private val healthReadMutex = healthConnection.second
     private var healthForeground = false
     private var lastAutomaticRead = -60_000L
-    val automaticHealthEnabled = MutableStateFlow(healthPreferences.getBoolean("on-open", true))
-    val healthSyncing = MutableStateFlow(false)
-    val healthSyncStatus = MutableStateFlow(healthPreferences.getString("last-result", null) ?: "Automatic sync is ready once read permissions are granted.")
+    val automaticHealthEnabled = healthConnectionState.map { it.settings.enabled }.stateIn(viewModelScope, SharingStarted.Eagerly, healthConnectionState.value.settings.enabled)
+    val healthSyncing = healthConnectionState.map { it.working }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val healthSyncStatus = healthConnectionState.map { it.message }.stateIn(viewModelScope, SharingStarted.Eagerly, healthConnectionState.value.message)
+    val healthReading = MutableStateFlow(false)
     val healthCandidates = MutableStateFlow<List<HealthCandidate>>(emptyList())
     val knownHealth = MutableStateFlow<List<HealthSession>>(emptyList())
     val healthMessage = MutableStateFlow("Choose a period, grant read permissions, then load a preview.")
@@ -110,8 +112,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private fun change(success: String?, done: () -> Unit = {}, register: ((kotlinx.coroutines.Job) -> Unit)? = null,
         failure: ((String) -> Unit)? = null, block: suspend () -> Unit) {
         if (busy.value) return
-        // Foreground reads must never hold up logging, edits or an explicit import.
-        automaticHealthJob?.cancel()
+        // SDK reads and background sync use a separate state/lock; a set save
+        // must neither cancel those reads nor wait for them.
         // Set synchronously so repeated taps cannot enqueue duplicate writes.
         busy.value = true
         val job = viewModelScope.launch {
@@ -298,101 +300,94 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         automaticHealthJob?.cancel()
         cancelHealthRead()
     }
-    fun setAutomaticHealth(enabled: Boolean) {
-        automaticHealthEnabled.value = enabled
-        healthPreferences.edit().putBoolean("on-open", enabled).apply()
-        if (enabled) syncHealthOnOpen(force = true) else automaticHealthJob?.cancel()
+    fun setAutomaticHealth(enabled: Boolean) = configureHealth(healthConnectionState.value.settings.copy(enabled = enabled))
+    fun setHealthBackground(enabled: Boolean) = configureHealth(healthConnectionState.value.settings.copy(background = enabled))
+    fun setHealthOrigins(origins: Set<String>) = configureHealth(healthConnectionState.value.settings.copy(origins = origins))
+    fun setHealthActivities(activities: Set<String>) = configureHealth(healthConnectionState.value.settings.copy(activities = activities))
+    private fun configureHealth(settings: HealthSyncSettings) {
+        automaticHealthJob?.cancel()
+        healthConnection.first.configure(settings)
+        if (!settings.enabled || !settings.background) HealthSyncSchedule.cancel(getApplication())
+        if (settings.enabled) syncHealthOnOpen(force = true)
     }
-    private fun syncHealthOnOpen(force: Boolean = false) {
-        if (!healthForeground || !automaticHealthEnabled.value || android.os.Build.VERSION.SDK_INT < 28 ||
-            busy.value || automaticHealthJob?.isActive == true) return
+    fun syncHealthNow() { syncHealthOnOpen(force = true, manual = true) }
+    private fun syncHealthOnOpen(force: Boolean = false, manual: Boolean = false) {
+        if ((!manual && (!healthForeground || !healthConnectionState.value.settings.enabled)) ||
+            android.os.Build.VERSION.SDK_INT < 28 || automaticHealthJob?.isActive == true) return
         val elapsed = android.os.SystemClock.elapsedRealtime()
-        // Returning from a picker or rotating the device must not cause a burst of reads.
         if (!force && elapsed - lastAutomaticRead < 60_000) return
-        automaticHealthJob = viewModelScope.launch {
-            val loaded = localData.first { !it.loading }
-            if (loaded.storageError != null || !healthForeground) return@launch
-            healthReadMutex.withLock {
-                if (!healthForeground || !automaticHealthEnabled.value) return@withLock
-                val context = getApplication<Application>()
-                if (androidx.health.connect.client.HealthConnectClient.getSdkStatus(context) != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
-                    healthSyncStatus.value = "Automatic sync needs Health Connect setup. Open Import activities."
-                    return@withLock
-                }
-                healthSyncing.value = true
-                try {
-                    val reader = HealthConnectReader(context)
-                    val access = reader.access()
-                    if (!access.exercise) {
-                        healthSyncStatus.value = "Automatic sync needs exercise read permission. Open Import activities to grant access."
-                        return@withLock
-                    }
-                    healthSyncStatus.value = "Syncing available Garmin data…"
-                    healthCandidates.value = emptyList()
-                    val end = java.time.Instant.now(); val start = end.minusSeconds(30 * 86400L)
-                    val candidates = reader.sessions(start, end)
-                    val known = healthImporter.known()
-                    val linkedKeys = known.filter { it.workoutId != null || it.importedWorkoutId != null }.map { it.key }.toSet()
-                    val targets = healthImporter.automaticTargets(candidates)
-                    val enriched = candidates.filter { it.session.key in linkedKeys || it.session.key in targets }.map { reader.enrich(it) }
-                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
-                    if (!healthForeground) return@withLock
-                    val result = healthImporter.applyAutomaticSync(candidates, enriched, start.toEpochMilli(), end.toEpochMilli())
-                    knownHealth.value = healthImporter.known()
-                    val summary = "Last sync: ${timestampText(System.currentTimeMillis())}\n${result.refreshed} refreshed · ${result.linked} linked · ${result.needsReview} need review" +
-                        (if (result.missing > 0) "\n${result.missing} source records were not returned; local sessions retained." else "") +
-                        (if (!access.heartRate || !access.distance) "\n" + access.message else "")
-                    healthSyncStatus.value = summary
-                    healthPreferences.edit().putString("last-result", summary).apply()
-                    lastAutomaticRead = android.os.SystemClock.elapsedRealtime()
-                    if (result.linked > 0) notices.send("Garmin data linked to ${result.linked} matching sessions.")
-                } catch (error: Exception) {
-                    if (error is kotlinx.coroutines.CancellationException) {
-                        healthSyncStatus.value = if (automaticHealthEnabled.value) "Automatic sync paused. It will retry when you return to FitNotes." else "Automatic sync is off."
-                        throw error
-                    }
-                    healthSyncStatus.value = if (error is SecurityException) "Automatic sync needs read permissions. Open Import activities to review access." else
-                        "Automatic sync could not finish. Saved sessions were retained. Open Import activities to retry."
-                    lastAutomaticRead = android.os.SystemClock.elapsedRealtime()
-                } finally {
-                    healthSyncing.value = false
-                }
-            }
-        }
-    }
-    fun inspectHealth(days: Int) = change(null, register = { healthReadJob = it }) {
-        healthReadMutex.withLock {
-            healthCandidates.value = emptyList()
-            if (android.os.Build.VERSION.SDK_INT < 28) { healthMessage.value = "Health Connect requires Android 9 or later."; return@change }
-            require(days == 7 || days == 30)
-            val context = getApplication<Application>()
-            if (androidx.health.connect.client.HealthConnectClient.getSdkStatus(context) != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
-                healthMessage.value = "Health Connect is unavailable. Install or update it, then retry."; return@change
+        automaticHealthJob = viewModelScope.launch(Dispatchers.IO) {
+            localData.first { !it.loading }
+            if (androidx.health.connect.client.HealthConnectClient.getSdkStatus(getApplication()) != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+                healthConnection.first.update { it.copy(message = "Health Connect setup is needed. Install/update it, then grant read access.") }
+                HealthSyncSchedule.cancel(getApplication()); return@launch
             }
             try {
-                val reader = HealthConnectReader(context)
-                val access = reader.access()
-                if (!access.exercise) { healthMessage.value = access.message; return@change }
-                healthMessage.value = "Reading activities and available samples…"
-                val end = java.time.Instant.now(); val start = end.minusSeconds(days * 86400L)
-                val candidates = reader.sessions(start, end)
-                val enriched = candidates.map { reader.enrich(it) }
-                // Only a fully successful exercise scan may mark an old source as missing.
-                val missing = healthImporter.noteMissing(start.toEpochMilli(), end.toEpochMilli(), candidates.map { it.session.key }.toSet())
+                val source = HealthConnectSyncSource(getApplication())
+                val access = source.access()
+                HealthSyncSchedule.reconcile(getApplication(), healthConnectionState.value.settings, access)
+                HealthSyncCoordinator(database, healthConnection.first, source, healthReadMutex)
+                    .sync(if (manual) HealthSyncReason.MANUAL else HealthSyncReason.FOREGROUND)
                 knownHealth.value = healthImporter.known()
-                healthCandidates.value = enriched
-                healthMessage.value = access.message + "\n${enriched.size} available activities in the selected window." +
-                    if (missing > 0) "\n$missing previously imported records were not returned; local sessions retained. See session information." else ""
+                lastAutomaticRead = android.os.SystemClock.elapsedRealtime()
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
-                healthCandidates.value = emptyList()
-                healthMessage.value = if (error is SecurityException) "Health Connect permission was denied or revoked. Grant exercise access, then retry." else
-                    "Health Connect could not complete the read. Check permissions, availability and sync, then retry. The result is incomplete; saved sessions were retained."
+                healthConnection.first.update { it.copy(working = false, errors = it.errors + 1, message = "Health Connect could not complete the sync. Review access and retry; saved activities are retained.") }
             }
         }
+    }
+    fun inspectHealth(days: Int) {
+        require(days in 1..3650)
+        if (android.os.Build.VERSION.SDK_INT < 28) return
+        val end = java.time.Instant.now()
+        readHealthWindow(end.minusSeconds(days * 86400L), end)
+    }
+    fun inspectHealthRange(first: String, last: String) {
+        if (android.os.Build.VERSION.SDK_INT < 28) return
+        try {
+            val startDay = java.time.LocalDate.parse(first); val endDay = java.time.LocalDate.parse(last)
+            require(startDay <= endDay && endDay <= java.time.LocalDate.now() && java.time.temporal.ChronoUnit.DAYS.between(startDay, endDay) <= 3650) { "Choose a valid range of up to ten years ending today or earlier." }
+            val zone = java.time.ZoneId.systemDefault()
+            readHealthWindow(startDay.atStartOfDay(zone).toInstant(), endDay.plusDays(1).atStartOfDay(zone).toInstant())
+        } catch (error: Exception) { healthMessage.value = error.message ?: "Choose dates as YYYY-MM-DD." }
+    }
+    private fun readHealthWindow(start: java.time.Instant, end: java.time.Instant) {
+        if (android.os.Build.VERSION.SDK_INT < 28) return
+        if (healthReadJob?.isActive == true) return
+        healthReading.value = true
+        healthReadJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                healthReadMutex.withLock {
+                    val context = getApplication<Application>()
+                    require(androidx.health.connect.client.HealthConnectClient.getSdkStatus(context) == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) { "Install or update Health Connect, then retry." }
+                    val reader = HealthConnectReader(context); val access = reader.access()
+                    require(access.exercise) { access.message }
+                    healthMessage.value = "Reading the requested interval; workout logging remains available…"
+                    val candidates = reader.sessions(start, end)
+                    val enriched = candidates.map { reader.enrich(it) }
+                    knownHealth.value = healthImporter.known()
+                    healthCandidates.value = enriched
+                    healthConnection.first.update { it.copy(availableOrigins = it.availableOrigins + enriched.associate { c -> c.session.originPackage to c.session.sourceName }) }
+                    val coverage = if (access.history) "Extended history read permission is granted. Records still depend on what Garmin published."
+                        else "Health Connect may restrict reads to 30 days before the first permission grant. Older coverage is not confirmed."
+                    healthMessage.value = "Requested ${start} to ${end}. ${enriched.size} returned activities.\n$coverage\n${access.message}"
+                }
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                healthMessage.value = if (error is SecurityException) "Read access changed. Review Health Connect permissions; saved activities are retained."
+                    else error.message ?: "The read is incomplete. Retry safely; saved activities are retained."
+            } finally { healthReading.value = false }
+        }
+    }
+    fun ignoreHealth(candidate: HealthCandidate) = change(null) {
+        healthImporter.ignore(candidate)
+        healthConnection.first.update { it.copy(reviewKeys = it.reviewKeys - candidate.session.key) }
+        knownHealth.value = healthImporter.known()
+        healthCandidates.value = healthCandidates.value.filterNot { it.session.key == candidate.session.key }
     }
     fun importHealth(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null, done: () -> Unit) = change(null, done) {
         val id = healthImporter.import(candidate, attachTo, attachImported)
+        healthConnection.first.update { it.copy(reviewKeys = it.reviewKeys - candidate.session.key) }
         knownHealth.value = healthImporter.known()
         notices.send(if (id == null) "Already imported; the deleted local session was not recreated." else "Activity saved. Local notes, sets and timing preserved.")
     }
@@ -517,6 +512,9 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
             pendingPhotoRestore.value = null
             done()
         }) {
+            automaticHealthJob?.cancel()
+            healthConnection.first.resetAfterRestore()
+            HealthSyncSchedule.cancel(getApplication())
             val photos = pendingPhotoRestore.value
             if (photos == null) repository.restore(backup) else photoBackup.restore(photos)
             backup.trainingPreferences?.let { preferences->val values=org.json.JSONArray(preferences.favouriteKeys);val keys=(0 until values.length()).map{values.getString(it)}.toSet();getApplication<Application>().getSharedPreferences("appearance",android.content.Context.MODE_PRIVATE).edit().putStringSet("favourite_exercises",keys).apply() }
