@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 7,
+    val version: Int = 8,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -85,7 +85,7 @@ object BackupCodec {
             } })
         }
         if (backup.version >= 4) {
-            root.put("healthSessions", JSONArray().also { array -> backup.healthSessions.forEach { array.put(HealthBackupJson.encode(it)) } })
+            root.put("healthSessions", JSONArray().also { array -> backup.healthSessions.forEach { array.put(HealthBackupJson.encode(it, backup.version)) } })
             root.put("healthSamples", JSONArray().also { array -> backup.healthSamples.forEach { array.put(HealthBackupJson.encode(it)) } })
         }
         if (backup.version >= 5) PlanBackupJson.add(root, backup)
@@ -101,7 +101,7 @@ object BackupCodec {
             val root = JSONObject(text)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..7) { "Unsupported backup version." }
+            require(version in 1..8) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
@@ -189,7 +189,7 @@ object BackupCodec {
     }
 
     fun validate(backup: Backup) {
-        require(backup.version in 1..7) { "Unsupported backup version." }
+        require(backup.version in 1..8) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
@@ -238,6 +238,7 @@ object BackupCodec {
             if (it.durationSeconds != null) require(it.durationSeconds.isFinite() && it.durationSeconds >= 0) { "Invalid duration." }
             require(it.comment.length <= 10000) { "Set comment is too long." }
         }
+        if (backup.version < 8) require(backup.healthSessions.all { it.elevationMeters == null && it.movingSeconds == null && (!it.isSourceCreated || it.sourceStatus.startsWith(SOURCE_CREATED_STATUS_PREFIX)) }) { "Activity summaries need backup version 8." }
         validateHealthBackup(backup.healthSessions, backup.healthSamples, workouts, backup.importedWorkouts.map { it.id }.toSet())
         validateImported(backup.imports, backup.importedWorkouts, backup.importedSets, backup.bodyMeasurements)
         validatePlanBackup(backup)
@@ -282,11 +283,11 @@ object BackupCodec {
     }
 
     fun analysis(backup: Backup): String {
-        val root = JSONObject(encode(backup.copy(version = 7, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null,
+        val root = JSONObject(encode(backup.copy(version = 8, plannedWorkouts = emptyList(), plannedExercises = emptyList(), handoffPreferences = null,
             plannedSets = emptyList(), planRuns = emptyList(), runTargets = emptyList(), restTimer = null, trainingPreferences = null, exerciseProgression = emptyList(),
             entries = backup.entries.map { it.copy(planNote = "", supersetGroup = "") }, sets = backup.sets.map { it.copy(targetId = null) })))
         listOf("plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets", "restTimer", "trainingPreferences", "exerciseProgression").forEach(root::remove)
-        return root.put("format", "fitnotes-analysis").put("version", 2).put("backupSchemaVersion", 7).toString(2)
+        return root.put("format", "fitnotes-analysis").put("version", 3).put("backupSchemaVersion", 8).toString(2)
     }
 
     private fun JSONObject.optionalNumber(key: String): Double? {

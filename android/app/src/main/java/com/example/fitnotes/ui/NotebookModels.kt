@@ -29,14 +29,15 @@ data class NotebookSet(val key: String, val weight: Double?, val reps: Int?, val
 data class NotebookExercise(val key: String, val name: String, val category: String = "", val entryId: Long? = null, val sets: List<NotebookSet>, val canonicalId: Long? = null, val sourceName: String? = null)
 data class NotebookSession(val key: String, val date: String, val title: String, val notes: String, val completed: Boolean,
     val local: WorkoutDetail? = null, val imported: ImportedWorkoutDetail? = null, val exercises: List<NotebookExercise>) {
+    val summary get() = local?.let(::activitySummary)
     val activity get() = local?.workout?.activityType ?: "strength"
-    val activityTitle get() = local?.workout?.let(::activityName) ?: "Strength training"
-    val duration get() = local?.let { localDuration(it.workout) ?: it.health.firstOrNull()?.session?.let { source -> (source.end - source.start) / 1000.0 } }
+    val activityTitle get() = summary?.sport ?: "Strength training"
+    val duration get() = summary?.seconds
     val count get() = exercises.sumOf { it.sets.size }
-    val dateOnly get() = if (local != null) local.workout.knownStart == null else imported != null && imported.workout.recordedStart == null
-    val startedMillis get() = local?.workout?.knownStart ?: recordedMillis(imported?.workout?.recordedStart)
-    val completedMillis get() = local?.workout?.completedAt ?: recordedMillis(imported?.workout?.recordedEnd)
-    val timeLabel get() = if (dateOnly) "Date-only" else if (local != null) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(local.workout.startedAt))
+    val dateOnly get() = if (local != null) summary?.start == null else imported != null && imported.workout.recordedStart == null
+    val startedMillis get() = summary?.start ?: recordedMillis(imported?.workout?.recordedStart)
+    val completedMillis get() = summary?.end ?: recordedMillis(imported?.workout?.recordedEnd)
+    val timeLabel get() = if (dateOnly) "Date-only" else if (local != null) summary!!.timeLabel
         else imported?.workout?.recordedStart?.substringAfter('T')?.substringBefore('+')?.take(5) ?: "Date-only"
 }
 private fun recordedMillis(raw: String?): Long? {
@@ -54,7 +55,7 @@ fun sortNotebookSessions(sessions: List<NotebookSession>): List<NotebookSession>
 fun notebookSessions(data: AppData): List<NotebookSession> {
     val identity = ExerciseIdentityIndex(data)
     val locals = data.workouts.map { d ->
-        NotebookSession("local:" + d.workout.id, localWorkoutDate(d.workout), d.workout.title, d.workout.notes, d.workout.isComplete,
+        NotebookSession("local:" + d.workout.id, activitySummary(d).date, activitySummary(d).title, d.workout.notes, d.workout.isComplete,
             local = d, exercises = orderedEntries(d).map { e -> NotebookExercise("entry:" + e.entry.id, e.exercise.name, entryId = e.entry.id,
                 sets = orderedSets(e).map { s -> NotebookSet("set:" + s.id, if (s.reps > 0 && s.weightSpecified) s.weightKg else null, if (s.reps > 0) s.reps else null,
                     s.distance, s.distanceUnit, s.durationSeconds, s.comment, local = s) }, canonicalId = e.exercise.id) })

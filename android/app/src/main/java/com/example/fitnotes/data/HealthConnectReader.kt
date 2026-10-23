@@ -16,7 +16,7 @@ const val GARMIN_PACKAGE = "com.garmin.android.apps.connectmobile"
 const val HEALTH_ACCESS_CONTEXT = "Only data available in Health Connect can be read. Default history access begins 30 days before your first permission grant; older history and background reads require separate optional permission. Garmin must publish records first. An empty query does not prove no activity occurred or that Garmin has finished syncing."
 fun isGarminOrigin(packageName: String) = packageName == GARMIN_PACKAGE
 data class HealthAccess(val exercise: Boolean, val heartRate: Boolean, val distance: Boolean, val history: Boolean = false, val background: Boolean = false,
-    val historySupported: Boolean = false, val backgroundSupported: Boolean = false) {
+    val historySupported: Boolean = false, val backgroundSupported: Boolean = false, val elevation: Boolean = false) {
     val message get() = if (!exercise) "Exercise-session permission is missing or revoked. Grant it in Health Connect to preview activities."
         else buildList {
             if (!heartRate) add("Heart-rate permission is missing; activities can still be imported.")
@@ -29,13 +29,15 @@ class HealthConnectReader(private val context: Context, private val clientOverri
         val exercisePermission = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
         val heartPermission = HealthPermission.getReadPermission(HeartRateRecord::class)
         val distancePermission = HealthPermission.getReadPermission(DistanceRecord::class)
-        val permissions = setOf(exercisePermission, heartPermission, distancePermission)
+        val elevationPermission = HealthPermission.getReadPermission(ElevationGainedRecord::class)
+        val permissions = setOf(exercisePermission, heartPermission, distancePermission, elevationPermission)
     }
     private var heartCache: List<HeartRateRecord>? = null
     private var distanceCache: List<DistanceRecord>? = null
+    private var elevationCache: List<ElevationGainedRecord>? = null
     private var windowEnd = Instant.now()
     private var windowStart = windowEnd.minusSeconds(30 * 86400L)
-    fun invalidateMetrics() { heartCache = null; distanceCache = null }
+    fun invalidateMetrics() { heartCache = null; distanceCache = null; elevationCache = null }
     private fun includeWindow(start: Instant, end: Instant) {
         if (start < windowStart || end > windowEnd) {
             windowStart = minOf(start, windowStart); windowEnd = maxOf(end, windowEnd)
@@ -48,7 +50,7 @@ class HealthConnectReader(private val context: Context, private val clientOverri
         fun supported(feature: Int) = client().features.getFeatureStatus(feature) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
         return HealthAccess(exercisePermission in granted, heartPermission in granted, distancePermission in granted,
             HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY in granted, HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND in granted,
-            supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY), supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND))
+            supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY), supported(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND), elevationPermission in granted)
     }
     private suspend fun <T : Record> read(type: KClass<T>, start: Instant, end: Instant): List<T> = collectHealthPages { token ->
         val page = client().readRecords(ReadRecordsRequest(type, TimeRangeFilter.between(start, end), pageSize = 500, pageToken = token))
@@ -126,8 +128,33 @@ class HealthConnectReader(private val context: Context, private val clientOverri
             if (e is kotlinx.coroutines.CancellationException) throw e
             distanceStatus = if (e is SecurityException) "Distance permission was revoked. Existing distance retained." else "Distance read failed. Retry after sync; existing distance retained."
         }
+        var elevation: Double? = null; var elevationOrigins = ""; var elevationRead = false
+        var elevationStatus = "Elevation permission missing. Previously imported gain, if any, is retained."
+        if (access.elevation) try {
+            val all = (elevationCache ?: read(ElevationGainedRecord::class, sampleStart, maxOf(end, windowEnd)).also { elevationCache = it })
+                .filter { it.startTime.toEpochMilli() < s.end && it.endTime.toEpochMilli() > s.start }
+            val origin = all.firstOrNull { it.metadata.dataOrigin.packageName == s.originPackage }?.metadata?.dataOrigin?.packageName
+                ?: all.map { it.metadata.dataOrigin.packageName }.distinct().sorted().firstOrNull()
+            val chosen = all.filter { it.metadata.dataOrigin.packageName == origin }
+            val contained = chosen.filter { it.startTime.toEpochMilli() >= s.start && it.endTime.toEpochMilli() <= s.end }
+                .distinctBy { it.metadata.id }.sortedBy { it.startTime }
+            val ambiguous = contained.zipWithNext().any { (a, b) -> a.endTime > b.startTime } || contained.any { it.elevation.inMeters < 0 }
+            elevation = if (contained.isEmpty() || ambiguous) null else contained.sumOf { it.elevation.inMeters }
+            elevationOrigins = if (elevation == null) "" else origin.orEmpty()
+            elevationRead = true
+            elevationStatus = when {
+                ambiguous -> "Overlapping or signed elevation records cannot establish elevation gain."
+                elevation == null -> "No fully contained elevation gain records returned."
+                chosen.size != contained.size -> "Only contained elevation gain counted; boundary-crossing records excluded."
+                else -> "Contained elevation gain in meters from $elevationOrigins."
+            }
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            elevationStatus = "Elevation read failed or permission changed. Previously saved gain is retained."
+        }
         return HealthCandidate(s.copy(importedAt = System.currentTimeMillis(), distanceMeters = distance, distanceOrigins = distanceOrigins,
-            hrStatus = hrStatus, distanceStatus = distanceStatus), samples, hrRead, distanceRead)
+            hrStatus = hrStatus, distanceStatus = distanceStatus, elevationMeters = elevation, elevationOrigins = elevationOrigins,
+            elevationStatus = elevationStatus), samples, hrRead, distanceRead, elevationRead)
     }
 }
 fun activityType(type: Int): String = when (type) {

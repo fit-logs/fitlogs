@@ -143,6 +143,17 @@ class HealthSyncCoordinatorTest {
         assertTrue(coordinator().sync(HealthSyncReason.MANUAL)); assertTrue(db.healthDao().samples().isEmpty())
         assertNull(db.healthDao().sessions().single().distanceMeters); assertEquals(listOf(workout), db.dao().workouts())
     }
+    @Test fun lateElevationFeedRefreshesOneSessionWithoutExerciseUpsertsAndRevocationRetainsIt() = runBlocking {
+        val c = candidate("elevation"); source.upsert(c); coordinator().sync(HealthSyncReason.MANUAL)
+        source.access = source.access.copy(elevation = true)
+        source.records[c.session.key] = c.copy(elevationRead = true)
+        coordinator().sync(HealthSyncReason.MANUAL)
+        source.metric(c.copy(session = c.session.copy(elevationMeters = 123.5, elevationOrigins = GARMIN_PACKAGE), elevationRead = true), HealthFeed.ELEVATION)
+        assertTrue(coordinator().sync(HealthSyncReason.MANUAL))
+        assertEquals(123.5, db.healthDao().sessions().single().elevationMeters!!, 0.0)
+        source.access = source.access.copy(elevation = false); source.records[c.session.key] = c
+        assertTrue(coordinator().sync(HealthSyncReason.MANUAL)); assertEquals(123.5, db.healthDao().sessions().single().elevationMeters!!, 0.0)
+    }
     @Test fun sourceDeletionIsDistinctFromNoChangesAndPreservesLocalTrainingAndSamples() = runBlocking {
         val c = candidate("run"); source.upsert(c); coordinator().sync(HealthSyncReason.MANUAL)
         val before = WorkoutRepository(db).backup(); source.delete(c)

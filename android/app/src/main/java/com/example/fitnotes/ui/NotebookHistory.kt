@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,7 +35,7 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
                 MenuAction("Backup and restore") { close(); onBackup() }
             }
         }
-        LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+        LazyColumn(state = state, modifier = Modifier.testTag("history-list"), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
             item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick=onProgress,modifier=Modifier.heightIn(min=48.dp)){Text("Strength progress")}
                 TextButton(onClick = onAsk, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
@@ -56,9 +57,8 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(ActivityType.from(session.activity).symbol + " " + session.title.ifBlank { if (session.activity == "strength") "Workout" else session.activityTitle }, style = MaterialTheme.typography.titleMedium)
                                 Text(if (session.activity == "strength") session.exercises.joinToString(", ") { it.name } else session.notes.ifBlank { session.local?.health?.firstOrNull()?.session?.title.orEmpty() }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(if (session.activity == "strength") "${session.exercises.size} exercises · ${session.count} sets" else durationText(session.duration) +
-                                    (session.local?.workout?.distance?.let { " · " + weightText(it) + " " + session.local.workout.distanceUnit }
-                                        ?: session.local?.health?.firstOrNull()?.session?.distanceMeters?.let { " · " + weightText(it / 1000) + " km" }.orEmpty()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (session.activity == "strength") "${session.exercises.size} exercises · ${session.count} sets" else session.summary?.metricText ?: durationText(session.duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (session.activity != "strength") Text(session.timeLabel + " · " + session.activityTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

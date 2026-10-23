@@ -39,7 +39,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
                 store.update(generation) { it.copy(message = "Background access unavailable. Foreground import and Sync now remain available.") }
                 return@withLock true
             }
-            val feeds = buildSet { add(HealthFeed.EXERCISE); if (access.heartRate) add(HealthFeed.HEART_RATE); if (access.distance) add(HealthFeed.DISTANCE) }
+            val feeds = buildSet { add(HealthFeed.EXERCISE); if (access.heartRate) add(HealthFeed.HEART_RATE); if (access.distance) add(HealthFeed.DISTANCE); if (access.elevation) add(HealthFeed.ELEVATION) }
             val signature = feeds.sortedBy { it.name }.joinToString() + ":history=" + access.history
             if (store.state.value.permissionSignature != signature) store.update(generation) {
                 it.copy(tokens = emptyMap(), bootstrapped = false, permissionSignature = signature)
@@ -128,7 +128,7 @@ class HealthSyncCoordinator(private val database: FitDatabase, private val store
         for (batch in candidates.distinctBy { it.session.key }.filter { it.session.originPackage in settings.origins && it.session.activityType in settings.activities }.chunked(20)) {
             currentCoroutineContext().ensureActive(); checkCurrent(generation, reason)
             val enriched = batch.map { candidate -> source.enrich(candidate).also {
-                if ((access.heartRate && !it.heartRateRead) || (access.distance && !it.distanceRead)) supplementalIncomplete = true
+                if ((access.heartRate && !it.heartRateRead) || (access.distance && !it.distanceRead) || (access.elevation && !it.elevationRead)) supplementalIncomplete = true
             } }
             val counts = database.withTransaction {
                 checkCurrent(generation, reason)

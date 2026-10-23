@@ -7,9 +7,9 @@ import java.util.Locale
 import java.util.TimeZone
 
 data class HealthCandidate(val session: HealthSession, val samples: List<HealthSample> = emptyList(),
-    val heartRateRead: Boolean = false, val distanceRead: Boolean = false)
+    val heartRateRead: Boolean = false, val distanceRead: Boolean = false, val elevationRead: Boolean = false)
 const val SOURCE_CREATED_STATUS_PREFIX = "Created from source activity. "
-val HealthSession.isSourceCreated: Boolean get() = sourceStatus.startsWith(SOURCE_CREATED_STATUS_PREFIX)
+val HealthSession.isSourceCreated: Boolean get() = sourceCreated || sourceStatus.startsWith(SOURCE_CREATED_STATUS_PREFIX)
 fun HealthSession.withSourceStatus(message: String) = copy(sourceStatus = (if (isSourceCreated) SOURCE_CREATED_STATUS_PREFIX else "") + message)
 
 data class HealthPage<T>(val records: List<T>, val next: String?)
@@ -57,6 +57,11 @@ class HealthImportRepository(private val database: FitDatabase) {
             existing.title != s.title || existing.notes != s.notes || existing.exerciseType != s.exerciseType)
         val intervalChanged = existing != null && (existing.start != s.start || existing.end != s.end)
         val enriched = s.copy(workoutId = workoutId, importedWorkoutId = importedId,
+            sourceCreated = existing?.isSourceCreated == true || (existing == null && attachTo == null && attachImported == null),
+            elevationMeters = if (candidate.elevationRead) s.elevationMeters else if (intervalChanged) null else existing?.elevationMeters,
+            elevationOrigins = if (candidate.elevationRead) s.elevationOrigins else if (intervalChanged) "" else existing?.elevationOrigins.orEmpty(),
+            movingSeconds = s.movingSeconds ?: if (intervalChanged) null else existing?.movingSeconds,
+            movingOrigin = s.movingOrigin.ifBlank { if (intervalChanged) "" else existing?.movingOrigin.orEmpty() },
             distanceMeters = if (candidate.distanceRead) s.distanceMeters else if (intervalChanged) null else existing?.distanceMeters,
             distanceOrigins = if (candidate.distanceRead) s.distanceOrigins else if (intervalChanged) "" else existing?.distanceOrigins.orEmpty(),
             distanceStatus = if (!candidate.distanceRead && intervalChanged) s.distanceStatus + " Source interval changed; prior imported distance cannot be attributed to the new interval." else s.distanceStatus,

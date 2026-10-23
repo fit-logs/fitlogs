@@ -55,6 +55,23 @@ class HealthConnectReaderTest {
         assertTrue(c.samples.all { it.originPackage == GARMIN_PACKAGE })
         assertNull(c.session.distanceMeters); assertTrue(c.session.distanceStatus.contains("boundary-crossing"))
     }
+    @Test fun elevationUsesContainedNonoverlappingRecordsFromOneSourceAndRetainsDeniedSnapshots() = runBlocking {
+        val permissions = FakePermissionController()
+        val fake = FakeHealthConnectClient(packageName = GARMIN_PACKAGE, permissionController = permissions)
+        permissions.grantPermission(HealthConnectReader.elevationPermission)
+        fake.insertRecords(listOf<Record>(exercise("elevation"), ElevationGainedRecord(start, null, end, null, Length.meters(123.5), Metadata.manualEntry(clientRecordId = "gain"))))
+        fake.setPackageName("org.synthetic.other")
+        fake.insertRecords(listOf(ElevationGainedRecord(start, null, end, null, Length.meters(999.0), Metadata.manualEntry(clientRecordId = "duplicate-gain"))))
+        val reader = HealthConnectReader(context, fake)
+        val enriched = reader.enrich(reader.sessions(start.minusSeconds(1), end.plusSeconds(1)).single())
+        assertTrue(enriched.elevationRead); assertEquals(123.5, enriched.session.elevationMeters!!, 0.0)
+        assertEquals(GARMIN_PACKAGE, enriched.session.elevationOrigins); assertNull(enriched.session.movingSeconds)
+        permissions.revokePermission(HealthConnectReader.elevationPermission)
+        assertFalse(reader.enrich(enriched).elevationRead)
+        permissions.grantPermission(HealthConnectReader.elevationPermission); fake.setPackageName(GARMIN_PACKAGE)
+        fake.insertRecords(listOf(ElevationGainedRecord(start.plusSeconds(100), null, end, null, Length.meters(10.0), Metadata.manualEntry(clientRecordId = "overlap"))))
+        reader.invalidateMetrics(); assertNull(reader.enrich(enriched).session.elevationMeters)
+    }
     @Test fun actualSdkPagingReadsMoreThanOnePageWithoutNameTimeDeduplication() = runBlocking {
         val fake = FakeHealthConnectClient(packageName = GARMIN_PACKAGE)
         fake.insertRecords((1..501).map { exercise("session-$it") })

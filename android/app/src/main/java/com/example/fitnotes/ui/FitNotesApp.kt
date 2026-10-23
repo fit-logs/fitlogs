@@ -89,7 +89,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         loggerKey = null; exerciseKey = null; historyKey = key; historyDay = session.date; tab = 1; editableKey = null
     }
     fun enterWorkout(id: Long, openPicker: Boolean = false) {
-        workoutKey = "local:$id"; workoutDay = model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { com.example.fitnotes.data.localWorkoutDate(it.workout) } ?: todayDate()
+        workoutKey = "local:$id"; workoutDay = model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { com.example.fitnotes.data.activitySummary(it).date } ?: todayDate()
         tab = 0; historyDay = null; loggerKey = null; exerciseKey = null; editableKey = null
         plansMenu = false; pastePlan = false; selectedPlan = null
         addingTo = if (openPicker) "local:$id" else null
@@ -236,9 +236,10 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (activityEntry) ActivityEntryDialog(busy, model, { activityEntry = false }) { id ->
         activityEntry = false; workoutKey = "local:$id"; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null
         // A manual past activity may have a different date.
-        model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) }
+        model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date }
     }
-    LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.localWorkoutDate(it.workout) } }
+    LaunchedEffect(data.workouts, workoutKey) { data.workouts.firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date } }
+    LaunchedEffect(sessions, historyKey) { sessions.firstOrNull { it.key == historyKey }?.let { historyDay = it.date } }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
     if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
