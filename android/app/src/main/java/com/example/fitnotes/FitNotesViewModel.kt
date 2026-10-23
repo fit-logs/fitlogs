@@ -72,6 +72,15 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     val programImportSourceUrl = MutableStateFlow("")
     val duplicateProgramId = MutableStateFlow<String?>(null)
     val programImportRequestVersion = MutableStateFlow(0L)
+    // Request production and consumption share the model's lifetime. Saving a
+    // consumption counter in Compose could suppress request #1 after the OS
+    // restores UI state but recreates the model with a fresh request sequence.
+    private var consumedProgramImportRequest=0L
+    fun consumeProgramImportRequest(version:Long):Boolean {
+        if(version<=consumedProgramImportRequest || version>programImportRequestVersion.value)return false
+        consumedProgramImportRequest=version
+        return true
+    }
     val programs = database.programDao().observe().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val programSessions = database.programDao().observeSessions().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val programError = MutableStateFlow<String?>(null)

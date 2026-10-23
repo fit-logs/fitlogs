@@ -86,8 +86,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var programImport by rememberSaveable { mutableStateOf(false) }
     var programsMenu by rememberSaveable { mutableStateOf(false) }
     val programRequestVersion by model.programImportRequestVersion.collectAsState()
-    var handledProgramRequest by rememberSaveable { mutableLongStateOf(0L) }
-    LaunchedEffect(programRequestVersion) { if(programRequestVersion>handledProgramRequest){handledProgramRequest=programRequestVersion;programImport=true} }
+    LaunchedEffect(model,programRequestVersion) { if(model.consumeProgramImportRequest(programRequestVersion))programImport=true }
     var pastePlan by rememberSaveable { mutableStateOf(false) }
     var plansMenu by rememberSaveable { mutableStateOf(false) }
     var selectedPlan by rememberSaveable { mutableStateOf<String?>(null) }
