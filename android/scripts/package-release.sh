@@ -57,7 +57,7 @@ grep -Fq "Signer #1 certificate SHA-256 digest: $expected_cert" "$temporary_dir/
 "$tools_dir/zipalign" -c -P 16 4 "$temporary_dir/$apk_name"
 "$tools_dir/aapt2" dump badging "$temporary_dir/$apk_name" > "$temporary_dir/badging.txt"
 grep -Fq "package: name='com.example.fitnotes' versionCode='$version_code' versionName='$version'" "$temporary_dir/badging.txt"
-grep -Fxq "sdkVersion:'24'" "$temporary_dir/badging.txt"
+grep -Eq "^(minSdkVersion|sdkVersion):'24'$" "$temporary_dir/badging.txt"
 if grep -q '^application-debuggable' "$temporary_dir/badging.txt"; then
     printf 'Refusing to package a debuggable release.\n' >&2
     exit 1

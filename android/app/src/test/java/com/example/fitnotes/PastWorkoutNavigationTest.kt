@@ -25,6 +25,11 @@ class PastWorkoutNavigationTest {
     @get:Rule val ui = createAndroidComposeRule<MainActivity>()
     private lateinit var model: FitNotesViewModel
 
+    private fun logForViewedDay() {
+        ui.onNodeWithTag("workout-overview").performScrollToNode(hasTestTag("log-workout-for-day"))
+        ui.onNodeWithTag("log-workout-for-day").performClick()
+    }
+
     @Before fun prepare() {
         ui.activityRule.scenario.onActivity {
             model = ViewModelProvider(it)[FitNotesViewModel::class.java]
@@ -53,11 +58,12 @@ class PastWorkoutNavigationTest {
         ui.onNodeWithText("Resume workout", substring = false).performClick()
         repeat(2) { ui.onNodeWithContentDescription("Previous day").performClick() }
         ui.onNodeWithTag("workout-overview").assertExists()
+        ui.onNodeWithTag("workout-overview").performScrollToNode(hasText("No workouts on this day."))
         ui.onNodeWithText("No workouts on this day.").assertIsDisplayed()
         assertTrue(model.pastDrafts.value.isEmpty())
         assertEquals(2, model.data.value.workouts.size)
 
-        ui.onNodeWithTag("log-workout-for-day").performClick()
+        logForViewedDay()
         ui.onNodeWithTag("past-workout-date").assertTextContains(prettyDay(selectedDay, "EEE d MMM yyyy"))
         ui.activityRule.scenario.recreate()
         ui.onNodeWithTag("past-workout-date").assertTextContains(prettyDay(selectedDay, "EEE d MMM yyyy"))
@@ -74,14 +80,14 @@ class PastWorkoutNavigationTest {
     @Test fun existingHistoryDayAllowsAnAdditionalSessionAndCancelCreatesNothing() {
         ui.onNode(hasText("History") and hasClickAction()).performClick()
         ui.onNodeWithText("◆ Earlier workout", substring = false).performClick()
-        ui.onNodeWithTag("log-workout-for-day").performClick()
+        logForViewedDay()
         val selectedDay = moveDay(todayDate(), -3)
         ui.onNodeWithTag("past-workout-date").assertTextContains(prettyDay(selectedDay, "EEE d MMM yyyy"))
         ui.onNodeWithText("Cancel", substring = false).performClick()
         ui.onNodeWithTag("workout-overview").assertExists()
         assertTrue(model.pastDrafts.value.isEmpty())
 
-        ui.onNodeWithTag("log-workout-for-day").performClick()
+        logForViewedDay()
         ui.onNodeWithText("Enter performed sets", substring = false).performClick()
         ui.waitUntil(15000) { !model.busy.value && model.pastDrafts.value.size == 1 }
         assertEquals(selectedDay, model.pastDrafts.value.single().workout.sessionDate)
