@@ -14,8 +14,8 @@ android {
         applicationId = if (providers.gradleProperty("photoVerification").orNull == "true") "com.example.fitnotes.preview.photos" else "com.example.fitnotes"
         minSdk = 24
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.0.0-beta.1"
+        versionCode = 3
+        versionName = "1.0.0-beta.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -75,6 +75,7 @@ dependencies {
     testImplementation(libs.json.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation("androidx.health.connect:connect-testing:1.0.0-alpha02")
     androidTestImplementation(libs.androidx.room.testing)
     implementation(platform(libs.androidx.compose.bom))

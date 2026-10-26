@@ -35,6 +35,12 @@
 3. Use the existing exercise picker and numeric set logger. Save only the sets
    you actually performed, then tap **Save completed**.
 
+From a workout overview, browse to the desired previous date and tap **Log
+workout for this day**. The setup form uses that date instead of yesterday.
+Empty days stay open, and days with an existing session allow another entry.
+Opening or cancelling setup does not create a draft. The selected setup date
+survives activity recreation.
+
 A retrospective draft does not start a live timer or replace another active
 workout. Navigating away or restarting retains it in **Past workout drafts**.
 Draft sets stay outside History, training context, analysis JSON and progress

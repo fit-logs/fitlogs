@@ -1,5 +1,35 @@
 # Android beta release
 
+## Next release: v1.0.0-beta.2
+
+Version code 3 adds **Log workout for this day** to previous-day workout
+overviews and keeps empty dates open when browsing from Train. See the
+[release notes](releases/v1.0.0-beta.2.md).
+
+On the Mac used to build beta.1, the existing development signing key is
+usually `~/.android/debug.keystore`. GitHub distribution still requires this
+same key for Android update installation. The packaging script checks its
+certificate against beta.1 before building, then runs tests/lint, builds the
+release, aligns/signs/verifies the APK and generates `SHA256SUMS`:
+
+```sh
+cd android
+JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' \
+  ./scripts/package-release.sh
+```
+
+Set `FITNOTES_KEYSTORE`, `FITNOTES_KEY_ALIAS`, `FITNOTES_STORE_PASSWORD`, and
+`FITNOTES_KEY_PASSWORD` in the local environment for a nondefault key. Set
+`ANDROID_HOME` if the SDK is outside `~/Library/Android/sdk`. Do not create a
+replacement key for an update. Outputs are in the ignored `android/build/release/`
+directory. The script does not publish a release.
+
+After validating the signed APK, publish the tagged source with
+`build/release/fitnotes-1.0.0-beta.2.apk` and `build/release/SHA256SUMS` attached,
+using `docs/releases/v1.0.0-beta.2.md` as the release notes.
+
+## Previous release: v1.0.0-beta.1
+
 The first downloadable Android release is `v1.0.0-beta.1`, version code 2,
 package `com.example.fitnotes`, for Android 7.0 (API 24) or later.
 
