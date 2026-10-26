@@ -29,7 +29,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     busy: Boolean, editable: Boolean, state: LazyListState, onDay: (String) -> Unit, onSession: (String?) -> Unit,
     onExercise: (String) -> Unit, onStart: () -> Unit, onAdd: () -> Unit, onEdit: () -> Unit, onShare: (String) -> Unit,
     onRecoverPlan: (Long) -> Unit, onImport: () -> Unit, onHealthImport: () -> Unit, onBackup: () -> Unit, onChatGPT: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit,
-    onSavePast: () -> Unit = {}, onEditTime: () -> Unit = {}, onUseAsPlan: () -> Unit = {}, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
+    onSavePast: () -> Unit = {}, onLogPast: () -> Unit = {}, onEditTime: () -> Unit = {}, onUseAsPlan: () -> Unit = {}, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onBack: (() -> Unit)? = null, onDeleted: () -> Unit, onFinished: () -> Unit, onRepeat: () -> Unit) {
     var reorder by rememberSaveable(session?.key) { mutableStateOf(false) }
     var choosingDay by remember { mutableStateOf(false) }
     var choosingSession by remember { mutableStateOf(false) }
@@ -94,6 +94,11 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             if (sameDay.size > 1 || (session == null && sameDay.isNotEmpty())) item {
                 TextButton(onClick = { choosingSession = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Text(if (session == null) "${sameDay.size} workouts on this day ▾" else session.timeLabel + " · ${sameDay.size} workouts ▾")
+                }
+            }
+            if (day < todayDate()) item {
+                OutlinedButton(onClick = onLogPast, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("log-workout-for-day")) {
+                    Text("Log workout for this day")
                 }
             }
             if (session == null) item {

@@ -12,6 +12,10 @@ yesterday. Copy a recent workout/routine or start empty, log performed sets, the
 **Save completed**. Forgotten strength sessions are reconciled with editable
 estimated/unknown timing. [Lifecycle details and verification](docs/workout-lifecycle.md).
 
+When browsing a previous date in a workout's overview, **Log workout for this
+day** starts entry on the selected date. This also supports another session on
+a day with existing workouts. Empty dates stay open while browsing from Train.
+
 
 **Train → Start empty workout** opens exercise selection immediately. Resume,
 Finish and Discard manage the active session; reusable templates stay separate.
@@ -21,8 +25,8 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
   **Resume workout** and **Log past workout** keep ad-hoc logging quick.
   **My programs** and **My templates** have separate lists and management controls.
   Other activities are under Settings. In the workout
-  overview, date arrows and the date picker browse existing sessions; they never
-  create a workout. A selector appears when a day has multiple sessions.
+  overview, date arrows and the date picker browse dates; **Log workout for this
+  day** starts an entry for a previous date. A selector appears when a day has multiple sessions.
 - Tap **Add exercise** to search Recent / Favourites / All, select multiple exercises,
   and confirm **Add N exercises**. Stars save favourites; selections survive filter
   and search changes. **Create custom exercise** adds a named exercise. The overview contains compact saved

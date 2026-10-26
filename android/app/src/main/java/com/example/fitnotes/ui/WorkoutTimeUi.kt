@@ -23,8 +23,8 @@ fun WorkoutTimeFields(input: WorkoutTimeInput, enabled: Boolean, change: (Workou
     Text("Leave unknown times/duration blank. End-only or duration-only is valid. Start and duration can determine an end; no midnight start is invented.", style = MaterialTheme.typography.bodySmall)
 }
 @Composable
-fun PastWorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolean, onClose: () -> Unit, onReady: (Long, String, Boolean) -> Unit) {
-    var date by rememberSaveable { mutableStateOf(moveDay(todayDate(), -1)) }
+fun PastWorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolean, onClose: () -> Unit, initialDate: String = moveDay(todayDate(), -1), onReady: (Long, String, Boolean) -> Unit) {
+    var date by rememberSaveable { mutableStateOf(initialDate) }
     var source by rememberSaveable { mutableStateOf("") }
     var times by rememberSaveable { mutableStateOf(false) }
     var start by rememberSaveable { mutableStateOf("") }; var end by rememberSaveable { mutableStateOf("") }
@@ -37,7 +37,7 @@ fun PastWorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolea
     AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text("Log past workout") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Enter what you actually did. This creates a draft for a completed past session and leaves the live workout alone.")
-            TextButton(onClick = { picker = true }, enabled = !busy) { Text("Date · " + prettyDay(date, "EEE d MMM yyyy")) }
+            TextButton(onClick = { picker = true }, enabled = !busy, modifier = Modifier.testTag("past-workout-date")) { Text("Date · " + prettyDay(date, "EEE d MMM yyyy")) }
             RadioChoice("Start empty", source.isBlank(), !busy) { source = "" }
             if (recent.isNotEmpty()) Text("Copy a recent workout", style = MaterialTheme.typography.titleSmall)
             recent.forEach { session -> RadioChoice("${session.date} · ${session.title.ifBlank { session.exercises.take(3).joinToString(", ") { it.name } }} · ${session.timeLabel}", source == session.key, !busy) { source = session.key } }

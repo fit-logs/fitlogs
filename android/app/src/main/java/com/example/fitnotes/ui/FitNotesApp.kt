@@ -51,6 +51,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val draftSessions = remember(pastDrafts, data.exercises) { notebookSessions(data.copy(workouts = pastDrafts, imported = ImportedData()), includeDrafts = true) }
     val editingSessions = remember(sessions, draftSessions) { (sessions + draftSessions).distinctBy { it.key } }
     var pastSetup by rememberSaveable { mutableStateOf(false) }
+    var pastSetupDate by rememberSaveable { mutableStateOf(moveDay(todayDate(), -1)) }
     var timingWorkoutId by rememberSaveable { mutableStateOf<Long?>(null) }
     var discardPastId by rememberSaveable { mutableStateOf<Long?>(null) }
     var library by rememberSaveable { mutableStateOf(false) }
@@ -60,6 +61,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var workoutDay by rememberSaveable { mutableStateOf(todayDate()) }
     var workoutKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var browsingWorkoutDay by rememberSaveable { mutableStateOf(false) }
     var historyKey by rememberSaveable { mutableStateOf<String?>(null) }
     var historyDay by rememberSaveable { mutableStateOf<String?>(null) }
     var loggerKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -102,6 +104,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         loggerKey = null; exerciseKey = null; historyKey = key; historyDay = session.date; tab = 1; editableKey = null
     }
     fun enterWorkout(id: Long, openPicker: Boolean = false, dateOverride: String? = null) {
+        browsingWorkoutDay = false
         workoutKey = "local:$id"; workoutDay = dateOverride ?: (model.data.value.workouts + model.pastDrafts.value).firstOrNull { it.workout.id == id }?.let { com.example.fitnotes.data.activitySummary(it).date } ?: todayDate()
         tab = 0; historyDay = null; loggerKey = null; exerciseKey = null; editableKey = null
         plansMenu = false; pastePlan = false; selectedPlan = null
@@ -112,7 +115,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
         model.savePastWorkout(id) { tab = 1; historyKey = "local:$id"; historyDay = date; workoutKey = null; loggerKey = null; exerciseKey = null; addingTo = null; editableKey = "local:$id" }
     }
     fun editTime(id: Long) { model.workoutTimeError.value = null; timingWorkoutId = id }
-    fun openPast() { model.workoutTimeError.value = null; pastSetup = true }
+    fun openPastOn(date: String) { model.workoutTimeError.value = null; pastSetupDate = date; pastSetup = true }
+    fun openPast() { openPastOn(moveDay(todayDate(), -1)) }
     fun requestStart(planId: String? = null) {
         if (busy) return
         val active = data.active
@@ -139,15 +143,15 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val analysis = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportAnalysis) }
     LaunchedEffect(backupMenu) { if (backupMenu) includePhotos = false }
     LaunchedEffect(model) { model.messages.collect { snackbar.showSnackbar(it) } }
-    BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null || (tab == 0 && workoutKey != null)) {
+    BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null || (tab == 0 && (workoutKey != null || browsingWorkoutDay))) {
         if (addingTo != null) addingTo = null
         else if (loggerKey != null) { loggerKey = null; exerciseKey = null }
-        else if (tab == 0 && workoutKey != null) { workoutKey = null; editableKey = null }
+        else if (tab == 0 && (workoutKey != null || browsingWorkoutDay)) { workoutKey = null; browsingWorkoutDay = false; editableKey = null }
         else { historyKey = null; historyDay = null; editableKey = null }
     }
     Scaffold(bottomBar = {
         if (loggerKey == null && addingTo == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train") })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; browsingWorkoutDay = false; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train") })
             NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History") })
             NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body") })
         }
@@ -181,7 +185,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                 } else if (tab == 2) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
                 else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
                     onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={progress=true},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onPast=::openPast)
-                else if (tab == 0 && workoutKey == null) CompositionLocalProvider(LocalSettingsAction provides { settings = true }) {
+                else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) CompositionLocalProvider(LocalSettingsAction provides { settings = true }) {
                     TrainScreen(data, model, busy,
                         onResume = { data.active?.let { enterWorkout(it.workout.id) } }, onStart = ::startWorkout,
                         onFinish = { finishActiveId = data.active?.workout?.id },
@@ -202,21 +206,22 @@ fun FitNotesApp(model: FitNotesViewModel) {
                         WorkoutOverview(session, day, visibleSessions, data, model, busy, session != null && (!session.completed || editableKey == session.key), scroll,
                             onDay = { chosen ->
                                 val found = visibleSessions.firstOrNull { it.date == chosen }
-                                if (tab == 0) { workoutDay = chosen; workoutKey = found?.key } else { historyDay = chosen; historyKey = found?.key }
+                                if (tab == 0) { workoutDay = chosen; workoutKey = found?.key; browsingWorkoutDay = true } else { historyDay = chosen; historyKey = found?.key }
                                 editableKey = null
                             }, onSession = ::chooseSession, onExercise = { selected -> loggerKey = session?.key; exerciseKey = selected }, onStart = ::startWorkout,
                             onAdd = { addingTo = session?.key }, onEdit = { editableKey = session?.key }, onShare = { shareText = it },
                             onImport = { importMenu = true }, onHealthImport = { healthImport = true }, onBackup = { backupMenu = true },
                             onSavePast = { session?.local?.let { savePast(it.workout.id) } }, onEditTime = { session?.local?.let { editTime(it.workout.id) } },
+                            onLogPast = { openPastOn(day) },
                             onUseAsPlan = { session?.let { model.planFromSession(it); pastePlan = true } },
                             onProgress={progress=true},onLibrary={library=true},onTrainingSettings={trainingSettings=true},
                             onRecoverPlan = { id -> model.recoverEmptySuggestion(id) { pastePlan = true } }, onChatGPT = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },
-                            onBack = if (tab == 1) ({ historyKey = null; historyDay = null; editableKey = null }) else ({ workoutKey = null; editableKey = null }),
-                            onDeleted = { workoutKey = null; historyKey = null; loggerKey = null; historyDay = null; editableKey = null },
+                            onBack = if (tab == 1) ({ historyKey = null; historyDay = null; editableKey = null }) else ({ workoutKey = null; browsingWorkoutDay = false; editableKey = null }),
+                            onDeleted = { workoutKey = null; browsingWorkoutDay = false; historyKey = null; loggerKey = null; historyDay = null; editableKey = null },
                             onFinished = { editableKey = null; session?.let { openHistory(it.key) } },
                             onRepeat = {
-                                if (session?.local != null) model.repeat(session.local.workout.id) { tab = 0; historyDay = null; workoutDay = todayDate(); workoutKey = null; editableKey = null }
-                                else if (session?.imported != null) model.repeatImported(session.imported.workout.id) { tab = 0; historyDay = null; workoutDay = todayDate(); workoutKey = null; editableKey = null }
+                                if (session?.local != null) model.repeat(session.local.workout.id) { tab = 0; historyDay = null; workoutDay = todayDate(); workoutKey = null; browsingWorkoutDay = false; editableKey = null }
+                                else if (session?.imported != null) model.repeatImported(session.imported.workout.id) { tab = 0; historyDay = null; workoutDay = todayDate(); workoutKey = null; browsingWorkoutDay = false; editableKey = null }
                             })
                     }
                 }
@@ -248,27 +253,27 @@ fun FitNotesApp(model: FitNotesViewModel) {
         }
     }, confirmButton = { TextButton(onClick = { resolvingStart = false }, enabled = !busy) { Text("Cancel") } })
     finishActiveId?.let { id -> NotebookConfirm("Finish workout?", "Only saved sets will be included.", "Finish", busy, { finishActiveId = null }) {
-        model.finish(id) { finishActiveId = null; workoutKey = null }
+        model.finish(id) { finishActiveId = null; workoutKey = null; browsingWorkoutDay = false }
     } }
     discardActiveId?.let { id -> NotebookConfirm("Discard workout?", "This deletes this workout and its saved sets. Saved plans are kept.", "Discard", busy, { discardActiveId = null }) {
         if (discardForStart) model.resolveActiveAndStart(id, ActiveWorkoutAction.DISCARD, requestedPlanId) { next -> discardActiveId = null; enterWorkout(next, requestedPlanId == null) }
-        else model.deleteWorkout(id) { discardActiveId = null; workoutKey = null }
+        else model.deleteWorkout(id) { discardActiveId = null; workoutKey = null; browsingWorkoutDay = false }
     } }
     if(trainingSettings)TrainingSettingsDialog(model,busy){trainingSettings=false}
     if(library)ExerciseLibraryScreen(model,data,busy){library=false}
     if(progress)StrengthProgressScreen(data,model,busy,{progress=false;library=true}){progress=false}
     summary?.let { text->AlertDialog(onDismissRequest={model.completionSummary.value=null},title={Text("Workout complete")},text={Column(Modifier.verticalScroll(rememberScrollState())){Text(text)}},confirmButton={TextButton(onClick={model.completionSummary.value=null}){Text("Done")}}) }
     if (activityEntry) ActivityEntryDialog(busy, model, { activityEntry = false }) { id ->
-        activityEntry = false; workoutKey = "local:$id"; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null
+        activityEntry = false; workoutKey = "local:$id"; browsingWorkoutDay = false; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null
         // A manual past activity may have a different date.
         model.data.value.workouts.firstOrNull { it.workout.id == id }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date }
     }
     LaunchedEffect(data.workouts, pastDrafts, workoutKey) { (data.workouts + pastDrafts).firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date } }
     LaunchedEffect(sessions, historyKey) { sessions.firstOrNull { it.key == historyKey }?.let { historyDay = it.date } }
-    if (pastSetup) PastWorkoutSetupDialog(data, model, busy, { pastSetup = false }) { id, date, picker -> pastSetup = false; enterWorkout(id, picker, date) }
+    if (pastSetup) PastWorkoutSetupDialog(data, model, busy, { pastSetup = false }, initialDate = pastSetupDate) { id, date, picker -> pastSetup = false; enterWorkout(id, picker, date) }
     timingWorkoutId?.let { id -> (data.workouts + pastDrafts).firstOrNull { it.workout.id == id }?.let { detail -> WorkoutTimeDialog(detail.workout, model, busy) { timingWorkoutId = null } } }
     discardPastId?.let { id -> NotebookConfirm("Discard past workout draft?", "This removes the unsaved draft and its draft sets.", "Discard", busy, { discardPastId = null }) {
-        model.deleteWorkout(id) { discardPastId = null; if(workoutKey == "local:$id"){workoutKey = null;loggerKey = null;exerciseKey = null} }
+        model.deleteWorkout(id) { discardPastId = null; if(workoutKey == "local:$id"){workoutKey = null;browsingWorkoutDay = false;loggerKey = null;exerciseKey = null} }
     } }
     if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
@@ -326,6 +331,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
             model.confirmRestore {
                 val active = backup.workouts.firstOrNull { !it.isComplete }
                 restoreRevision++;appearance.refreshFavourites(); workoutKey = active?.let { "local:" + it.id }
+                browsingWorkoutDay = false
                 workoutDay = active?.let { com.example.fitnotes.data.localWorkoutDate(it) } ?: todayDate()
                 historyKey = null; historyDay = null; loggerKey = null; exerciseKey = null; editableKey = null; tab = 0
             }
