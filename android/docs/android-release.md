@@ -28,6 +28,17 @@ After validating the signed APK, publish the tagged source with
 `build/release/fitnotes-1.0.0-beta.2.apk` and `build/release/SHA256SUMS` attached,
 using `docs/releases/v1.0.0-beta.2.md` as the release notes.
 
+Cloud verification on 26 October 2026 passed 251 tests with one optional
+external fixture skipped. The two new Compose/Robolectric checks use the real
+MainActivity and Room database and cover empty-day navigation, the selected
+date across recreation, additional same-day entry, cancellation, and preservation
+of the live workout. Debug lint reports zero errors and 50 existing warnings;
+release vital lint also passed. The unsigned release APK has package
+`com.example.fitnotes`, version code 3, minimum API 24, target API 37, debugging
+disabled, and verified 16 KB alignment. Same-certificate signing and device
+update installation remain pending because the original local key is unavailable
+in the cloud workspace.
+
 ## Previous release: v1.0.0-beta.1
 
 The first downloadable Android release is `v1.0.0-beta.1`, version code 2,
