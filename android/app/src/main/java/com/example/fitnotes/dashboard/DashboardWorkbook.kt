@@ -132,7 +132,7 @@ object DashboardWorkbook {
         return buildList {
             if (weekly.table.rows.isNotEmpty()) {
                 add(chart(501, "Completed sessions by week", "COLUMN", weekly, listOf(1), 100, 1, "Sessions"))
-                add(chart(502, "Recorded running distance by week", "COLUMN", weekly, listOf(4), 100, 19, "Kilometres"))
+                if (weekly.table.rows.any { it[4] != null }) add(chart(502, "Recorded running distance by week", "COLUMN", weekly, listOf(4), 100, 19, "Kilometres"))
             }
             if (strength.table.rows.isNotEmpty()) add(chart(503, "${sheets.single { it.id == 100 }.table.rows[6][1]} · strength", "LINE", strength, listOf(1, 2), 101, sheets.single { it.id == 101 }.table.values.size + 2, "Kilograms"))
             if (body.table.rows.isNotEmpty()) add(chart(504, body.table.columns[1], "LINE", body, listOf(1), 104, sheets.single { it.id == 104 }.table.values.size + 2, body.table.columns[1]))

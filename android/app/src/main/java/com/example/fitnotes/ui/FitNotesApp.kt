@@ -71,6 +71,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var restoreRevision by rememberSaveable { mutableIntStateOf(0) }
     var addingTo by rememberSaveable { mutableStateOf<String?>(null) }
     var settings by rememberSaveable { mutableStateOf(false) }
+    var googleDashboard by rememberSaveable { mutableStateOf(false) }
     var resolvingStart by rememberSaveable { mutableStateOf(false) }
     var requestedPlanId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -251,6 +252,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         TextButton(onClick={settings=false;healthImport=true}){Text("Health sync")}
         TextButton(onClick={settings=false;importMenu=true}){Text("Import history")}
         TextButton(onClick={settings=false;backupMenu=true}){Text("Backup and restore")}
+        TextButton(onClick={settings=false;googleDashboard=true}){Text("Google training dashboard")}
         TextButton(onClick={settings=false;repairHistory=true}){Text("Review repeated imports")}
         TextButton(onClick={settings=false;library=true}){Text("Exercise library")}
         TextButton(onClick={settings=false;activityEntry=true}){Text("Log another activity")}
@@ -259,6 +261,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         com.example.fitnotes.ui.theme.ThemeMode.entries.forEach{mode->Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){RadioButton(appearance.mode==mode,{appearance.choose(mode)});Text(mode.name)}}
     }},confirmButton={TextButton(onClick={settings=false}){Text("Done")}})
     if(updateApp)AppUpdateDialog(onClose={updateApp=false})
+    if(googleDashboard)GoogleDashboardDialog(onClose={googleDashboard=false})
     if(repairHistory)HistoryRepairDialog(data,model,busy){repairHistory=false}
     val pendingActive = data.workouts.firstOrNull { it.workout.id == pendingActiveId }
     if (resolvingStart) AlertDialog(onDismissRequest = { if (!busy) resolvingStart = false }, title = { Text("Workout already in progress") }, text = {

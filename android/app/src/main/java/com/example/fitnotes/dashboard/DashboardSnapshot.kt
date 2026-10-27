@@ -68,7 +68,7 @@ object DashboardSnapshot {
         fun note(value: String) = value.takeIf { options.includeNotes }.orEmpty()
         fun utc(value: Long?) = value?.let { Instant.ofEpochMilli(it).toString() }
         fun week(date: String) = LocalDate.parse(date).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()
-        val sessionRows = sessions.map { session -> listOf(session.key, session.date, session.activityTitle,
+        val sessionRows = sessions.map { session -> listOf(session.key, session.date, if (session.imported != null) "Imported workout" else session.activityTitle,
             session.title, utc(session.startedMillis), utc(session.completedMillis), session.duration,
             session.count, if (session.local == null) "Imported history" else session.local.health.map { it.session.sourceName }.distinct().sorted().joinToString().ifBlank { "FitLogs" }, note(session.notes)) }
         val setRows = sessions.flatMap { session -> session.exercises.flatMap { exercise -> exercise.sets.map { set ->

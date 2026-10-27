@@ -45,9 +45,11 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
   `D5:06:2B:36:E5:8B:41:69:89:56:D5:1B:FF:54:4B:9E:83:8F:C4:10`.
 - Android client: `FitLogs Android signed releases`. No client secret belongs
   in the APK or GitHub secrets. Android identity uses the package/certificate.
-- During setup, use External/Testing and explicitly allow test accounts.
-  Before general availability, finish Branding and switch to Production so
-  every app user can authorize their own account; a test-user list is temporary.
+- Sheets and Drive APIs are enabled. Branding points to the public homepage
+  and privacy policy. The External authorization app was moved to **Production**
+  on 2026-10-28, with explicit owner approval, so each user can authorize their
+  own account without being added to a test-user list. Only the non-sensitive
+  `drive.file` scope is declared and requested.
 - Public app/privacy documentation is built and checked by
   `.github/workflows/public-pages.yml`, deployed from main at
   `https://fit-logs.github.io/fitlogs/`. These static pages receive no training
@@ -55,14 +57,56 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
 - Each phone must approve its own Google access. Console registration does not
   grant the developer access to anyone's files.
 
-## Delivery stages
+## Use and privacy
 
-1. Projection/template and synthetic correctness checks.
-2. Google Identity authorization, private per-account folder, manual idempotent
-   snapshot sync, account/file ownership validation, literal `RAW` values,
-   stale-row clearing, disconnect and actionable errors.
-3. Optional coalesced WorkManager sync after relevant local changes.
+- Settings → Google training dashboard → Connect and create dashboard.
+- Google chooses the account and asks for permission. There is no client
+  secret, service account, developer data server or custom password form.
+- Notes and body measurements are separately opt-in. Automatic sync starts
+  disabled and can be enabled after the first successful manual sync.
+- Open dashboard/Drive folder use the selected account's private files.
+- Account switches require an explicit action, create a new private dashboard
+  and reset sensitive inclusion options. Existing files are kept.
+- Disconnect revokes Google access when online and always clears local linkage
+  and queued sync. Offline users can also revoke it in Google account settings.
+- Connection metadata is device-local, excluded from training exports and the
+  Android backup whitelist. Bearer tokens exist only in memory and request
+  headers to fixed Google API origins; redirects are disabled.
+- Shared, foreign-owned, moved, missing or renamed managed files/tabs are
+  refused before training writes. Create a new dashboard to keep an altered
+  file intact. The app never calls a sharing/permissions mutation endpoint.
 
-Live account consent, expired/revoked access, account switching and a real
-spreadsheet render need separate verification. A local template test does not
-prove that an account has authorized the Android client.
+## Refresh and recovery
+
+- A transactional Room projection supplies one completed-training snapshot.
+- Fixed managed IDs, literal `RAW` strings and bounded batches replace only
+  app-managed columns. Unrelated tabs, columns and charts are preserved.
+- Durable pending row counts allow a smaller retry to clear partial upload
+  leftovers. `_meta` and the local success time advance only after all writes.
+- A lost file-creation response is recovered using the account-bound app
+  marker. Existing recovered tabs are preserved.
+- WorkManager coalesces opted-in changes for 15 seconds, requires a network,
+  waits out active workouts, and retries temporary failures with exponential
+  backoff. Background work never opens a consent prompt.
+- Rebuild dashboard charts restores the managed chart positions and formatting.
+  Create a new dashboard preserves the old file. Deleting remote files stays
+  under the user's control in Drive.
+
+## Verification
+
+- Pure projection/template tests cover completed results, units, provenance,
+  unknown values, stable IDs and privacy exclusions.
+- Fake API tests cover account/shared-file guards, idempotence, partial writes,
+  stale rows, recovery, cancellation, managed layout and bounded Unicode batches.
+- WorkManager tests cover disabled behavior, coalescing/network constraints,
+  cancellation and safe HTTP error classification.
+- A fresh synthetic emulator verified privacy defaults, persisted options after
+  rotation and unchanged local training records. No personal app was cleared.
+- A separate native Google Sheets preview accepted the template and charts and
+  was inspected in the browser using synthetic data only.
+
+Real-device Android consent, token expiry/revocation, account switching and
+manual/automatic sync with `drive.file` still need live validation. Console
+Production status and connector-created previews do not prove that the Android
+client has authorized an account. Optional recoverable Drive backup/restore
+remains a separate follow-up; manual JSON/photo backup is unchanged.
