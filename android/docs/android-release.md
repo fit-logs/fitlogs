@@ -1,5 +1,9 @@
 # Android beta release
 
+For automated Android CI and one-click signed GitHub Releases, see
+[GitHub Actions publishing setup](github-actions-release.md). The local Mac
+packaging instructions below remain available as a fallback.
+
 ## Next release: v1.0.0-beta.2
 
 Version code 3 adds **Log workout for this day** to previous-day workout

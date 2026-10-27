@@ -1,0 +1,143 @@
+name: Publish Android beta
+run-name: Publish Android ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'GitHub release tag matching Android versionName, e.g. v1.0.0-beta.2'
+        required: true
+        default: v1.0.0-beta.2
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # A manual invocation from a feature branch cannot access release signing.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate tag and refuse to overwrite published releases
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo 'Invalid release tag.' >&2
+            exit 1
+          fi
+          source_tag=$(python3 - <<'PY'
+          import pathlib, re
+          build = pathlib.Path('android/app/build.gradle.kts').read_text()
+          match = re.search(r'^\s*versionName\s*=\s*"([^"]+)"', build, re.MULTILINE)
+          if not match:
+              raise SystemExit('Android versionName is missing.')
+          print('v' + match.group(1))
+          PY
+          )
+          if [[ "$RELEASE_TAG" != "$source_tag" ]]; then
+            echo "Requested $RELEASE_TAG, but this source builds $source_tag." >&2
+            exit 1
+          fi
+          if [[ ! -f "android/docs/releases/$RELEASE_TAG.md" ]]; then
+            echo "Missing release notes for $RELEASE_TAG." >&2
+            exit 1
+          fi
+          if git show-ref --quiet --verify "refs/tags/$RELEASE_TAG"; then
+            tagged_sha=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+            if [[ "$tagged_sha" != "$GITHUB_SHA" ]]; then
+              echo "Tag $RELEASE_TAG already points to $tagged_sha, not $GITHUB_SHA. Refusing to retag." >&2
+              exit 1
+            fi
+          fi
+          release_state=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)
+          if [[ "$release_state" == 'false' ]]; then
+            echo "Release $RELEASE_TAG is already published. Refusing to overwrite it." >&2
+            exit 1
+          fi
+      - name: Check required signing secrets
+        env:
+          FITNOTES_KEYSTORE_BASE64: ${{ secrets.FITNOTES_KEYSTORE_BASE64 }}
+          FITNOTES_STORE_PASSWORD: ${{ secrets.FITNOTES_STORE_PASSWORD }}
+          FITNOTES_KEY_PASSWORD: ${{ secrets.FITNOTES_KEY_PASSWORD }}
+          FITNOTES_KEY_ALIAS: ${{ secrets.FITNOTES_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in FITNOTES_KEYSTORE_BASE64 FITNOTES_STORE_PASSWORD FITNOTES_KEY_PASSWORD FITNOTES_KEY_ALIAS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing GitHub Actions signing secret $name. Configure the ORIGINAL beta.1 signing key before publishing." >&2
+              exit 1
+            fi
+          done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+      - name: Install required Android SDK
+        run: sdkmanager --channel=3 --install 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
+      - name: Restore original signing keystore in temporary runner storage
+        env:
+          FITNOTES_KEYSTORE_BASE64: ${{ secrets.FITNOTES_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$FITNOTES_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/fitnotes.keystore"
+          echo "FITNOTES_KEYSTORE=$RUNNER_TEMP/fitnotes.keystore" >> "$GITHUB_ENV"
+      - name: Test, build and verify correctly signed APK
+        working-directory: android
+        env:
+          FITNOTES_STORE_PASSWORD: ${{ secrets.FITNOTES_STORE_PASSWORD }}
+          FITNOTES_KEY_PASSWORD: ${{ secrets.FITNOTES_KEY_PASSWORD }}
+          FITNOTES_KEY_ALIAS: ${{ secrets.FITNOTES_KEY_ALIAS }}
+          FITNOTES_BUILD_TOOLS: '36.0.0'
+        run: ./scripts/package-release.sh
+      - name: Upload verified APK and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${RELEASE_TAG#v}
+          notes="android/docs/releases/$RELEASE_TAG.md"
+          apk="android/build/release/fitnotes-$version.apk"
+          sums='android/build/release/SHA256SUMS'
+          (cd android/build/release && sha256sum --check SHA256SUMS)
+          title="FitNotes Android $RELEASE_TAG"
+          release_state=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)
+          if [[ "$release_state" == 'true' ]]; then
+            gh release edit "$RELEASE_TAG" --target "$GITHUB_SHA" --title "$title" --notes-file "$notes" --prerelease
+            gh release upload "$RELEASE_TAG" "$apk" "$sums" --clobber
+          elif [[ -z "$release_state" ]]; then
+            gh release create "$RELEASE_TAG" "$apk" "$sums" --draft --prerelease --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"
+          else
+            echo 'Release was published while packaging; refusing to overwrite it.' >&2
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq "fitnotes-$version.apk"
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq SHA256SUMS
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          echo "Published $RELEASE_TAG with signed update and SHA256SUMS."
+      - name: Remove temporary signing keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/fitnotes.keystore"
