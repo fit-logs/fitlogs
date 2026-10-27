@@ -83,6 +83,9 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
   app-managed columns. Unrelated tabs, columns and charts are preserved.
 - Durable pending row counts allow a smaller retry to clear partial upload
   leftovers. `_meta` and the local success time advance only after all writes.
+- Each publish is bound to the connection generation captured before
+  authorization. Queued old authorizations cannot re-bind an account after a
+  disconnect or account switch. Sheet locale/time zone follow the snapshot.
 - A lost file-creation response is recovered using the account-bound app
   marker. Existing recovered tabs are preserved.
 - WorkManager coalesces opted-in changes for 15 seconds, requires a network,

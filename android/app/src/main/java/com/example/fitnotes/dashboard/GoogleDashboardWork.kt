@@ -26,7 +26,8 @@ object GoogleDashboardWork {
 class GoogleDashboardWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
         val store = GoogleDashboardStore(applicationContext)
-        if (!store.automatic() || store.read().fileId.isBlank()) return Result.success()
+        val connection = store.read()
+        if (!store.automatic() || connection.fileId.isBlank()) return Result.success()
         var token: String? = null
         return try {
             val database = FitDatabase.open(applicationContext)
@@ -35,11 +36,12 @@ class GoogleDashboardWorker(context: Context, parameters: WorkerParameters) : Co
                 if (database.dao().active() != null) return Result.retry()
                 DashboardSnapshot.project(dashboardBackup(database), store.options())
             } finally { database.close() }
-            val authorization = Identity.getAuthorizationClient(applicationContext).authorize(dashboardAuthorization(store.read().email)).dashboardAwait()
+            val authorization = Identity.getAuthorizationClient(applicationContext).authorize(dashboardAuthorization(connection.email)).dashboardAwait()
             if (authorization.hasResolution()) { store.status("Reconnect Google to resume automatic sync."); return Result.failure() }
             token = dashboardAccessToken(authorization)
+            if (!store.automatic() || store.read().key != connection.key) return Result.success()
             store.status("Syncing to your Google Drive…")
-            val result = DashboardPublisher(GoogleDashboardTransport(), store).publish(snapshot, token)
+            val result = DashboardPublisher(GoogleDashboardTransport(), store).publish(snapshot, token, expectedConnectionKey = connection.key)
             store.status(if (result.unchanged) "Dashboard is up to date." else "Dashboard synced to your Google Drive.")
             Result.success()
         } catch (error: CancellationException) { throw error }

@@ -34,13 +34,14 @@ class GoogleDashboardViewModel(application: Application) : AndroidViewModel(appl
             try {
                 withContext(Dispatchers.IO) {
                     GoogleDashboardWork.cancel(getApplication())
-                    DashboardPublisher.mutex.withLock {
+                    val connectionKey = DashboardPublisher.mutex.withLock {
                         if (switchAccount) store.disconnect()
                         else if (newDashboard) store.newDashboard()
+                        store.read().key
                     }
                     val database = FitDatabase.open(getApplication())
                     val snapshot = try { DashboardSnapshot.project(dashboardBackup(database), store.options()) } finally { database.close() }
-                    val result = DashboardPublisher(GoogleDashboardTransport(), store).publish(snapshot, token, repairCharts)
+                    val result = DashboardPublisher(GoogleDashboardTransport(), store).publish(snapshot, token, repairCharts, connectionKey)
                     store.status(if (result.unchanged) "Dashboard is up to date." else "Dashboard synced to your Google Drive.")
                 }
             } catch (error: CancellationException) { store.status("Sync cancelled. Your local records are unchanged."); throw error }

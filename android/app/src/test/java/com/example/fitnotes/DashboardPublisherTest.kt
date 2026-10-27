@@ -29,6 +29,7 @@ class DashboardPublisherTest {
         val sheets = linkedMapOf<Int, JSONObject>()
         val cells = mutableMapOf<Int, MutableList<MutableList<Any?>>>()
         val charts = mutableMapOf<Int, JSONObject>()
+        val properties = JSONObject().put("locale", "en_US").put("timeZone", "America/Los_Angeles")
         val calls = mutableListOf<Call>()
         private fun copy(value: JSONObject) = JSONObject(value.toString())
         private fun value(cell: JSONObject): Any? = cell.optJSONObject("userEnteredValue")?.let { entered -> entered.keys().asSequence().firstOrNull()?.let { entered.get(it) } }
@@ -86,6 +87,10 @@ class DashboardPublisherTest {
                 for (n in 0 until requests.length()) {
                     val r = requests.getJSONObject(n)
                     when {
+                        r.has("updateSpreadsheetProperties") -> {
+                            val p = r.getJSONObject("updateSpreadsheetProperties").getJSONObject("properties")
+                            p.keys().asSequence().forEach { key -> properties.put(key, p.get(key)) }
+                        }
                         r.has("addSheet") -> { val p = r.getJSONObject("addSheet").getJSONObject("properties"); check(p.getInt("sheetId") !in sheets); sheets[p.getInt("sheetId")] = copy(p) }
                         r.has("deleteSheet") -> sheets.remove(r.getJSONObject("deleteSheet").getInt("sheetId"))
                         r.has("updateCells") -> { val u = r.getJSONObject("updateCells"); val id = u.getJSONObject("start").getInt("sheetId"); val rows = u.getJSONArray("rows")
@@ -146,6 +151,9 @@ class DashboardPublisherTest {
         assertEquals(1, results.count { it.unchanged }); assertEquals(500L, store.value.lastSuccessAt)
         assertEquals(setOf(501, 503), google.charts.keys)
         assertEquals("=Synthetic squat", google.at(201, 1, 4))
+        assertEquals("en_GB", google.properties.getString("locale")); assertEquals("UTC", google.properties.getString("timeZone"))
+        publisher.publish(snapshot().copy(timeZone = "Pacific/Auckland"), "secret-token")
+        assertEquals("Pacific/Auckland", google.properties.getString("timeZone")); assertEquals(1, google.fileCreates)
         assertTrue(google.calls.none { it.body?.toString()?.contains("secret-token") == true })
         assertFalse(store.value.toString().contains("secret-token"))
     }
@@ -160,6 +168,21 @@ class DashboardPublisherTest {
         google.shared.clear(); google.files.getValue(google.fileId).getJSONArray("owners").getJSONObject(0).put("permissionId", "someone-else")
         reject(DashboardFailure.PRIVATE_FILE) { publisher.publish(snapshot(2), "token") }
         assertEquals(saved.lastSuccessAt, store.value.lastSuccessAt)
+    }
+
+    @Test fun queuedOldAuthorizationCannotRebindAfterDisconnectOrAccountSwitch() = runBlocking {
+        val google = Google(); val store = Store(); val publisher = DashboardPublisher(google, store)
+        val oldKey = store.read().key
+        DashboardPublisher.mutex.lock()
+        val pending = async { publisher.publish(snapshot(), "old-account-token", expectedConnectionKey = oldKey) }
+        try {
+            yield() // The old authorization is waiting for the publish lock.
+            store.write(DashboardConnection(key = "22222222-2222-2222-2222-222222222222"))
+        } finally { DashboardPublisher.mutex.unlock() }
+        try { pending.await(); fail("A disconnected authorization must be cancelled") } catch (_: CancellationException) { }
+        assertTrue(google.calls.isEmpty()); assertEquals("", store.value.accountId)
+        publisher.publish(snapshot(), "current-account-token")
+        assertEquals(1, google.fileCreates)
     }
 
     @Test fun partialUploadThenSmallerRetryClearsStaleRowsAndKeepsUserTabsColumnsAndCharts() = runBlocking {

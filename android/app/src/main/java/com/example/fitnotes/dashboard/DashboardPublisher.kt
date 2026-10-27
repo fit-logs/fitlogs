@@ -1,6 +1,7 @@
 package com.example.fitnotes.dashboard
 
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -23,7 +24,11 @@ class DashboardPublisher(private val transport: DashboardTransport, private val 
     companion object { val mutex = Mutex() }
     private val fileFields = "id,mimeType,trashed,parents,ownedByMe,owners(permissionId,me),permissions(type,role),appProperties,capabilities(canEdit)"
 
-    suspend fun publish(snapshot: DashboardSnapshotV1, token: String, repairCharts: Boolean = false): DashboardPublishResult = mutex.withLock {
+    suspend fun publish(snapshot: DashboardSnapshotV1, token: String, repairCharts: Boolean = false,
+        expectedConnectionKey: String = store.read().key): DashboardPublishResult = mutex.withLock {
+        // Cancellation can arrive after authorization or while waiting for this
+        // lock. An old token must never re-bind a disconnected/switched account.
+        if (store.read().key != expectedConnectionKey) throw CancellationException("Google dashboard connection changed.")
         suspend fun call(service: GoogleService, method: String, path: String, body: JSONObject? = null): JSONObject {
             coroutineContext.ensureActive()
             return transport.request(service, method, path, token, body)
@@ -165,7 +170,11 @@ class DashboardPublisher(private val transport: DashboardTransport, private val 
             "'${sheet.table.name}'!A${sheet.table.values.size + 1}:${columnName(sheet.table.columns.size)}${pending.getValue(sheet.id)}"
         }
         if (clear.isNotEmpty()) call(GoogleService.SHEETS, "POST", "$id/values:batchClear", JSONObject().put("ranges", JSONArray(clear)))
-        val requests = DashboardWorkbook.formatting(sheets).toMutableList()
+        // Drive creates the container with account defaults. Keep its calendar
+        // settings aligned with the snapshot, including after a time-zone change.
+        val requests = mutableListOf(JSONObject().put("updateSpreadsheetProperties", JSONObject()
+            .put("properties", JSONObject().put("locale", "en_GB").put("timeZone", snapshot.timeZone)).put("fields", "locale,timeZone")))
+        requests += DashboardWorkbook.formatting(sheets)
         desiredCharts.forEach { (chartId, chart) ->
             if (chartId in existingCharts) {
                 requests += JSONObject().put("updateChartSpec", JSONObject().put("chartId", chartId).put("spec", chart.getJSONObject("spec")))
