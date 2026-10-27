@@ -11,17 +11,11 @@ import kotlinx.coroutines.sync.withLock
 class GoogleDashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val store = GoogleDashboardStore(application)
     val connection = MutableStateFlow(store.read())
-    val options = MutableStateFlow(store.options())
     val automatic = MutableStateFlow(store.automatic())
     val message = MutableStateFlow(store.status())
     val working = MutableStateFlow(false)
     private var job: Job? = null
-    fun refresh() { connection.value = store.read(); options.value = store.options(); automatic.value = store.automatic(); message.value = store.status() }
-    fun options(value: DashboardOptions) {
-        store.options(value)
-        if (store.read().fileId.isNotBlank()) store.status(if (store.automatic()) "Options changed. Automatic sync will update your dashboard." else "Options changed. Sync now to update your dashboard.")
-        refresh(); GoogleDashboardWork.request(getApplication())
-    }
+    fun refresh() { connection.value = store.read(); automatic.value = store.automatic(); message.value = store.status() }
     fun automatic(value: Boolean) {
         store.automatic(value); refresh()
         if (value) GoogleDashboardWork.request(getApplication()) else GoogleDashboardWork.cancel(getApplication())
@@ -40,7 +34,7 @@ class GoogleDashboardViewModel(application: Application) : AndroidViewModel(appl
                         store.read().key
                     }
                     val database = FitDatabase.open(getApplication())
-                    val snapshot = try { DashboardSnapshot.project(dashboardBackup(database), store.options()) } finally { database.close() }
+                    val snapshot = try { DashboardSnapshot.project(dashboardBackup(database)) } finally { database.close() }
                     val result = DashboardPublisher(GoogleDashboardTransport(), store).publish(snapshot, token, repairCharts, connectionKey)
                     store.status(if (result.unchanged) "Dashboard is up to date." else "Dashboard synced to your Google Drive.")
                 }

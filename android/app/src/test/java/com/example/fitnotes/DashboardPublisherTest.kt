@@ -96,6 +96,7 @@ class DashboardPublisherTest {
                         r.has("updateCells") -> { val u = r.getJSONObject("updateCells"); val id = u.getJSONObject("start").getInt("sheetId"); val rows = u.getJSONArray("rows")
                             for (row in 0 until rows.length()) { val values = rows.getJSONObject(row).getJSONArray("values"); for (col in 0 until values.length()) put(id, row, col, value(values.getJSONObject(col))) } }
                         r.has("updateSheetProperties") -> { val p = r.getJSONObject("updateSheetProperties").getJSONObject("properties"); val grid = p.optJSONObject("gridProperties")
+                            if (p.has("hidden")) sheets.getValue(p.getInt("sheetId")).put("hidden", p.getBoolean("hidden"))
                             grid?.keys()?.asSequence()?.forEach { key -> sheets.getValue(p.getInt("sheetId")).getJSONObject("gridProperties").put(key, grid.get(key)) } }
                         r.has("addChart") -> { val c = r.getJSONObject("addChart").getJSONObject("chart"); check(c.getInt("chartId") !in charts); charts[c.getInt("chartId")] = copy(c) }
                         r.has("updateChartSpec") -> { val c = r.getJSONObject("updateChartSpec"); charts.getValue(c.getInt("chartId")).put("spec", c.getJSONObject("spec")) }
@@ -135,11 +136,11 @@ class DashboardPublisherTest {
     }
     private fun snapshot(count: Int = 1, notes: Boolean = false, body: Boolean = false, note: String = "private note"): DashboardSnapshotV1 = DashboardSnapshot.project(
         Backup(exportedAt = 100, exercises = listOf(Exercise(1, "=Synthetic squat", "synthetic squat")),
-            workouts = (1..count).map { Workout(it.toLong(), 0, title = "Synthetic", notes = note, finished = true, sessionDate = "2026-10-01") },
+            workouts = (1..count).map { Workout(it.toLong(), 0, title = "Synthetic", notes = if (notes) note else "", finished = true, sessionDate = "2026-10-01") },
             entries = (1..count).map { WorkoutExercise(it.toLong(), it.toLong(), 1, 0) },
-            sets = (1..count).map { WorkoutSet(it.toLong(), it.toLong(), 40.0, 8, 0, comment = note, loadMode = LoadMode.EXTERNAL) },
-            bodyMeasurements = listOf(BodyMeasurement("reading", "fixture", "reading", "2026-10-01", "", "Weight", 70.0, "kg", "Kilograms", note, "RAW SECRET"))),
-        DashboardOptions(notes, body), ZoneId.of("UTC"))
+            sets = (1..count).map { WorkoutSet(it.toLong(), it.toLong(), 40.0, 8, 0, comment = if (notes) note else "", loadMode = LoadMode.EXTERNAL) },
+            bodyMeasurements = if (body) listOf(BodyMeasurement("reading", "fixture", "reading", "2026-10-01", "", "Weight", 70.0, "kg", "Kilograms", if (notes) note else "", "RAW SECRET")) else emptyList()),
+        ZoneId.of("UTC"))
     private suspend fun reject(reason: DashboardFailure, block: suspend () -> Unit) {
         try { block(); fail("Expected rejection") } catch (error: DashboardSyncException) { assertEquals(reason, error.reason) }
     }
@@ -188,6 +189,7 @@ class DashboardPublisherTest {
     @Test fun partialUploadThenSmallerRetryClearsStaleRowsAndKeepsUserTabsColumnsAndCharts() = runBlocking {
         val google = Google(); val store = Store(); var time = 100L; val publisher = DashboardPublisher(google, store) { time }
         publisher.publish(snapshot(2, notes = true, body = true), "token"); google.extraSheet()
+        google.sheets.getValue(104).put("hidden", true) // Recover a previously hidden body tab.
         val userChart = google.charts.getValue(900).toString(); google.failAfterTable = "_sets"
         reject(DashboardFailure.RETRY) { publisher.publish(snapshot(20, notes = true, body = true), "token") }
         assertEquals(100L, store.value.lastSuccessAt); assertEquals(21, store.value.pendingRows[201])
@@ -197,6 +199,7 @@ class DashboardPublisherTest {
         assertEquals("", google.at(201, 20, 12)); assertEquals("", google.at(201, 1, 12)); assertEquals("", google.at(203, 1, 4))
         assertEquals("Keep my own tab", google.at(999, 0, 0)); assertEquals("Keep my extra column", google.at(200, 2, 25))
         assertEquals(userChart, google.charts.getValue(900).toString()); assertEquals(1, google.fileCreates)
+        assertFalse(google.sheets.getValue(104).getBoolean("hidden"))
     }
 
     @Test fun lostCreationResponseRecoversTheMarkedFileWithoutDuplicatingManagedTabs() = runBlocking {

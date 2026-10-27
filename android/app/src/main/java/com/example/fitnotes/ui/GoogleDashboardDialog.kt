@@ -34,7 +34,6 @@ fun GoogleDashboardDialog(onClose: () -> Unit, model: GoogleDashboardViewModel =
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     val connection by model.connection.collectAsState()
-    val options by model.options.collectAsState()
     val automatic by model.automatic.collectAsState()
     val message by model.message.collectAsState()
     val working by model.working.collectAsState()
@@ -84,14 +83,7 @@ fun GoogleDashboardDialog(onClose: () -> Unit, model: GoogleDashboardViewModel =
             Text("Create a spreadsheet in your own Google Drive. Your phone syncs directly to Google; the developer and other FitLogs users receive no copy.")
             Text("Completed training records only. Your local database stays the source of truth. This dashboard is not a full backup.", style = MaterialTheme.typography.bodySmall)
             if (connection.email.isNotBlank()) Text(connection.email, style = MaterialTheme.typography.titleSmall)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(options.includeNotes, { model.options(options.copy(includeNotes = it)) }, enabled = !busy, modifier = Modifier.testTag("google-include-notes"))
-                Text("Include training notes")
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(options.includeBody, { model.options(options.copy(includeBody = it)) }, enabled = !busy, modifier = Modifier.testTag("google-include-body"))
-                Text("Include body measurements")
-            }
+            Text("Includes completed workouts, imported activities, training notes and body measurements.", modifier = Modifier.testTag("google-training-details"))
             Text("Photos, body profiles and raw heart-rate samples stay out of the dashboard.", style = MaterialTheme.typography.bodySmall)
             Button(onClick = { connect("sync") }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("google-sync")) {
                 Text(if (authorizing) "Connecting…" else if (working) "Syncing…" else if (connection.accountId.isBlank()) "Connect and create dashboard" else "Sync now")
@@ -121,7 +113,7 @@ fun GoogleDashboardDialog(onClose: () -> Unit, model: GoogleDashboardViewModel =
     confirm?.let { next -> AlertDialog(onDismissRequest = { confirm = null }, title = { Text(when (next) {
         "switch" -> "Switch Google account?"; "new" -> "Create a new dashboard?"; "disconnect" -> "Disconnect Google?"; else -> "Rebuild dashboard charts?"
     }) }, text = { Text(when (next) {
-        "switch" -> "Choose the Google account that will receive your completed training records. A new private dashboard will be created. Existing Drive files and local records are kept. Notes and body measurements will be excluded until you opt in again."
+        "switch" -> "Choose the Google account that will receive your completed training records, notes and body measurements. A new private dashboard will be created. Existing Drive files and local records are kept."
         "new" -> "Create a new private dashboard. Existing Drive files and local training records are kept."
         "disconnect" -> "Stop sync and remove FitLogs Google access. Existing Drive files and local training records are kept."
         else -> "Refresh FitLogs data, charts and formatting in the managed tabs. Your additional spreadsheet tabs are kept."
