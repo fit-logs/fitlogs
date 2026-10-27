@@ -13,8 +13,9 @@ a FitLogs account or a developer-operated server.
 - **Google dashboard (optional):** when you connect Google, FitLogs copies your
   completed training records into a spreadsheet and folder in the Google
   account you choose. Other FitLogs users do not get access. FitLogs requests
-  access only to files it creates or that you explicitly open with it. Notes and
-  body measurements are excluded unless you opt in. Photos, birth dates, body
+  access only to files it creates or that you explicitly open with it. Connecting
+  includes training notes and body measurements; there are no inclusion switches.
+  Photos, birth dates, body
   profiles, raw source payloads and heart-rate samples are excluded.
 - **Credentials:** Google handles account selection and consent. FitLogs does
   not ask for your Google password. Access tokens are used for Google API

@@ -195,7 +195,7 @@ class DashboardPublisher(private val transport: DashboardTransport, private val 
 }
 
 fun snapshotHash(snapshot: DashboardSnapshotV1): String {
-    val values = JSONArray().put(snapshot.schemaVersion).put(snapshot.timeZone).put(snapshot.options.includeNotes).put(snapshot.options.includeBody)
+    val values = JSONArray().put(snapshot.schemaVersion).put(snapshot.timeZone)
     snapshot.tables.forEach { table -> values.put(JSONArray().put(table.name).put(JSONArray(table.values.map { JSONArray(it.map { value -> value ?: JSONObject.NULL }) }))) }
     return MessageDigest.getInstance("SHA-256").digest(values.toString().toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }
