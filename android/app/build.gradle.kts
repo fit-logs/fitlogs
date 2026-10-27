@@ -69,6 +69,7 @@ android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("ge
 tasks.named("preBuild").configure { dependsOn(syncStarterCatalog) }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
     testImplementation("androidx.work:work-testing:2.12.0")

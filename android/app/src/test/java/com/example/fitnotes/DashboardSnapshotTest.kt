@@ -53,6 +53,7 @@ class DashboardSnapshotTest {
         val first = DashboardSnapshot.project(backup, zone = ZoneId.of("UTC"))
         assertEquals(first, DashboardSnapshot.project(backup.copy(workouts = backup.workouts.reversed(), sets = backup.sets.reversed()), zone = ZoneId.of("UTC")))
         val imported = first.table("_sessions").rows.single { it[0] == "import:old" }
+        assertEquals("Imported workout", imported[2]) // Legacy exports have no authoritative session sport.
         assertNull(imported[4]); assertNull(imported[5]); assertNull(imported[6])
         val importedSet = first.table("_sets").rows.single { it[0] == "import:old-set" }
         assertEquals(0.0, importedSet[6]); assertEquals(LoadMode.UNKNOWN, importedSet[8])

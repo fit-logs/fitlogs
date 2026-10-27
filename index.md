@@ -13,14 +13,16 @@ offline, and export a backup whenever you need one.
 
 ## Optional Google dashboard
 
-Google Sheets support is in development. Each user will be able to connect
-their own Google account and create a training dashboard in their own Drive.
-The phone will talk directly to Google. There is no developer server holding
+From FitLogs 1.1.3, open **Settings → Google training dashboard** to connect
+your own Google account and create a training dashboard in your own Drive.
+Your phone talks directly to Google. There is no developer server holding
 your workouts, no shared account and no automatic sharing with the developer
 or other app users.
 
-Notes and body measurements will be separate opt-ins. Photos, profiles and raw
-health samples will stay out of the dashboard.
+Notes and body measurements are separate opt-ins. Photos, profiles and raw
+heart-rate samples stay out of the dashboard. Automatic sync is optional and
+waits until your workout is finished. You can disconnect at any time; your
+local records and existing Drive files are kept.
 
 [Read the privacy policy]({{ '/privacy/' | relative_url }})
 
