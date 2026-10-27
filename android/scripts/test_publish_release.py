@@ -2,6 +2,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+import subprocess
 from unittest.mock import patch
 
 import publish_release as publisher
@@ -42,6 +43,8 @@ class PublishReleaseTest(unittest.TestCase):
         if '/releases/tags/' in path:
             if self.existing_published:
                 return {'draft': False}
+            return None  # GitHub's tag endpoint does not expose this draft.
+        if path.endswith('/releases/123'):
             return self.release() if self.uploaded else None
         raise AssertionError('Unexpected API call: ' + path)
 
@@ -50,7 +53,7 @@ class PublishReleaseTest(unittest.TestCase):
                    'digest': 'sha256:' + sha256(self.folder / name)} for name in ASSET_NAMES]
         if self.wrong_digest:
             assets[0]['digest'] = 'sha256:' + '0' * 64
-        return {'id': 123, 'draft': not self.published, 'prerelease': False,
+        return {'id': 123, 'tag_name': 'v1.1.1', 'draft': not self.published, 'prerelease': False,
                 'html_url': 'https://github.com/fit-logs/fitlogs/releases/tag/v1.1.1', 'assets': assets}
 
     def run_gh(self, *args):
@@ -62,8 +65,15 @@ class PublishReleaseTest(unittest.TestCase):
         return ''
 
     def invoke(self):
+        def view(command, **kwargs):
+            self.assertEqual(['gh', 'release', 'view'], command[:3])
+            if self.uploaded:
+                return subprocess.CompletedProcess(command, 0, '{"databaseId":123}', '')
+            return subprocess.CompletedProcess(command, 1, '', 'release not found')
         with patch.object(publisher, 'ROOT', self.root), patch.object(publisher, 'api', self.api), \
-                patch.object(publisher, 'run', self.run_gh), patch('builtins.print'), patch.object(publisher.subprocess, 'check_output', return_value='commit\n'):
+                patch.object(publisher, 'run', self.run_gh), patch('builtins.print'), \
+                patch.object(publisher.subprocess, 'run', side_effect=view), \
+                patch.object(publisher.subprocess, 'check_output', return_value='commit\n'):
             publisher.publish('v1.1.1', 'commit')
 
     def test_success_is_stable_latest_and_has_all_updater_assets(self):
@@ -79,6 +89,13 @@ class PublishReleaseTest(unittest.TestCase):
             self.invoke()
         self.assertTrue(self.uploaded)
         self.assertFalse(self.published)
+
+    def test_existing_draft_is_resolved_by_id_and_resumed_without_duplicate_creation(self):
+        self.uploaded = True
+        self.invoke()
+        self.assertTrue(self.published)
+        self.assertEqual(('release', 'edit'), self.calls[0][:2])
+        self.assertFalse(any(call[:2] == ('release', 'create') for call in self.calls))
 
     def test_published_release_and_conflicting_tag_are_immutable(self):
         for field in ('existing_published', 'wrong_tag'):

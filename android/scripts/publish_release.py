@@ -24,6 +24,26 @@ def api(path):
     return json.loads(result.stdout)
 
 
+def release_by_tag(tag):
+    published = api(f"repos/{REPOSITORY}/releases/tags/{tag}")
+    if published is not None:
+        return published
+    # The REST tag endpoint can omit drafts. The CLI resolves their database ID.
+    result = subprocess.run(["gh", "release", "view", tag, "--repo", REPOSITORY,
+                             "--json", "databaseId"], cwd=ROOT, capture_output=True, text=True)
+    if result.returncode:
+        if "release not found" in result.stderr.lower():
+            return None
+        raise RuntimeError("Could not resolve draft release: " + result.stderr)
+    identifier = json.loads(result.stdout)["databaseId"]
+    if not isinstance(identifier, int) or identifier <= 0:
+        raise ValueError("Invalid GitHub release ID.")
+    draft = api(f"repos/{REPOSITORY}/releases/{identifier}")
+    if not draft or draft["tag_name"] != tag:
+        raise ValueError("Draft release identity could not be verified.")
+    return draft
+
+
 def publish(tag, commit):
     if os.environ.get("GITHUB_REPOSITORY", REPOSITORY) != REPOSITORY:
         raise ValueError("Publishing is configured only for fit-logs/fitlogs.")
@@ -51,7 +71,7 @@ def publish(tag, commit):
         checksum, name = line.split()
         if name not in ASSET_NAMES[:3] or sha256(folder / name) != checksum:
             raise ValueError("Release asset checksum mismatch.")
-    release = api(f"repos/{REPOSITORY}/releases/tags/{tag}")
+    release = release_by_tag(tag)
     if release and not release["draft"]:
         raise ValueError("Release already published; refusing to overwrite it.")
     ref = api(f"repos/{REPOSITORY}/git/ref/tags/{tag}")
@@ -78,7 +98,7 @@ def publish(tag, commit):
         run("release", "upload", tag, *[str(folder / name) for name in ASSET_NAMES], "--repo", REPOSITORY, "--clobber")
     else:
         run("release", "create", tag, *[str(folder / name) for name in ASSET_NAMES], *common, "--draft", "--latest=false")
-    uploaded = api(f"repos/{REPOSITORY}/releases/tags/{tag}")
+    uploaded = release_by_tag(tag)
     remote = {a["name"]: a for a in uploaded["assets"]}
     if set(remote) != set(ASSET_NAMES):
         raise ValueError("Unexpected/missing assets; release remains draft.")
