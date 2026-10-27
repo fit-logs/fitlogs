@@ -1,26 +1,48 @@
 name: Publish Android beta
-run-name: Publish Android ${{ inputs.tag }}
+run-name: Publish Android beta (${{ github.event_name }})
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/app/build.gradle.kts'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'GitHub release tag matching Android versionName, e.g. v1.0.0-beta.2'
-        required: true
-        default: v1.0.0-beta.2
+        description: 'Optional tag matching Android versionName; defaults to the current version'
+        required: false
         type: string
 
 permissions:
   contents: read
 
-concurrency:
-  group: android-release-publish
-  cancel-in-progress: false
-
 jobs:
-  publish:
-    # A manual invocation from a feature branch cannot access release signing.
+  prepare:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test release selection
+        run: python3 -m unittest discover -s android/scripts -p 'test_release_metadata.py' -v
+      - name: Select changed Android version or manual retry
+        id: release
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.before }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+        run: python3 android/scripts/release_metadata.py
+  publish:
+    needs: prepare
+    # Only main version changes and explicit main retries can access signing.
+    if: github.ref == 'refs/heads/main' && needs.prepare.outputs.publish == 'true'
+    concurrency:
+      group: android-release-${{ needs.prepare.outputs.tag }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 75
     permissions:
@@ -31,26 +53,13 @@ jobs:
           fetch-depth: 0
       - name: Validate tag and refuse to overwrite published releases
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
             echo 'Invalid release tag.' >&2
-            exit 1
-          fi
-          source_tag=$(python3 - <<'PY'
-          import pathlib, re
-          build = pathlib.Path('android/app/build.gradle.kts').read_text()
-          match = re.search(r'^\s*versionName\s*=\s*"([^"]+)"', build, re.MULTILINE)
-          if not match:
-              raise SystemExit('Android versionName is missing.')
-          print('v' + match.group(1))
-          PY
-          )
-          if [[ "$RELEASE_TAG" != "$source_tag" ]]; then
-            echo "Requested $RELEASE_TAG, but this source builds $source_tag." >&2
             exit 1
           fi
           if [[ ! -f "android/docs/releases/$RELEASE_TAG.md" ]]; then
@@ -113,7 +122,7 @@ jobs:
       - name: Upload verified APK and publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail

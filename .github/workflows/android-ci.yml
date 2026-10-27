@@ -22,6 +22,12 @@ permissions:
   contents: read
 
 jobs:
+  release-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test automatic release selection
+        run: python3 -m unittest discover -s android/scripts -p 'test_release_metadata.py' -v
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 60
