@@ -242,6 +242,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         emit(AppData(loading = false, storageError = "Unable to read workouts. Your database has not been reset. Close and reopen FitNotes after updating the app to retry."))
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppData())
     val busy = MutableStateFlow(false)
+    val notebook = com.example.fitnotes.ui.notebookProjections(data, pastDrafts)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, com.example.fitnotes.ui.NotebookProjection())
     val pendingRestore = MutableStateFlow<Backup?>(null)
     private val systemBackup = SystemBackupStore(application)
     private var restoringSystemBackup = false

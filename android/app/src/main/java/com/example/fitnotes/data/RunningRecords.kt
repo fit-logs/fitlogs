@@ -4,6 +4,7 @@ import com.example.fitnotes.AppData
 
 fun runningRecords(data: AppData): List<RunRecord> {
     val index = ExerciseIdentityIndex(data)
+    val exercisesById = data.exercises.associateBy { it.id }
     val raw = mutableListOf<RunRecord>()
     data.workouts.filter { it.workout.isComplete && it.workout.activityType == "running" }.forEach { detail ->
         val w = detail.workout; val key = "local:${w.id}"
@@ -25,9 +26,10 @@ fun runningRecords(data: AppData): List<RunRecord> {
         }
     }
     data.imported.workouts.forEach { detail ->
+        val firstComponent = raw.size
         detail.sets.sortedBy { it.sourceOrder }.filter { s ->
             val canonical = index.source(detail.workout.importId, s.exercise, s.category)
-            isRunningName(s.exercise) || canonical?.let { id -> data.exercises.firstOrNull { it.id == id }?.name?.let(::isRunningName) } == true
+            isRunningName(s.exercise) || exercisesById[canonical]?.name?.let(::isRunningName) == true
         }.forEach { s ->
             val key = "fitnotes:${s.id}"
             val exactStart = if(detail.sets.size==1) detail.workout.recordedStart?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() } else null
@@ -40,23 +42,28 @@ fun runningRecords(data: AppData): List<RunRecord> {
                 subtype = if (s.exercise.contains("trail", true)) "Trail run" else if (s.exercise.contains("treadmill", true)) "Treadmill run" else "Running")
         }
         // Existing explicit association predates component links. Only a sole running component is unambiguous.
-        val components = raw.filter { it.parentKey == "import:${detail.workout.id}" }
-        if (components.size == 1) {
-            val at = raw.indexOf(components.single()); raw[at] = raw[at].copy(sources = detail.health.filter { it.session.activityType == "running" })
+        if (raw.size - firstComponent == 1) {
+            raw[firstComponent] = raw[firstComponent].copy(sources = detail.health.filter { it.session.activityType == "running" })
         }
     }
     val links = data.runLinks
+    val retired = links.filter { it.retiredKey.isNotBlank() }.groupBy { it.retiredKey }
+    val ignored = links.filter { it.ignored }.flatMap { listOf(it.canonicalKey, it.sourceKey) }.toSet()
     fun resolved(key: String): String {
         var current = key; val seen = mutableSetOf<String>()
-        while (seen.add(current)) { current = links.firstOrNull { it.retiredKey == current && it.retiredKey.isNotBlank() }?.canonicalKey ?: return current }
+        while (seen.add(current)) { current = retired[current]?.first()?.canonicalKey ?: return current }
         error("Cyclic running associations")
     }
     val health = (data.workouts.flatMap { it.health } + data.imported.workouts.flatMap { it.health }).distinctBy { it.session.key }
+    val linksBySource = links.filter { !it.ignored }.groupBy { it.sourceKey }
+    val attachedHealth = health.flatMap { source ->
+        linksBySource[source.session.key].orEmpty().map { resolved(it.canonicalKey) to source }
+    }.groupBy({ it.first }, { it.second })
     val grouped = raw.groupBy { resolved(it.key) }
     return grouped.mapNotNull { (key, entries) ->
-        if (links.any { it.ignored && (it.canonicalKey == key || it.sourceKey == key) }) return@mapNotNull null
+        if (key in ignored) return@mapNotNull null
         val base = entries.firstOrNull { it.key == key } ?: return@mapNotNull null
-        val extra = health.filter { h -> links.any { it.sourceKey == h.session.key && resolved(it.canonicalKey) == key && !it.ignored } }
+        val extra = attachedHealth[key].orEmpty()
         val sources = (entries.flatMap { it.sources } + extra).distinctBy { it.session.key }
         base.copy(sources = sources, notes = entries.map { it.notes }.filter { it.isNotBlank() }.distinct().joinToString("\n"),
             sourceLabel = (listOf(base.sourceLabel) + sources.map { it.session.sourceName }).distinct().joinToString(" · "), mergedKeys = entries.map { it.key }.toSet())

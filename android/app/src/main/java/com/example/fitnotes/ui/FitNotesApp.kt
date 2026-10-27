@@ -35,7 +35,8 @@ import java.util.Locale
 
 @Composable
 fun FitNotesApp(model: FitNotesViewModel) {
-    val data by model.data.collectAsState()
+    val notebook by model.notebook.collectAsState()
+    val data = notebook.data
     val busy by model.busy.collectAsState()
     val loadAdviceOpen by model.loadAdviceOpen.collectAsState()
     val healthSyncing by model.healthSyncing.collectAsState()
@@ -44,12 +45,9 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var includePhotos by rememberSaveable { mutableStateOf(false) }
     val original by model.pendingImport.collectAsState()
     val already by model.previouslyImported.collectAsState()
-    val localSessions=remember(data.workouts,data.runLinks){notebookSessions(AppData(exercises=data.exercises,workouts=data.workouts,runLinks=data.runLinks))}
-    val importedSessions=remember(data.imported.workouts,data.exercises,data.exerciseAliases,data.exerciseMappings,data.runLinks){notebookSessions(data.copy(workouts=emptyList()))}
-    val sessions=remember(localSessions,importedSessions){sortNotebookSessions(localSessions+importedSessions)}
-    val pastDrafts by model.pastDrafts.collectAsState()
-    val draftSessions = remember(pastDrafts, data.exercises) { notebookSessions(data.copy(workouts = pastDrafts, imported = ImportedData()), includeDrafts = true) }
-    val editingSessions = remember(sessions, draftSessions) { (sessions + draftSessions).distinctBy { it.key } }
+    val sessions = notebook.sessions
+    val pastDrafts = notebook.pastDrafts
+    val editingSessions = notebook.editingSessions
     var pastSetup by rememberSaveable { mutableStateOf(false) }
     var pastSetupDate by rememberSaveable { mutableStateOf(moveDay(todayDate(), -1)) }
     var timingWorkoutId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -80,7 +78,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var discardForStart by rememberSaveable { mutableStateOf(false) }
     var finishActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedRunKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val runs = remember(data) { runningRecords(data) }
+    val runs = notebook.runs
     var activityEntry by remember { mutableStateOf(false) }
     var healthImport by remember { mutableStateOf(false) }
     var stravaExport by rememberSaveable { mutableStateOf(false) }
@@ -209,7 +207,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                 else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
                     onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={tab=2},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onRun={selectedRunKey=it})
                 else if (tab == 2) holder.SaveableStateProvider("progress:$restoreRevision") {
-                    ProgressScreen(data,model,busy,{library=true},onWorkout={key->returnToProgress=true;openHistory(key)},onRun={selectedRunKey=it})
+                    ProgressScreen(data,model,busy,{library=true},onWorkout={key->returnToProgress=true;openHistory(key)},onRun={selectedRunKey=it},runs=runs)
                 }
                 else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) TrainScreen(data,model,busy,
                     onResume={data.active?.let{workoutKey="local:${it.workout.id}";workoutDay=com.example.fitnotes.data.localWorkoutDate(it.workout)}},onStart=::startWorkout,

@@ -81,7 +81,12 @@ class ExerciseOrderInteractionTest {
         ui.waitUntil(15000) { runBlocking { db.dao().workoutEntries(workout).map { it.id } } == expected && !model.busy.value }
         assertEquals(before.sets, runBlocking { db.dao().sets() })
         assertEquals(before.runTargets, runBlocking { db.planDao().runTargets() })
-        assertEquals(before.workouts, runBlocking { db.dao().workouts() })
+        val afterWorkouts = runBlocking { db.dao().workouts() }
+        // Reordering counts as activity for the stale-workout timer. All other
+        // session fields, including the original start time, must survive.
+        val originalWorkout = before.workouts.single { it.id == workout }
+        assertTrue(afterWorkouts.single { it.id == workout }.lastActionAt!! >= originalWorkout.lastActionAt!!)
+        assertEquals(before.workouts, afterWorkouts.map { if (it.id == workout) it.copy(lastActionAt = originalWorkout.lastActionAt) else it })
         assertEquals(before.plannedExercises, runBlocking { WorkoutRepository(db).backup().plannedExercises })
         assertEquals(timer.token, runBlocking { db.trainingDao().timer()!!.token })
         capture("exercise-order-after")
@@ -95,9 +100,8 @@ class ExerciseOrderInteractionTest {
         ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("run-target:${pending.id}"))
         capture("exercise-order-logger")
         assertEquals(1, runBlocking { db.dao().sets().size })
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasText("Save set"))
         ui.waitUntil(10000) { model.completionReady.value && !model.busy.value }
-        ui.onNodeWithText("Save set").performScrollTo().assertIsDisplayed().performClick()
+        ui.onNodeWithTag("complete-target:${pending.id}").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
         ui.waitUntil(15000) { runBlocking { db.dao().sets().size } == 2 && !model.busy.value }
         val actual = runBlocking { db.dao().sets().single { it.targetId == pending.id } }
         assertEquals(entries[1].id, actual.entryId)

@@ -52,6 +52,18 @@ class TrainingWorkflowTest {
         assertEquals("47.5",db.trainingDao().target(rows[1].id)!!.weightValue)
         repo.deleteSet(actual.id);assertEquals(rows[0].id,nextPlannedSet(db.planDao().runDetail(workout)!!,db.dao().sets())!!.targetId)
     }
+    @Test fun applyingWeightOnlyTouchesPendingTargetsForTheChosenExercise()=runBlocking {
+        plans.start(plan(two=true));val rows=db.planDao().runTargets()
+        val selected=rows.first().entryId;val targets=rows.filter{it.entryId==selected}
+        training.complete(targets[0].id,"41","9","",LoadMode.EXTERNAL)
+        training.skip(targets[1].id,true);training.addTarget(selected)
+        val before=db.planDao().runTargets();val pending=db.trainingDao().pendingEntryTargets(selected).single()
+        training.applyWeight(selected,PlanWeight("52.5","kg"))
+        val after=db.planDao().runTargets()
+        assertEquals(before.filter{it.id!=pending.id},after.filter{it.id!=pending.id})
+        assertEquals("52.5",after.single{it.id==pending.id}.weightValue)
+        assertEquals(3,db.trainingDao().entryTargets(selected).size)
+    }
     @Test fun reorderingPreservesTargetIdentityAndItsResultLink()=runBlocking {
         plans.start(plan());val rows=db.planDao().runTargets();training.complete(rows[0].id,"40.5","10","",LoadMode.EXTERNAL)
         training.moveTarget(rows[0].id,1)

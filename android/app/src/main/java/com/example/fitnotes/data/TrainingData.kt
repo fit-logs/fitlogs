@@ -66,6 +66,10 @@ data class RestTimerState(@PrimaryKey val id: Int = 1, val workoutId: Long, val 
     @Query("DELETE FROM exercises WHERE id = :id") suspend fun deleteExercise(id: Long)
     @Query("SELECT * FROM workout_sets WHERE targetId = :id LIMIT 1") suspend fun result(id: Long): WorkoutSet?
     @Query("SELECT * FROM workout_set_targets WHERE id = :id") suspend fun target(id: Long): WorkoutSetTarget?
+    @Query("SELECT * FROM workout_set_targets WHERE entryId = :entryId ORDER BY position, id") suspend fun entryTargets(entryId: Long): List<WorkoutSetTarget>
+    @Query("""SELECT t.* FROM workout_set_targets t LEFT JOIN workout_sets s ON s.targetId = t.id
+        WHERE t.entryId = :entryId AND t.skipped = 0 AND s.id IS NULL ORDER BY t.position, t.id""")
+    suspend fun pendingEntryTargets(entryId: Long): List<WorkoutSetTarget>
     @Update suspend fun updateTarget(value: WorkoutSetTarget)
     @Update suspend fun updatePlannedSet(value: PlannedSet)
     @Update suspend fun updatePlannedExercise(value: PlannedExercise)
