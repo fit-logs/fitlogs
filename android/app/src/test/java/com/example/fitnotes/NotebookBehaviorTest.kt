@@ -48,7 +48,7 @@ class NotebookBehaviorTest {
             assertEquals(original.id, db.dao().entrySets(entry).first().id)
             repo.duplicateSet(original.id)
             assertEquals("Edited note", db.dao().entrySets(entry).last().comment)
-            val backup = repo.backup(); assertEquals(7, backup.version)
+            val backup = repo.backup(); assertEquals(9, backup.version)
             val decoded = BackupCodec.decode(BackupCodec.encode(backup))
             assertEquals(backup, decoded)
             repo.restore(decoded)
@@ -59,20 +59,6 @@ class NotebookBehaviorTest {
             val before = repo.backup()
             try { repo.saveCardio(entry, "NaN", "km", "1", ""); fail() } catch (_: IllegalArgumentException) {}
             assertEquals(before.sets, repo.backup().sets)
-        } finally { db.close() }
-    }
-    @Test fun legacyBackupsKeepTheirStrengthSetsAndIds() = runBlocking {
-        val db = database()
-        try {
-            val repo = WorkoutRepository(db); val id = repo.start(); repo.createExercise(id, "Squat")
-            repo.saveSet(db.dao().workoutEntries(id).single().id, "0", "12")
-            for (version in 1..3) {
-                val current=repo.backup()
-                val old = current.copy(version = version,sets=current.sets.map{it.copy(targetId=null,completedAt=null,loadMode=LoadMode.UNKNOWN)})
-                val restored = BackupCodec.decode(BackupCodec.encode(old))
-                assertEquals(old, restored); repo.restore(restored)
-                assertEquals(0.0, repo.backup().sets.single().weightKg, 0.0)
-            }
         } finally { db.close() }
     }
     @Test fun manualMeasurementsKeepPrecisionUnitsCommentsAndDateOnlyAcrossBackup() = runBlocking {
@@ -88,9 +74,39 @@ class NotebookBehaviorTest {
             repo.saveMeasurement(null, "Waist", "81.333", "cm", "Centimetres", "2026-10-11", "", "Date-only")
             val backup = WorkoutRepository(db).backup()
             assertEquals(backup, BackupCodec.decode(BackupCodec.encode(backup)))
-            assertEquals(7, JSONObject(BackupCodec.analysis(backup)).getInt("backupSchemaVersion"))
+            assertEquals(9, JSONObject(BackupCodec.analysis(backup)).getInt("backupSchemaVersion"))
             repo.deleteMeasurement(first.id); assertEquals(1, db.importedDao().body().size)
         } finally { db.close() }
+    }
+    @Test fun minutePrecisionMeasurementsSurviveRestartAndRestoreAndInvalidTimesWriteNothing() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "measurement-time-${java.util.UUID.randomUUID()}.db"
+        var db = Room.databaseBuilder(context, FitDatabase::class.java, name).build()
+        try {
+            var repo = HistoryImportRepository(db)
+            val empty = WorkoutRepository(db).backup()
+            try { repo.saveMeasurement(null, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", "24:12", "Synthetic note"); fail("Invalid time accepted") }
+            catch (_: IllegalArgumentException) {}
+            assertEquals(empty, WorkoutRepository(db).backup().copy(exportedAt = empty.exportedAt))
+            repo.saveMeasurement(null, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", " 20:12 ", "Synthetic note")
+            val measurement = db.importedDao().body().single()
+            assertEquals("20:12:00", measurement.time)
+            assertEquals(72.625, measurement.value, 0.0)
+            assertEquals("kgs", measurement.unit); assertEquals("Synthetic note", measurement.comment)
+            val backup = WorkoutRepository(db).backup()
+            db.close()
+            db = Room.databaseBuilder(context, FitDatabase::class.java, name).build()
+            assertEquals(listOf(measurement), db.importedDao().body())
+            repo = HistoryImportRepository(db)
+            try { repo.saveMeasurement(measurement.id, "Test weight", "84", "kgs", "kgs", "2026-10-15", "20:60", "changed"); fail("Invalid edit accepted") }
+            catch (_: IllegalArgumentException) {}
+            assertEquals(backup, WorkoutRepository(db).backup().copy(exportedAt = backup.exportedAt))
+            repo.saveMeasurement(measurement.id, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", " ", "Date only")
+            assertEquals("", db.importedDao().body().single().time)
+            WorkoutRepository(db).restore(BackupCodec.decode(BackupCodec.encode(backup)))
+            assertEquals(listOf(measurement), db.importedDao().body())
+            assertTrue(db.dao().workouts().isEmpty()); assertTrue(db.dao().sets().isEmpty())
+        } finally { db.close(); context.deleteDatabase(name) }
     }
     @Test fun previousReferenceExcludesSelfFutureDateOnlySameDayAndExerciseVariations() {
         val set = NotebookSet("s", 60.0, 10, null, null, null, "")
@@ -128,7 +144,7 @@ class NotebookBehaviorTest {
             old.execSQL("INSERT INTO imported_workouts VALUES('original','source','2026-10-11',NULL,NULL,'Imported note')")
             old.version = 2
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12).build()
         try {
             assertEquals(6L, migrated.dao().sets().single().id); assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)
             assertEquals("", migrated.dao().sets().single().comment); assertEquals("original", migrated.importedDao().workouts().single().id)

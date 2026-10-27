@@ -33,13 +33,13 @@ import com.example.fitnotes.data.*
 
 @Composable
 internal fun HandoffScreen(title: String, busy: Boolean, onClose: () -> Unit, tag: String,
-    attention: String? = null, footer: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
+    attention: String? = null, actions: @Composable RowScope.() -> Unit = {}, footer: @Composable () -> Unit, content: LazyListScope.() -> Unit) {
     val scroll = rememberLazyListState()
     LaunchedEffect(attention) { if (attention != null) scroll.scrollToItem(0) }
     Dialog(onDismissRequest = { if (!busy) onClose() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().systemBarsPadding().imePadding(), color = MaterialTheme.colorScheme.background) {
             Column {
-                NotebookBar(title, if (!busy) onClose else null)
+                NotebookBar(title, if (!busy) onClose else null, actions=actions)
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 LazyColumn(Modifier.weight(1f).testTag(tag), state = scroll, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
                 HorizontalDivider()

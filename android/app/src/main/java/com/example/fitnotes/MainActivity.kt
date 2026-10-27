@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
+        deliverPlan(intent)
         setContent {
             FitNotesTheme {
                 val model: FitNotesViewModel = viewModel()
@@ -33,4 +34,13 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    override fun onNewIntent(intent:android.content.Intent) {
+        super.onNewIntent(intent);setIntent(intent);deliverPlan(intent)
+    }
+    private fun deliverPlan(intent:android.content.Intent) {
+        if(intent.action==android.content.Intent.ACTION_VIEW) intent.data?.let {
+            androidx.lifecycle.ViewModelProvider(this)[FitNotesViewModel::class.java].openPlanFile(it)
+        }
+    }
+
 }

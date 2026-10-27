@@ -59,8 +59,8 @@ fun ActivityEntryDialog(busy: Boolean, model: FitNotesViewModel, onCancel: () ->
                 OutlinedTextField(distance, { distance = it }, label = { Text("Optional distance") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 ChoiceField("Unit", listOf("m", "km", "ft", "mi"), unit) { unit = it }
             }
-            Text(WATCH_NOTE, style = MaterialTheme.typography.bodySmall)
-            Text("The app timer records elapsed wall time. It does not start your watch, record GPS or receive live heart rate.", style = MaterialTheme.typography.bodySmall)
+
+
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !busy, onClick = {
@@ -99,12 +99,11 @@ fun ActivityPanel(session: NotebookSession, editable: Boolean, model: FitNotesVi
             Text(compactActivityDuration(session.duration), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text(if (localDuration(workout) == null && local.health.isNotEmpty()) "Imported duration" else if (workout.sessionDate.isNotBlank()) "Reported duration" else "Elapsed time",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(if (workout.knownStart == null) "Local start time unknown" else "Logged time · " + compactTimeRange(workout.startedAt, workout.completedAt, includeDate = false),
+            if (workout.knownStart != null) Text(compactTimeRange(workout.startedAt, workout.completedAt, includeDate = false),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         workout.effort?.let { Text("Effort · $it", style = MaterialTheme.typography.bodyMedium) }
         workout.distance?.let { Text(weightText(it) + " " + workout.distanceUnit, style = MaterialTheme.typography.titleMedium) }
-        if (!workout.isComplete) Text(WATCH_NOTE, style = MaterialTheme.typography.bodySmall)
         if (editable) {
             var details by remember { mutableStateOf(false) }
             OutlinedButton(onClick = { details = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit activity details") }
@@ -138,119 +137,7 @@ fun ActivityDetailsDialog(workout: Workout, busy: Boolean, onCancel: () -> Unit,
 }
 
 @Composable
-fun MissingHeartRateInfo(busy: Boolean, onImport: () -> Unit) {
-    Surface(shape = MaterialTheme.shapes.medium) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Heart rate", style = MaterialTheme.typography.titleMedium)
-            Text("No heart-rate data imported for this session.", style = MaterialTheme.typography.bodyMedium)
-            Text("Sync your watch, then reopen FitNotes or review imports.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = onImport, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import activities") }
-        }
-    }
-}
-
-@Composable
-fun ImportedActivityInfo(healthDetails: List<HealthDetail>) {
-    healthDetails.forEach { health ->
-        val s = health.session
-        val samples = remember(health.samples) { health.samples.sortedBy { it.time } }
-        var expanded by rememberSaveable(s.key) { mutableStateOf(false) }
-        Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Heart rate", style = MaterialTheme.typography.titleMedium)
-                Text(s.sourceName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (samples.any { it.originPackage != s.originPackage }) Text("Heart-rate samples from another app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val heartIssue = when {
-                    s.hrStatus.contains("permission", ignoreCase = true) -> if (samples.isEmpty()) "Heart-rate access is off." else "Heart-rate access is off; showing saved samples."
-                    s.hrStatus.contains("failed", ignoreCase = true) -> if (samples.isEmpty()) "Heart-rate import needs a retry." else "Refresh failed; showing saved samples."
-                    else -> null
-                }
-                heartIssue?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                if (s.sourceStatus.startsWith("Not returned")) Text("Source not returned at last sync; showing saved data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                if (samples.isEmpty()) {
-                    Text("No heart-rate samples found for this session", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    Text("Imported sample summary", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val metrics = listOf("Average" to weightText(kotlin.math.round(samples.map { it.bpm }.average() * 10) / 10),
-                        "Minimum" to samples.minOf { it.bpm }.toString(), "Maximum" to samples.maxOf { it.bpm }.toString())
-                    val fontScale = LocalDensity.current.fontScale
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        if (fontScale > 1.35f || maxWidth < 300.dp) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                metrics.forEachIndexed { index, (label, value) ->
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                        HeartRateMetric(value, index == 0, Alignment.End)
-                                    }
-                                }
-                            }
-                        } else {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                metrics.forEachIndexed { index, (label, value) ->
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        HeartRateMetric(value, index == 0)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Text("${samples.size} samples · " + compactTimeRange(samples.first().time, samples.last().time, includeDate = true),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Coverage may be sparse.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                s.distanceMeters?.let { Text("Imported distance · " + weightText(it / 1000) + " km", style = MaterialTheme.typography.bodyMedium) }
-                Text("Imported time · " + compactTimeRange(s.start, s.end, includeDate = true) + " · " + compactActivityDuration((s.end - s.start) / 1000.0),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Updated " + shortImportTime(s.importedAt), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(if (expanded) "Hide details" else "Import details")
-                        Icon(if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.size(18.dp))
-                    }
-                }
-                if (expanded) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ImportDetail("Source app", "${s.sourceName}\n${s.originPackage}")
-                    if (s.title.isNotBlank()) ImportDetail("Source title", s.title)
-                    ImportDetail("Source start", timestampText(s.start))
-                    ImportDetail("Source end", timestampText(s.end))
-                    ImportDetail("Source duration", durationText((s.end - s.start) / 1000.0))
-                    if (s.notes.isNotBlank()) ImportDetail("Source notes", s.notes)
-                    if (samples.isNotEmpty()) {
-                        ImportDetail("Sample coverage", "${samples.size} samples\nFirst: ${timestampText(samples.first().time)}\nLast: ${timestampText(samples.last().time)}")
-                        ImportDetail("Heart-rate source", samples.map { it.originPackage }.distinct().joinToString("\n"))
-                    }
-                    ImportDetail("Heart-rate import", s.hrStatus)
-                    ImportDetail("Distance import", s.distanceStatus)
-                    if (s.distanceOrigins.isNotBlank()) ImportDetail("Distance source", s.distanceOrigins)
-                    ImportDetail("Last import", timestampText(s.importedAt))
-                    ImportDetail("Sync status", s.sourceStatus)
-                    Text("Summaries use imported samples and may have gaps. They are not official Garmin workout statistics. Times are shown in your phone’s timezone.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeartRateMetric(value: String, primary: Boolean, alignment: Alignment.Horizontal = Alignment.Start) {
-    Column(horizontalAlignment = alignment) {
-        Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.SemiBold,
-            color = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-        Text("bpm", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun ImportDetail(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
+fun ImportedActivityInfo(healthDetails: List<HealthDetail>) = HeartRateChart(healthDetails)
 
 private fun shortTime(time: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(time))
 private fun shortDate(time: Long): String {
@@ -267,7 +154,7 @@ private fun compactTimeRange(start: Long, end: Long?, includeDate: Boolean): Str
         (if (day.format(Date(start)) != day.format(Date(end))) shortDate(end) + " · " else "") + shortTime(end)
 }
 private fun compactActivityDuration(seconds: Double?): String {
-    if (seconds == null) return "Duration unknown"
+    if (seconds == null) return ""
     val total = seconds.toLong(); val hours = total / 3600; val minutes = total % 3600 / 60; val remaining = total % 60
     return buildList {
         if (hours > 0) add("$hours h")

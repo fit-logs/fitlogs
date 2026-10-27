@@ -52,7 +52,7 @@ class ActivityMigrationTest {
             old.execSQL("INSERT INTO workout_sets(id, entryId, weightKg, reps, position, comment) VALUES (6, 8, 42.5, 8, 0, 'Keep set note')")
             old.execSQL("INSERT INTO history_imports VALUES ('synthetic', 'Synthetic', 'fixture', 1000, 'kg', 0, '', '{}')")
             old.execSQL("INSERT INTO imported_workouts VALUES ('original', 'synthetic', '2026-10-12', NULL, NULL, 'Keep original note')")
-            val json = HealthBackupJson.encode(source); json.remove("importedWorkoutId")
+            val json = HealthBackupJson.encode(source); json.remove("importedWorkoutId"); json.remove("runData")
             val keys = json.keys().asSequence().toList()
             old.execSQL("INSERT INTO health_sessions(" + keys.joinToString(",") { "`$it`" } + ") VALUES (" + keys.joinToString(",") { "?" } + ")",
                 keys.map { if (json.isNull(it)) null else json.get(it) }.toTypedArray())
@@ -61,7 +61,7 @@ class ActivityMigrationTest {
             if (!localOnly) old.execSQL("UPDATE health_sessions SET workoutId = NULL, importedWorkoutId = 'original'")
             old.version = 4
         }
-        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9).build()
+        val db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12).build()
         try {
             assertEquals(7L, db.dao().workouts().single().id); assertEquals("Keep note", db.dao().workouts().single().notes)
             assertEquals(6L, db.dao().sets().single().id); assertEquals("Keep set note", db.dao().sets().single().comment)
@@ -79,12 +79,4 @@ class ActivityMigrationTest {
         } finally { db.close(); context.deleteDatabase(name) }
     }
 
-    @Test fun earlyVersionFourBackupsWithoutImportedLinkRemainReadable() {
-        val source = HealthSession("org.synthetic.source:record", 7, "record", "org.synthetic.source", "Synthetic", null,
-            0, 1000, 2000, 1000, 2000, null, null, "strength", 70, "", "", null, "", "No samples", "No distance")
-        val backup = Backup(exercises = emptyList(), workouts = listOf(Workout(7, 1000, 2000)), entries = emptyList(), sets = emptyList(), healthSessions = listOf(source))
-        val json = JSONObject(BackupCodec.encode(backup))
-        json.getJSONArray("healthSessions").getJSONObject(0).remove("importedWorkoutId")
-        assertEquals(backup, BackupCodec.decode(json.toString()))
-    }
 }

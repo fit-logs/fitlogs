@@ -41,7 +41,7 @@ data class Workout(
         ForeignKey(entity = Workout::class, parentColumns = ["id"], childColumns = ["workoutId"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = Exercise::class, parentColumns = ["id"], childColumns = ["exerciseId"], onDelete = ForeignKey.RESTRICT),
     ],
-    indices = [Index("workoutId"), Index("exerciseId"), Index(value = ["workoutId", "exerciseId"], unique = true)],
+    indices = [Index("workoutId"), Index("exerciseId"), Index(value = ["workoutId", "exerciseId"])],
 )
 data class WorkoutExercise(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -132,7 +132,7 @@ val NOTEBOOK_MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class], version = 9, exportSchema = true)
+@Database(entities = [Exercise::class, Workout::class, WorkoutExercise::class, WorkoutSet::class, HistoryImport::class, ImportedWorkout::class, ImportedSet::class, BodyMeasurement::class, HealthSession::class, HealthSample::class, ProgressPhoto::class, PlannedWorkout::class, PlannedExercise::class, HandoffPreferences::class, PlannedSet::class, WorkoutPlanRun::class, WorkoutSetTarget::class, ExerciseAlias::class, ExerciseSourceMapping::class, ExerciseRedirect::class, ExerciseProgression::class, TrainingPreferences::class, RestTimerState::class, BodyProfile::class, RunLink::class], version = 12, exportSchema = true)
 abstract class FitDatabase : RoomDatabase() {
     abstract fun dao(): FitDao
     abstract fun importedDao(): ImportedHistoryDao
@@ -140,11 +140,13 @@ abstract class FitDatabase : RoomDatabase() {
     abstract fun photoDao(): ProgressPhotoDao
     abstract fun planDao(): WorkoutPlanDao
     abstract fun trainingDao(): TrainingDao
+    abstract fun bodyProfileDao(): BodyProfileDao
+    abstract fun runDao(): RunDao
 
     companion object {
         fun open(context: Context): FitDatabase =
             Room.databaseBuilder(context.applicationContext, FitDatabase::class.java, "fitnotes.db")
-                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9)
+                .addMigrations(IMPORT_MIGRATION_1_2, NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Seed names only on database creation, never after restoring an empty backup.
@@ -155,5 +157,15 @@ abstract class FitDatabase : RoomDatabase() {
                     }
                 })
                 .build()
+    }
+}
+
+/** Keep separate ordered occurrences when two exercise identities become one. */
+val EXERCISE_MERGE_MIGRATION_9_10 = object : Migration(9,10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP INDEX index_workout_exercises_workoutId_exerciseId")
+        db.execSQL("CREATE INDEX index_workout_exercises_workoutId_exerciseId ON workout_exercises(workoutId,exerciseId)")
+        db.execSQL("DROP INDEX index_planned_exercises_planId_exerciseId")
+        db.execSQL("CREATE INDEX index_planned_exercises_planId_exerciseId ON planned_exercises(planId,exerciseId)")
     }
 }

@@ -72,6 +72,7 @@ data class BodyMeasurement(
     val unitName: String,
     val comment: String,
     val rawValues: String,
+    @ColumnInfo(defaultValue = "0") val createdAt: Long = 0,
 )
 
 data class ImportedWorkoutDetail(
@@ -85,6 +86,7 @@ interface ImportedHistoryDao {
     @Query("SELECT * FROM history_imports ORDER BY importedAt DESC") fun observeImports(): Flow<List<HistoryImport>>
     @Transaction @Query("SELECT * FROM imported_workouts ORDER BY date DESC, id DESC")
     fun observeWorkouts(): Flow<List<ImportedWorkoutDetail>>
+    @Transaction @Query("SELECT * FROM imported_workouts ORDER BY date DESC, id DESC") suspend fun details(): List<ImportedWorkoutDetail>
     @Query("SELECT * FROM body_measurements ORDER BY date DESC, time DESC, id DESC")
     fun observeBody(): Flow<List<BodyMeasurement>>
     @Query("SELECT * FROM history_imports WHERE id = :id") suspend fun imported(id: String): HistoryImport?
@@ -140,6 +142,15 @@ fun validHistoryTime(raw: String): Boolean {
     if (raw.length != 8 || raw[2] != ':' || raw[5] != ':' ||
         raw.withIndex().any { (index, char) -> index != 2 && index != 5 && char !in '0'..'9' }) return false
     return raw.substring(0, 2).toInt() in 0..23 && raw.substring(3, 5).toInt() in 0..59 && raw.substring(6, 8).toInt() in 0..59
+}
+
+// Manual entry accepts minute precision; stored times retain the backup format HH:mm:ss.
+// An empty string means date-only, while null means the entered time is invalid.
+fun normalizeMeasurementTime(raw: String): String? {
+    val time = raw.trim()
+    if (time.isEmpty()) return ""
+    val normalized = if (time.length == 5) "$time:00" else time
+    return normalized.takeIf(::validHistoryTime)
 }
 
 fun validRecordedTimestamp(raw: String): Boolean {

@@ -12,7 +12,7 @@ data class HealthPage<T>(val records: List<T>, val next: String?)
 suspend fun <T> collectHealthPages(read: suspend (String?) -> HealthPage<T>): List<T> {
     val records = mutableListOf<T>(); val seen = mutableSetOf<String>(); var token: String? = null
     do {
-        val page = read(token); records.addAll(page.records); token = page.next
+        val page = read(token); records.addAll(page.records); token = page.next?.takeIf { it.isNotEmpty() }
         require(token == null || seen.add(token)) { "Health Connect repeated a page token. Retry the import." }
     } while (token != null)
     return records
@@ -25,18 +25,26 @@ class HealthImportRepository(private val database: FitDatabase) {
     private val dao = database.healthDao()
     suspend fun known() = dao.sessions()
 
-    suspend fun import(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null, automatic: Boolean = false): Long? = database.withTransaction {
+    suspend fun import(candidate: HealthCandidate, attachTo: Long? = null, attachImported: String? = null, automatic: Boolean = false, beforeRepair: (suspend () -> Unit)? = null): Long? = database.withTransaction {
         val s = candidate.session
         validateHealthBackup(listOf(s.copy(workoutId = null, importedWorkoutId = null)), candidate.samples, emptySet())
         val existing = dao.session(s.key)
         // A tombstone survives local deletion: repeat imports never re-create it.
         if (existing != null && existing.workoutId == null && existing.importedWorkoutId == null) return@withTransaction null
-        require(existing == null || attachTo == null || existing.workoutId == attachTo) { "This source record is already attached to another session." }
         require(attachTo == null || attachImported == null) { "Choose one session." }
-        require(existing == null || attachImported == null || existing.importedWorkoutId == attachImported) { "Source is already attached elsewhere." }
-        val importedId = existing?.importedWorkoutId ?: attachImported
+        val reattach=existing!=null && (attachTo!=null && existing.workoutId!=attachTo || attachImported!=null && existing.importedWorkoutId!=attachImported)
+        val oldParent=if(reattach)existing?.workoutId?.let{database.dao().workout(it)} else null
+        if(reattach) {
+            require(!automatic && oldParent!=null && oldParent.knownStart==null && oldParent.finished && oldParent.sessionDate.isNotBlank() &&
+                oldParent.title.isBlank() && oldParent.notes.isBlank() && oldParent.durationSeconds==null && oldParent.effort==null && oldParent.distance==null &&
+                database.dao().workoutEntries(oldParent.id).isEmpty() && database.planDao().run(oldParent.id)==null) {
+                "This activity is attached to a workout with its own data. Keep both workouts and review their association."
+            }
+            requireNotNull(beforeRepair){"A recovery backup is required before changing this association."}.invoke()
+        }
+        val importedId = if(reattach)attachImported else existing?.importedWorkoutId ?: attachImported
         if (importedId != null) requireNotNull(database.importedDao().workout(importedId)) { "Selected history session no longer exists." }
-        val workoutId = if (importedId != null) null else existing?.workoutId ?: attachTo ?: run {
+        val workoutId = if (importedId != null) null else (if(reattach)attachTo else existing?.workoutId ?: attachTo) ?: run {
             val zone = s.startOffsetSeconds?.let { TimeZone.getTimeZone("GMT" + offsetText(it)) } ?: TimeZone.getDefault()
             val day = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = zone }.format(Date(s.start))
             database.dao().insertWorkout(Workout(startedAt = 0, sessionDate = day, finished = true,
@@ -46,7 +54,11 @@ class HealthImportRepository(private val database: FitDatabase) {
         val changed = existing != null && (existing.modifiedAt != s.modifiedAt || existing.start != s.start || existing.end != s.end ||
             existing.title != s.title || existing.notes != s.notes || existing.exerciseType != s.exerciseType)
         val intervalChanged = existing != null && (existing.start != s.start || existing.end != s.end)
-        val enriched = s.copy(workoutId = workoutId, importedWorkoutId = importedId,
+        val sourceFacts = if (s.activityType == "running" && !candidate.distanceRead && !intervalChanged && existing != null) {
+            val old = RunSourceData.read(existing.runData)
+            RunSourceData.read(s.runData).copy(distanceVerified = old.distanceVerified, distanceEvidence = old.distanceEvidence).json()
+        } else s.runData
+        val enriched = s.copy(runData = sourceFacts, workoutId = workoutId, importedWorkoutId = importedId,
             distanceMeters = if (candidate.distanceRead) s.distanceMeters else if (intervalChanged) null else existing?.distanceMeters,
             distanceOrigins = if (candidate.distanceRead) s.distanceOrigins else if (intervalChanged) "" else existing?.distanceOrigins.orEmpty(),
             distanceStatus = if (!candidate.distanceRead && intervalChanged) s.distanceStatus + " Source interval changed; prior imported distance cannot be attributed to the new interval." else s.distanceStatus,
@@ -67,6 +79,7 @@ class HealthImportRepository(private val database: FitDatabase) {
             val retained = dao.samples().filter { it.sessionKey == s.key && it.time in s.start until s.end }
             dao.clearSamples(s.key); dao.putSamples(retained)
         }
+        if(reattach && oldParent!=null && dao.sessions().none{it.workoutId==oldParent.id})database.dao().deleteWorkout(oldParent.id)
         workoutId ?: 0L
     }
 

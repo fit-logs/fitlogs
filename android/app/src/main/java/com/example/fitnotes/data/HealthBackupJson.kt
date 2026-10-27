@@ -10,7 +10,7 @@ object HealthBackupJson {
         .put("startOffsetSeconds", s.startOffsetSeconds ?: JSONObject.NULL).put("endOffsetSeconds", s.endOffsetSeconds ?: JSONObject.NULL)
         .put("activityType", s.activityType).put("exerciseType", s.exerciseType).put("title", s.title).put("notes", s.notes)
         .put("distanceMeters", s.distanceMeters ?: JSONObject.NULL).put("distanceOrigins", s.distanceOrigins)
-        .put("hrStatus", s.hrStatus).put("distanceStatus", s.distanceStatus).put("sourceStatus", s.sourceStatus).put("device", s.device).put("importedWorkoutId", s.importedWorkoutId ?: JSONObject.NULL)
+        .put("hrStatus", s.hrStatus).put("distanceStatus", s.distanceStatus).put("sourceStatus", s.sourceStatus).put("device", s.device).put("importedWorkoutId", s.importedWorkoutId ?: JSONObject.NULL).put("runData", s.runData)
     fun encode(s: HealthSample) = JSONObject().put("key", s.key).put("sessionKey", s.sessionKey).put("recordId", s.recordId)
         .put("originPackage", s.originPackage).put("time", s.time).put("bpm", s.bpm)
     private fun JSONObject.string(k: String) = get(k).also { require(it is String) { "Invalid health field: $k" } } as String
@@ -23,14 +23,14 @@ object HealthBackupJson {
     fun session(j: JSONObject): HealthSession {
         j.fields("key", "workoutId", "recordId", "originPackage", "sourceName", "clientRecordId", "clientRecordVersion", "modifiedAt", "importedAt",
             "start", "end", "startOffsetSeconds", "endOffsetSeconds", "activityType", "exerciseType", "title", "notes", "distanceMeters",
-            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", *if (j.has("importedWorkoutId")) arrayOf("importedWorkoutId") else emptyArray())
+            "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", "importedWorkoutId", "runData")
         return HealthSession(j.string("key"), j.optionalLong("workoutId"), j.string("recordId"), j.string("originPackage"), j.string("sourceName"),
             j.optionalString("clientRecordId"), j.long("clientRecordVersion"), j.long("modifiedAt"), j.long("importedAt"), j.long("start"), j.long("end"),
             j.optionalLong("startOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.optionalLong("endOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
             j.string("activityType"), j.long("exerciseType").also { require(it in 0..Int.MAX_VALUE) }.toInt(), j.string("title"), j.string("notes"),
             if (j.isNull("distanceMeters")) null else (j.get("distanceMeters") as? Number)?.toDouble() ?: error("Invalid distance"),
-            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), if (j.has("importedWorkoutId")) j.optionalString("importedWorkoutId") else null)
+            j.string("distanceOrigins"), j.string("hrStatus"), j.string("distanceStatus"), j.string("sourceStatus"), j.string("device"), j.optionalString("importedWorkoutId"), j.string("runData"))
     }
     fun sample(j: JSONObject): HealthSample {
         j.fields("key", "sessionKey", "recordId", "originPackage", "time", "bpm")
@@ -47,6 +47,7 @@ fun validateHealthBackup(sessions: List<HealthSession>, samples: List<HealthSamp
             it.start > 0 && it.end > it.start && it.importedAt > 0 && (it.workoutId == null || it.workoutId in workouts) &&
             (it.importedWorkoutId == null || it.importedWorkoutId in importedWorkouts) && (it.workoutId == null || it.importedWorkoutId == null)) { "Invalid health session." }
         require(ActivityType.entries.any { type -> type.key == it.activityType } && it.modifiedAt >= 0 && it.clientRecordVersion >= 0) { "Invalid health provenance." }
+        RunSourceData.read(it.runData)
         require(it.distanceMeters == null || (it.distanceMeters.isFinite() && it.distanceMeters >= 0)) { "Invalid imported distance." }
         require(it.startOffsetSeconds == null || it.startOffsetSeconds in -64800..64800) { "Invalid source offset." }
         require(it.endOffsetSeconds == null || it.endOffsetSeconds in -64800..64800) { "Invalid source offset." }

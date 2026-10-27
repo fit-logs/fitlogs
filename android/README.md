@@ -5,90 +5,46 @@ Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 
 ## Use
 
-- **Workout:** an unfinished session resumes automatically. Otherwise tap
-  **Start workout**. Date arrows and the date picker browse existing sessions;
-  they never create a workout. A selector appears when a day has multiple sessions.
-- Tap **Add exercise** to search Recent / Favourites / All, select multiple exercises,
-  and confirm **Add N exercises**. Stars save favourites; selections survive filter
-  and search changes. **Create custom exercise** adds a named exercise. The overview contains compact saved
-  set rows; tap an exercise for its focused **Log / History** screen. Back returns
-  to the overview, preserving scroll and draft state where practical.
-- The logger shows the latest completed session before the viewed workout.
-  Ambiguous same-day date-only records are not treated as earlier sessions.
-  Suggested weight/reps or distance/time are drafts, not saved records.
-- Enter kg/reps and tap **Save set**. Zero external kg is valid; reps must be
-  whole numbers from 1–10,000. Values remain ready for a deliberate repeated save,
-  and the keyboard closes after saving. Pending writes reject concurrent taps.
-- **Log cardio** in the exercise menu selects distance/unit and seconds controls.
-  Existing imported cardio and mixed records retain their fields and units.
-- Tap a saved row to select it: a check mark and highlight identify the selection.
-  The editor becomes **Update set**, with **Cancel edit**, **Duplicate**, and
-  confirmed **Delete** actions. Typing alone never changes a saved record.
-  Use the exercise menu to add an optional set note or remove an exercise.
-- Switch exercises using **Switch**. Confirmed records remain persisted; drafts
-  are kept separately for each exercise while navigating within the app.
-- Edit session title/notes through the overview menu. Notes appear only when
-  present, as a collapsed preview. **Finish workout** completes an active workout.
-- **History:** compact sessions grouped by month. Completed workouts open in
-  viewing mode; choose **Edit workout** explicitly to enable logging/editing.
-  **Repeat exercises** starts a new workout with no sets or notes copied.
-  Finish/delete the active workout before repeating another. Deletion is confirmed.
-- History's **Share** offers 14 days, 30 days or a custom date range. Workout
-  share buttons and menus share one session. Review readable text before copying or opening Android's
-  share sheet. Empty ranges explain that no activity was found; nothing is sent.
-- **Ask ChatGPT** in Workout or History prepares a question with 7 days, 30 days
-  (default), or a custom history range. Review the complete prompt, then **Copy
-  prompt** or **Share** through Android. Choose Next workout, Review progress, or
-  Custom question. Goals, equipment, constraints, time and activity preferences
-  are remembered locally. Body measurement types, photos and raw heart-rate
-  samples are optional and start unselected each time.
-- **Paste plan** reads the clipboard only when **Paste** is tapped; manual text
-  entry also works. Review and edit the strength plan, resolve exercise names,
-  then **Save plan**. This saves targets without recorded sets.
-  **Plans / Planned workouts** lists saved plans. Starting one creates an actual
-  session with empty exercise entries and keeps its targets visible separately.
-  Targets appear in editable per-set rows, including rest and original units.
-  The logger compares Previous / Target / Actual and links completion to a target.
-  Skip, undo, extra sets and free exercise switching remain available. The next
-  pending set fills after saving. Rest can pause/resume, add 30 seconds or skip;
-  alerts are optional in **More actions → Training settings**.
-  **Edit plan** changes the reusable plan; **Start workout** copies suggestions
-  into the logger. Enter the weights/reps actually performed. Scheduled dates
-  are optional. **Convert empty import to plan** repairs empty older suggestions
-  after review, while preserving uncertain legacy text and actual training.
-- ChatGPT handoff is manual, using your existing app/account. Nothing is submitted
-  or answered automatically. There is no OpenAI API, backend or cloud upload.
-  Copy is the fallback if a receiving app rejects Android sharing.
-  [Exact plan format, limits and matching behaviour](docs/chatgpt-handoff.md).
-- **Body:** select an actual available name/unit pair. See the latest value and
-  dated list; tap a measurement for Edit/Delete, or use **+** to add one.
-  You can enter a new measurement name/unit explicitly. Blank time means date-only;
-  otherwise use HH:mm:ss. Editing preserves its ID, type, unit and original fields.
-  Different measurement types/units remain separate. There are no charts.
-- **Import history** and **Backup and restore** are available in overflow menus.
-- **More actions → Exercise library:** save aliases, resolve original imported
-  names to canonical exercises, and review a merge before confirming it. Both
-  names in one session retain all actual sets and notes. Fuzzy search ranks
-  candidates but never makes a match or merge decision.
-- **Strength progress:** charts and comparisons use actual sets in finished
-  sessions, with separate external, added-bodyweight and unknown load measures.
-  Optional double progression suggests an increase only after every prescribed
-  working set meets its upper rep target. Applying it to a reusable plan is explicit.
-  [Training changes, definitions, verification and screenshots](docs/liftlog-adoption-verification.md).
-- **Settings → Appearance:** System / Light / Dark. An explicit choice persists
-  across restarts and overrides the system appearance. Theme is a device preference;
-  favourites are also retained by current training backups.
+- **Train:** resume an active workout or start an empty one. Saved plans, New plan,
+  Ask ChatGPT and Import plan are together below the workout action.
+- **Plans:** tap an exercise to edit its individual targets. General guidance is in
+  Workout notes. Save changes before starting; importing or saving never starts training.
+  Rename, reschedule, duplicate and delete are in the plan menu.
+- **Active workout:** tap an exercise to log sets; Add exercise follows the list.
+  Finish confirms when planned sets remain unfinished.
+- **Logger:** one Set / kg / Reps table. Edit pending suggestions and tick a set to
+  complete it. Rep ranges stay targets; actual reps are an editable whole count.
+  Blank weight stays unspecified. Add set records extras; tap a completed row to edit.
+  Set options contain secondary actions. Exercise notes expand when requested.
+  The logger’s History tab includes the exercise progress graph above prior session
+  tables, with date ranges, supported metrics and tappable workout details.
+- **Rest:** a single strip persists across navigation. Pause/resume, +30 s and Skip
+  use a saved elapsed-time timer. Editing completed results does not restart it;
+  finishing cancels it. Automatic rest and notifications are in Settings → Training.
+- **History:** completed workouts show compact results, optional notes and a
+  heart-rate chart when samples exist. Edit, Share, Use as plan and Delete are in overflow.
+- **Progress:** search recent exercises or aliases, then choose a period and metric. Heaviest sets include actual reps; tap chart points or recent sessions to view workouts. Weight and reps work with
+  legacy recorded values; Volume and Estimated 1RM require supported load semantics.
+  Tap a chart point for its recorded date/value. Separate same-day sessions stay separate.
+- **Body:** measurements and progress photos share one destination.
+- **Settings:** app updates from GitHub, appearance, backups, health sync, history import, exercise library,
+  other activities and review of repeated imports. Recovery backups can be exported
+  through Backup and restore.
+- **Ask ChatGPT:** choose goals/preferences and history, preview, then copy/share
+  manually. The full exercise catalogue is excluded. New names are resolved on import.
+  [Plan format and matching](docs/chatgpt-handoff.md).
+- [Notebook cleanup: evidence, tests and before/after screenshots](docs/notebook-cleanup-verification.md).
 
 ## Backup and restore
 
-Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 7 file contains the entire exercise library, local session
+Use **Settings → Backup and restore → Export JSON backup** and choose a destination in Android's
+file picker. The version 8 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
 original fields, import fingerprints, planned workouts/targets and saved handoff
 preferences, individual target sets and workout suggestion snapshots, target/result
 links, load modes, aliases/source mappings, superset groups, progression settings
 and favourites. A running rest countdown is exported as paused remaining time and
-restored paused with a fresh action token. Versions 1–6 remain readable. Store it outside this repository
+restored paused with a fresh action token. The Body profile and display preferences are also retained. Store it outside this repository
 in a private location. Backups are readable JSON and are not encrypted.
 
 Use **Choose backup to restore** to validate a file and see its export date,
@@ -99,7 +55,7 @@ if you want to retain it.
 
 Malformed JSON, unsupported versions, duplicate IDs/names, broken references,
 invalid values, and multiple unfinished sessions are rejected before replacement.
-The current JSON backup size limit is 50 MB. This format is for this Android app;
+The current JSON backup format is v8; older formats are rejected. Its size limit is 50 MB. This format is for this Android app;
 it does not import the sibling web app's data.
 
 Actual training data lives in the app's private `fitnotes.db`, outside Git.
@@ -125,6 +81,10 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
   choices. Weight can be kg/lb; distance m/km/ft/mi; time seconds, minutes, h:m:s,
   m:s, or h:m. Pounds convert to kg while original source values are retained.
   Quoted commas, multiline comments, and doubled quotes are supported.
+- **Body overview:** latest imported/manual weight, persistent 1M/3M/1Y/All chart,
+  daily-balanced four-week comparison, and BMI from locally saved height. Optional
+  birth date enables CDC adult categories from age 20. Profile data stays out of
+  ChatGPT exports. See [calculations and data handling](docs/body-overview.md).
 - **Body Tracker CSV is deferred until an actual CSV export is supplied.** The
   shared `.fitnotes` file is a database, not a CSV example. Its body records are
   fully supported through native backup import; no body CSV columns were guessed.
@@ -144,7 +104,14 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
   Original raw fields remain available for analysis. Deleting an imported session
   requires confirmation and retains its import fingerprint, preventing accidental
   re-addition by the same file. Repeating copies only its exercise list.
-- The **Body** tab lists dated measurements. Graphs are deferred.
+- The **Body** tab plots the selected measurement with 1M / 3M / 1Y / All ranges.
+  Tap a point (or **View plotted measurements**) to inspect/edit the original
+  reading. Units stay separate; repeated readings are retained without averaging.
+  Date-only entries keep their recorded dates, and the complete list stays below
+  the chart. Chart ticks follow the measurement precision.
+  Manual measurement times accept `HH:mm` or `HH:mm:ss` (24-hour time), or blank
+  for date-only. Minute-only input is stored with `:00` seconds; invalid times
+  show a field error. Existing recorded seconds, units and values are preserved.
   Period sharing includes body measurements. **Backup and restore → Export analysis JSON**
   exports recorded training with format `fitnotes-analysis`, version 2 and
   `backupSchemaVersion: 7`. It excludes plans, target snapshots, progression
@@ -451,6 +418,15 @@ indefinite loading spinner.
 
 ## Progress photos
 
+Automatic record backups are available through **Settings → Backup and restore →
+Automatic backup**. They are off until enabled in FitNotes and use Android's
+encrypted device backup with the account selected in Android Settings. Android
+controls the schedule and retains the latest snapshot. Workouts, imported health
+data, measurements, plans, targets and training preferences are included;
+progress photos and their metadata are excluded. A recovered snapshot opens the
+existing review/restore confirmation. For an independent copy now, export a JSON
+backup and choose Drive in the system picker. See [automatic backup](docs/automatic-backup.md).
+
 **Body → Measurements / Photos** keeps measurements separate from optional photos.
 In Photos, choose Front / Side / Back / Other. The grid lists newest dates first.
 **Add photos** opens Android's system photo picker (up to 20 at a time, with a
@@ -480,8 +456,8 @@ Interrupted unsaved imports/orphan copies are removed on the next app start.
 ### Manual photo backup
 
 **Backup and restore → Include progress photos** starts off each time the menu
-opens. With it off, the current v7 JSON format excludes all photo files and photo
-metadata and clearly says so. Versions 1–7 restore; JSON restoration leaves
+opens. With it off, the current v8 JSON format excludes all photo files and photo
+metadata and clearly says so. Current v8 JSON restoration leaves
 existing photos alone. Analysis exports and ordinary workout text sharing exclude photos. Ask ChatGPT
 can explicitly attach selected JPEG copies; its Copy action remains text only.
 
@@ -520,4 +496,13 @@ and the detailed verification record are kept in ignored
 
 The Android module is distributed under [AGPL-3.0](LICENSE). It contains an
 adapted exercise-search scorer from LiftLog; see [source attribution and revision](THIRD_PARTY_NOTICES.md).
-The licence and notices are bundled under **More actions → Open-source notices**.
+The licence and source attribution are in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
+
+
+Progress and exercise merging verification:
+[implementation and device evidence](docs/progress-usability-verification.md).
+Saved plans can be exported as `.fitnotesplan` and opened directly into an editable
+preview. Settings → Exercise library → Merge exercises keeps the selected source’s
+old name as an alias and saves a recovery backup before merging into the destination.
+
+Running history and weekly recorded distance: [usage and source rules](docs/running.md).

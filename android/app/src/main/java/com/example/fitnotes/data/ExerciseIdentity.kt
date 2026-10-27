@@ -50,12 +50,13 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
         val sets=db.dao().sets().filter{it.entryId in entries.map{e->e.id}}
         val targets=db.planDao().runTargets().filter{it.entryId in entries.map{e->e.id}}
         val planned=db.planDao().sets().filter{it.plannedExerciseId in plans.map{e->e.id}}
-        val blockers=mutableListOf<String>(); val warnings=mutableListOf("The surviving exercise keeps its order. Its sets come first; sets from the other name follow. Target/result IDs and notes remain linked. Original imported rows are unchanged.")
+        val blockers=mutableListOf<String>(); val warnings=mutableListOf("Every exercise occurrence keeps its position, grouping, notes, targets and results. Original imported rows remain unchanged. The old name becomes an alias.")
         fun modes(id:Long)=sets.filter{set->entries.any{it.id==set.entryId && it.exerciseId==id}}.map{it.loadMode}.filter{it!=LoadMode.UNKNOWN}.toSet()+
             targets.filter{set->entries.any{it.id==set.entryId && it.exerciseId==id}}.map{it.loadMode}.filter{it!=LoadMode.UNKNOWN}+
             planned.filter{set->plans.any{it.id==set.plannedExerciseId&&it.exerciseId==id}}.map{it.loadMode}.filter{it!=LoadMode.UNKNOWN}
         val first=modes(survivorId);val second=modes(removedId)
         if(first.isNotEmpty() && second.isNotEmpty() && first!=second) blockers.add("Conflicting load modes. Keep bodyweight, external-load, assistance and reps-only variants separate.")
+        if(dao.aliases().any{it.nameKey==normaliseExerciseName(removed.name)&&it.exerciseId !in setOf(survivorId,removedId)}) blockers.add("The old name is an alias for another exercise. Resolve that alias before merging.")
         val imported=db.importedDao().sets()
         val importedIds=canonicalImportedSetIds(db.dao().exercises(),dao.aliases(),dao.mappings(),db.importedDao().workouts(),imported)
         suspend fun categories(id:Long):Set<String> {
@@ -65,19 +66,10 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
         }
         val a=categories(survivorId); val b=categories(removedId)
         if(a.isNotEmpty()&&b.isNotEmpty()&&a!=b) blockers.add("Conflicting strength/cardio categories. Resolve source mappings or keep these movements separate.")
-        entries.groupBy{it.workoutId}.values.filter{it.size==2}.forEach { pair ->
-            if(pair.map{it.supersetGroup}.filter{it.isNotBlank()}.distinct().size>1) blockers.add("A workout uses different superset groups. Edit those groups before merging.")
-            if(targets.count{it.entryId in pair.map{e->e.id}}>100) blockers.add("A combined workout would exceed 100 targets. Review its targets first.")
-            if(mergedNote(pair.first().planNote,survivor.name,pair.last().planNote,removed.name).length>2000) blockers.add("Combined workout guidance exceeds 2,000 characters. Review notes first.")
-        }
-        plans.groupBy{it.planId}.values.filter{it.size==2}.forEach { pair ->
-            if(pair.map{it.supersetGroup}.filter{it.isNotBlank()}.distinct().size>1) blockers.add("A plan uses different superset groups. Edit those groups before merging.")
-            if(planned.count{it.plannedExerciseId in pair.map{e->e.id}}>100) blockers.add("A combined plan would exceed 100 targets. Review its targets first.")
-            if(mergedNote(pair.first().note,pair.first().sourceName,pair.last().note,pair.last().sourceName).length>2000) blockers.add("Combined plan guidance exceeds 2,000 characters. Review notes first.")
-        }
         if(sets.any{it.loadMode==LoadMode.UNKNOWN})warnings.add("Some recorded load modes are unknown. Confirm these names describe the same movement; no mode will be inferred.")
-        if(dao.progression().count{it.exerciseId in setOf(survivorId,removedId)}>1) warnings.add("The surviving exercise's progression setting will be retained.")
-        return ExerciseMergePreview(survivor,removed,entries.map{it.workoutId}.distinct().size,plans.map{it.planId}.distinct().size,sets.size,targets.size+planned.size,
+        val configs=dao.progression().filter{it.exerciseId in setOf(survivorId,removedId)}
+        if(configs.size==2 && configs[0].copy(exerciseId=0)!=configs[1].copy(exerciseId=0)) blockers.add("Progression settings differ. Set the same progression on both exercises before merging.")
+        return ExerciseMergePreview(survivor,removed,entries.map{it.workoutId}.distinct().size+imported.filter{importedIds[it.id] in setOf(survivorId,removedId)}.map{it.workoutId}.distinct().size,plans.map{it.planId}.distinct().size,sets.size+imported.count{importedIds[it.id] in setOf(survivorId,removedId)},targets.size+planned.size,
             entries.groupBy{it.workoutId}.count{it.value.size==2},plans.groupBy{it.planId}.count{it.value.size==2},warnings,blockers.distinct(),signature(survivorId,removedId))
     }
     suspend fun merge(preview:ExerciseMergePreview)=db.withTransaction {
@@ -100,31 +92,10 @@ class ExerciseIdentityRepository(private val db: FitDatabase) {
         dao.redirects().filter{it.exerciseId==b}.forEach{dao.putRedirect(it.copy(exerciseId=a))};dao.putRedirect(ExerciseRedirect(b,a))
         val config=dao.progression().firstOrNull{it.exerciseId==b}
         if(config!=null&&dao.progression().none{it.exerciseId==a})dao.putProgression(config.copy(exerciseId=a))
-        db.dao().entries().filter{it.exerciseId==b}.forEach { source ->
-            val destination=db.dao().workoutEntries(source.workoutId).firstOrNull{it.exerciseId==a}
-            if(destination==null)db.dao().updateEntry(source.copy(exerciseId=a)) else {
-                val resultOffset=(db.dao().entrySets(destination.id).maxOfOrNull{it.position}?:-1)+1
-                val targetOffset=db.planDao().runTargets().count{it.entryId==destination.id}
-                db.planDao().runTargets().filter{it.entryId==source.id}.sortedBy{it.position}.forEachIndexed{index,t->dao.updateTarget(t.copy(entryId=destination.id,position=targetOffset+index))}
-                db.dao().entrySets(source.id).forEachIndexed{index,s->db.dao().updateSet(s.copy(entryId=destination.id,position=resultOffset+index))}
-                db.dao().updateEntry(destination.copy(planNote=mergedNote(destination.planNote,preview.survivor.name,source.planNote,preview.removed.name),supersetGroup=destination.supersetGroup.ifBlank{source.supersetGroup}))
-                db.dao().deleteEntry(source.id)
-            }
-            db.dao().workoutEntries(source.workoutId).forEachIndexed{index,e->db.dao().updateEntry(e.copy(position=index))}
-        }
-        db.planDao().exercises().filter{it.exerciseId==b}.forEach { source ->
-            val destination=db.planDao().exercises().firstOrNull{it.planId==source.planId&&it.exerciseId==a}
-            if(destination==null)dao.updatePlannedExercise(source.copy(exerciseId=a)) else {
-                val offset=db.planDao().sets().count{it.plannedExerciseId==destination.id}
-                db.planDao().sets().filter{it.plannedExerciseId==source.id}.sortedBy{it.position}.forEachIndexed{index,t->dao.updatePlannedSet(t.copy(plannedExerciseId=destination.id,position=offset+index))}
-                dao.updatePlannedExercise(destination.copy(sets=offset+source.sets,note=mergedNote(destination.note,destination.sourceName,source.note,source.sourceName),supersetGroup=destination.supersetGroup.ifBlank{source.supersetGroup}))
-                dao.deletePlannedExercise(source.id)
-            }
-            // Avoid transient collisions with the unique plan-position index.
-            val ordered=db.planDao().exercises().filter{it.planId==source.planId}.sortedBy{it.position}
-            ordered.forEachIndexed{index,e->dao.updatePlannedExercise(e.copy(position=-index-1))}
-            ordered.forEachIndexed{index,e->dao.updatePlannedExercise(e.copy(position=index))}
-        }
+        // Do not combine occurrences: their IDs preserve every result/target
+        // association and their positions preserve ordering and superset groups.
+        db.dao().entries().filter{it.exerciseId==b}.forEach{daoEntry->db.dao().updateEntry(daoEntry.copy(exerciseId=a))}
+        db.planDao().exercises().filter{it.exerciseId==b}.forEach{target->dao.updatePlannedExercise(target.copy(exerciseId=a))}
         dao.deleteExercise(b)
     }
     private fun mergedNote(a:String,aName:String,b:String,bName:String)=if(a==b&&aName==bName)a else "$aName: ${a.ifBlank{"No exercise note."}}\n$bName: ${b.ifBlank{"No exercise note."}}"

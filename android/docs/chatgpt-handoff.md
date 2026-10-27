@@ -72,8 +72,8 @@ END_WORKOUT_PLAN
 
 V2 uses strict JSON inside case-sensitive standalone markers. `title` and
 `exercises` are required. Each exercise requires `name` and 1–100 individual
-`sets`; `note` is optional. Each set requires whole `repsMin` and `repsMax`,
-1–1,000 with maximum >= minimum. Equal values mean a fixed count. Optional rest
+`sets`; `note` is optional. Each set requires `repsMin` and `repsMax`: whole numbers
+1–1,000 with maximum >= minimum, or both null for unspecified reps. Equal values mean a fixed count. Optional rest
 is a whole `restSeconds` value from 0–3,600. Omit weight/unit together for an
 unspecified load; otherwise use decimal weight plus kg/lb, or bodyweight unit
 without numeric weight. Decimal strings preserve formatting; numeric JSON
@@ -142,10 +142,9 @@ Room 7 → 8 adds per-set targets, workout snapshots and exercise guidance witho
 replacing existing training. Existing V1 plans expand their explicit uniform
 prescription into individual rows; any already-started plan gains a separate
 snapshot. Existing mistaken imports remain untouched until conversion is chosen.
-Backup JSON v7 (also inside the optional photo ZIP) retains targets, actual links,
-modes, skips, supersets, aliases and settings. Backup versions 1–6 remain readable;
-old uniform prescriptions expand
-without inferring rest or parsing prose. Analysis JSON v2 exports actual
+Backup JSON v8 (also inside the optional photo ZIP) retains targets, actual links,
+modes, skips, supersets, aliases and settings. Only current backup JSON v8 is accepted. Older file adapters are removed.
+Installed Room data is preserved by focused database migrations. Analysis JSON v2 exports actual
 training with load semantics, excluding plans and suggestions.
 
 ## Deterministic parser
@@ -206,3 +205,16 @@ See [per-set planning verification and before/after screenshots](per-set-plan-ve
 screenshots and transient test output remain in the ignored local captures folder.
 
 See [training adoption verification](liftlog-adoption-verification.md) for current logger, timer, identity and statistics checks.
+
+
+## Plan files and exercise identity
+
+Saved plans export as `.fitnotesplan` with MIME `application/vnd.fitnotes.plan`.
+Android content/file URI opening and pasted text use the same strict V2 validator.
+Opening shows an editable preview; saving never starts training. Repeated delivery
+of the same file is guarded within the running process and duplicate fingerprints
+are checked on save. No LiftLog file compatibility is provided.
+
+Explicit saved aliases resolve names without changing imported source payloads.
+Exercise merging keeps the destination ID and separate ordered occurrences. Room
+9 → 10 changes only the two exercise-occurrence indexes; all stored rows remain.

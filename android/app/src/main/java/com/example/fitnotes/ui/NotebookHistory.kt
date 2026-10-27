@@ -6,59 +6,68 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import com.example.fitnotes.AppData
 import com.example.fitnotes.data.*
 
 @Composable
 fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit,
-    onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}) {
+    onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onRun: (String) -> Unit = {}) {
+    val preferences = LocalContext.current.getSharedPreferences("history-filter", 0)
+    var activity by rememberSaveable { mutableStateOf(preferences.getString("activity", "all") ?: "all") }
+    var filterOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val rows = remember(sessions, data) { historyRows(sessions, runningRecords(data)) }
+    val filtered = remember(rows, activity) { filterHistoryRows(rows, activity) }
+    val filters = remember(rows) {
+        listOf("all", "strength", "climbing", "running") +
+            ActivityType.entries.map { it.key }.filter { key -> key !in listOf("strength", "climbing", "running") && rows.any { row -> row.activities.any { it.key == key } } }
+    }
     val dateWidth = (48 * LocalDensity.current.fontScale).dp
     Column(Modifier.fillMaxSize()) {
         NotebookBar("History") {
-            if (!data.imported.loading) IconButton(onClick = onShare) { Icon(Icons.Filled.Share, "Share") }
-            OverflowMenu { close ->
-                MenuAction("Strength progress") { close();onProgress() }
-                MenuAction("Exercise library") { close();onLibrary() }
-                MenuAction("Training settings") { close();onTrainingSettings() }
-                MenuAction("Ask ChatGPT") { close(); onAsk() }
-                MenuAction("Paste plan") { close(); onPastePlan() }
-                MenuAction("Planned workouts") { close(); onPlans() }
-                MenuAction("Import history") { close(); onImport() }
-                MenuAction("Backup and restore") { close(); onBackup() }
+            SettingsButton()
+            OverflowMenu { close -> MenuAction("Share history"){close();onShare()} }
+        }
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            FilterChip(activity != "all", { filterOpen = true }, label = { Text(historyFilterLabel(activity)) },
+                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("history-filter"))
+            DropdownMenu(filterOpen, { filterOpen = false }) {
+                filters.forEach { key -> DropdownMenuItem(
+                    text = { Text(historyFilterLabel(key)) },
+                    leadingIcon = { if (activity == key) Icon(Icons.Default.Check, contentDescription = "Selected") },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("history-filter:$key"),
+                    onClick = { activity = key; preferences.edit().putString("activity", key).apply(); filterOpen = false; scope.launch { state.scrollToItem(0) } }) }
             }
         }
-        LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick=onProgress,modifier=Modifier.heightIn(min=48.dp)){Text("Strength progress")}
-                TextButton(onClick = onAsk, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ask ChatGPT") }
-                TextButton(onClick = onPastePlan, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
-                TextButton(onClick = onPlans, modifier = Modifier.heightIn(min = 48.dp)) { Text("Planned workouts") }
-            } }
+        LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), modifier = Modifier.testTag("history-list")) {
             if (data.imported.loading) item { Text("Loading imported history…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            val completed = sessions.filter { it.completed }
-            if (completed.isEmpty() && !data.imported.loading) item { Text("No completed workouts yet.", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            completed.groupBy { it.date.take(7) }.forEach { (month, rows) ->
+            if (filtered.isEmpty() && !data.imported.loading) item { Text(if (activity == "all") "No completed workouts yet." else "No recorded activities of this type yet.", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            filtered.groupBy { it.date.take(7) }.forEach { (month, rows) ->
                 item(key = "month:$month") { Text(prettyDay(month + "-01", "MMMM yyyy"), Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(rows, key = { it.key }) { session ->
-                    Surface(onClick = { onOpen(session.key) }) {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                items(rows, key = { it.key }) { row ->
+                    Surface(onClick = { row.runKey?.let(onRun) ?: onOpen(row.sessionKey) }, modifier = Modifier.testTag("history-session:${row.key}")) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 14.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.width(dateWidth), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(prettyDay(session.date, "dd"), style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
-                                Text(prettyDay(session.date, "EEE").uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(prettyDay(row.date, "dd"), style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
+                                Text(prettyDay(row.date, "EEE").uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(ActivityType.from(session.activity).symbol + " " + session.title.ifBlank { if (session.activity == "strength") "Workout" else session.activityTitle }, style = MaterialTheme.typography.titleMedium)
-                                Text(if (session.activity == "strength") session.exercises.joinToString(", ") { it.name } else session.notes.ifBlank { session.local?.health?.firstOrNull()?.session?.title.orEmpty() }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(if (session.activity == "strength") "${session.exercises.size} exercises · ${session.count} sets" else durationText(session.duration) +
-                                    (session.local?.workout?.distance?.let { " · " + weightText(it) + " " + session.local.workout.distanceUnit }
-                                        ?: session.local?.health?.firstOrNull()?.session?.distanceMeters?.let { " · " + weightText(it / 1000) + " km" }.orEmpty()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(row.activity.symbol + " " + row.title, style = MaterialTheme.typography.titleMedium)
+                                if (row.subtitle.isNotBlank()) Text(row.subtitle, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (row.summary.isNotBlank()) Text(row.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

@@ -49,6 +49,7 @@ data class HealthSession(
     val sourceStatus: String = "available",
     val device: String = "",
     val importedWorkoutId: String? = null,
+    @ColumnInfo(defaultValue = "'{}'") val runData: String = "{}",
 )
 @Entity(tableName = "health_samples", foreignKeys = [ForeignKey(entity = HealthSession::class,
     parentColumns = ["key"], childColumns = ["sessionKey"], onDelete = ForeignKey.CASCADE)], indices = [Index("sessionKey")])

@@ -46,7 +46,7 @@ fun localSetText(set: WorkoutSet): String = buildList {
         LoadMode.BODYWEIGHT -> "Bodyweight + ${weightText(set.weightKg)} kg × ${set.reps} reps"
         LoadMode.ASSISTANCE -> "${weightText(set.weightKg)} kg assistance × ${set.reps} reps"
         LoadMode.REPS_ONLY -> "${set.reps} reps (reps only)"
-        LoadMode.UNKNOWN -> if(set.weightSpecified) "${weightText(set.weightKg)} kg × ${set.reps} reps (load mode unknown)" else "${set.reps} reps · load unspecified"
+        LoadMode.UNKNOWN -> if(set.weightSpecified) "${weightText(set.weightKg)} kg × ${set.reps} reps" else "${set.reps} reps"
         else -> "${weightText(set.weightKg)} kg × ${set.reps} reps"
     })
     set.distance?.let { add(weightText(it) + " " + set.distanceUnit) }
@@ -170,7 +170,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         require(old==null || targetId==null || old.targetId==targetId) { "Editing a result cannot assign it to a different target." }
         val mode = loadMode ?: old?.loadMode ?: LoadMode.EXTERNAL
         require(mode in LoadMode.values) { "Choose a valid load mode." }
-        val values = InputRules.parseSet(if (mode == LoadMode.REPS_ONLY || (mode == LoadMode.UNKNOWN && weight.isBlank())) "0" else weight, reps)
+        val values = InputRules.parseSet(if (mode == LoadMode.REPS_ONLY || weight.isBlank()) "0" else weight, reps)
         require(mode != LoadMode.REPS_ONLY || values.weightKg == 0.0) { "Reps-only sets have no external load." }
         require(comment.length <= 10000) { "Comment is too long." }
         val link = old?.targetId ?: targetId
@@ -220,11 +220,40 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
     }
 
     suspend fun deleteSet(id: Long) = database.withTransaction {
-        val target = dao.set(id)?.targetId
+        val old = requireNotNull(dao.set(id)) { "Set no longer exists." }
+        val target = old.targetId
         dao.deleteSet(id)
         if (target != null && database.trainingDao().timer()?.sourceTargetId == target) database.trainingDao().clearTimer()
+        old
+    }
+    suspend fun restoreDeletedSet(old: WorkoutSet) = database.withTransaction {
+        require(dao.entry(old.entryId)!=null) { "The exercise was removed; the set cannot be restored." }
+        require(dao.set(old.id)==null) { "This set is already present." }
+        val target=old.targetId?.let { id -> database.planDao().runTargets().firstOrNull{it.id==id&&it.entryId==old.entryId&&!it.skipped} }
+        val association=target?.id?.takeIf{id->dao.sets().none{it.targetId==id}}
+        if(dao.entrySets(old.entryId).any{it.position==old.position}) dao.entrySets(old.entryId).filter{it.position>=old.position}.sortedByDescending{it.position}.forEach{dao.updateSet(it.copy(position=it.position+1))}
+        dao.insertSet(old.copy(targetId=association))
+        // Undo restores an actual result; it is not a new completion or rest event.
+    }
+    suspend fun saveExerciseNote(entryId:Long,note:String)=database.withTransaction {
+        require(note.length<=2000){"Exercise note is too long."}
+        val entry=requireNotNull(dao.entry(entryId)){"Exercise no longer exists."}
+        dao.updateEntry(entry.copy(planNote=note.trim()))
     }
     suspend fun removeExercise(id: Long) = dao.deleteEntry(id)
+    suspend fun reorderExercises(workoutId: Long, entryIds: List<Long>) = database.withTransaction {
+        requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
+        val entries = dao.workoutEntries(workoutId)
+        require(entryIds.size == entries.size && entryIds.toSet().size == entryIds.size &&
+            entryIds.toSet() == entries.map { it.id }.toSet()) {
+            "The workout exercises changed. Close and reopen Reorder exercises to try again."
+        }
+        val byId = entries.associateBy { it.id }
+        entryIds.forEachIndexed { position, id ->
+            val entry = byId.getValue(id)
+            if (entry.position != position) dao.updateEntry(entry.copy(position = position))
+        }
+    }
     suspend fun deleteWorkout(id: Long) = dao.deleteWorkout(id)
 
     suspend fun saveDetails(id: Long, title: String, notes: String) = database.withTransaction {
@@ -239,7 +268,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         database.trainingDao().timer()?.takeIf { it.workoutId == id }?.let { database.trainingDao().clearTimer() }
         if (!workout.isComplete) {
             val end = maxOf(workout.startedAt, System.currentTimeMillis())
-            dao.updateWorkout(workout.copy(completedAt = end, finished = true, durationSeconds = (end - workout.startedAt) / 1000.0))
+            dao.updateWorkout(workout.copy(completedAt = end, finished = true, durationSeconds = workout.knownStart?.let{(end-it)/1000.0}))
         }
     }
 
@@ -257,8 +286,8 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
     suspend fun backup(): Backup = database.withTransaction {
         val imported = database.importedDao()
         Backup(exercises = dao.exercises(), workouts = dao.workouts(), entries = dao.entries(), sets = dao.sets(),
-            imports = imported.imports(), importedWorkouts = imported.workouts(), importedSets = imported.sets(), bodyMeasurements = imported.body(),
-            healthSessions = database.healthDao().sessions(), healthSamples = database.healthDao().samples(),
+            imports = imported.imports(), importedWorkouts = imported.workouts(), importedSets = imported.sets(), bodyMeasurements = imported.body(), bodyProfile = database.bodyProfileDao().get(),
+            runLinks = database.runDao().all(), healthSessions = database.healthDao().sessions(), healthSamples = database.healthDao().samples(),
             plannedWorkouts = database.planDao().plans(), plannedExercises = database.planDao().exercises(), handoffPreferences = database.planDao().preferences(),
             plannedSets = database.planDao().sets(), planRuns = database.planDao().runs(), runTargets = database.planDao().runTargets(), exerciseAliases = database.trainingDao().aliases(), exerciseMappings = database.trainingDao().mappings(),
             exerciseRedirects = database.trainingDao().redirects(), exerciseProgression = database.trainingDao().progression(), trainingPreferences = database.trainingDao().preferences(),
@@ -271,6 +300,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         database.withTransaction {
             database.planDao().clearPlans()
             if (backup.version >= 5) database.planDao().clearPreferences()
+            database.runDao().clear()
             database.healthDao().clear()
             database.importedDao().clear()
             dao.clearSets()
@@ -285,35 +315,17 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
             imported.insertWorkouts(backup.importedWorkouts)
             imported.insertSets(backup.importedSets)
             imported.insertBody(backup.bodyMeasurements)
+            backup.runLinks.forEach { database.runDao().put(it) }
             backup.healthSessions.forEach { database.healthDao().putSession(it) }
             database.healthDao().putSamples(backup.healthSamples)
             backup.plannedWorkouts.forEach { database.planDao().insert(it) }
             database.planDao().insertTargets(backup.plannedExercises)
-            if (backup.version >= 6) {
-                database.planDao().insertSets(backup.plannedSets)
-                backup.planRuns.forEach { database.planDao().insertRun(it) }
-                database.planDao().insertRunTargets(backup.runTargets)
-            } else {
-                database.planDao().insertSets(backup.plannedExercises.flatMap { exercise -> List(exercise.sets) { position ->
-                    PlannedSet(plannedExerciseId = exercise.id, position = position, repsMin = exercise.repsMin, repsMax = exercise.repsMax,
-                        weightValue = exercise.weightValue, weightUnit = exercise.weightUnit, restSeconds = null)
-                } })
-                // Earlier plans already linked to an actual workout keep their targets as a snapshot.
-                backup.plannedWorkouts.filter { it.startedWorkoutId != null }.forEach { plan ->
-                    database.planDao().insertRun(WorkoutPlanRun(plan.startedWorkoutId!!, plan.id, plan.title, plan.warmUp, plan.legacyGuidance))
-                    backup.entries.filter { it.workoutId == plan.startedWorkoutId }.forEach { entry ->
-                        val target = backup.plannedExercises.firstOrNull { it.planId == plan.id && it.exerciseId == entry.exerciseId }
-                        if (target != null) {
-                            dao.updateEntry(entry.copy(planNote = target.note))
-                            database.planDao().insertRunTargets(List(target.sets) { position ->
-                            WorkoutSetTarget(entryId = entry.id, position = position, repsMin = target.repsMin, repsMax = target.repsMax,
-                                weightValue = target.weightValue, weightUnit = target.weightUnit, restSeconds = null)
-                        })
-                        }
-                    }
-                }
-            }
+            database.planDao().insertSets(backup.plannedSets)
+            backup.planRuns.forEach { database.planDao().insertRun(it) }
+            database.planDao().insertRunTargets(backup.runTargets)
             dao.insertSets(backup.sets)
+            database.bodyProfileDao().clear()
+            backup.bodyProfile?.let { database.bodyProfileDao().put(it) }
             val training = database.trainingDao()
             backup.exerciseAliases.forEach { training.putAlias(it) }; backup.exerciseMappings.forEach { training.putMapping(it) }
             backup.exerciseRedirects.forEach { training.putRedirect(it) }; backup.exerciseProgression.forEach { training.putProgression(it) }
@@ -322,7 +334,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
             backup.exerciseRedirects.maxOfOrNull { it.oldId }?.let { retiredId ->
                 database.openHelper.writableDatabase.execSQL("UPDATE sqlite_sequence SET seq = max(seq, ?) WHERE name = 'exercises'", arrayOf(retiredId))
             }
-            if (backup.version >= 7) training.clearPreferences()
+            training.clearPreferences()
             backup.trainingPreferences?.let { training.putPreferences(it) }
             backup.restTimer?.let { training.putTimer(it.copy(token=java.util.UUID.randomUUID().toString(),running = false, bootCount = -1, anchorElapsed = 0)) }
             backup.handoffPreferences?.let { database.planDao().putPreferences(it) }

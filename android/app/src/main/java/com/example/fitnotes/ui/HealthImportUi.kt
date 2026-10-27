@@ -32,6 +32,8 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
         AlertDialog(onDismissRequest = onClose, title = { Text("Import activities") }, text = { Text("Health Connect requires Android 9 or later. Manual activity logging remains available.") }, confirmButton = { TextButton(onClick = onClose) { Text("Close") } })
         return
     }
+    var runningHistory by rememberSaveable { mutableStateOf(false) }
+    if (runningHistory) { RunningImportDialog(model) { runningHistory = false }; return }
     var days by rememberSaveable { mutableIntStateOf(7) }
     val candidates by model.healthCandidates.collectAsState(); val known by model.knownHealth.collectAsState()
     val message by model.healthMessage.collectAsState()
@@ -69,9 +71,10 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
     Dialog(onDismissRequest = { if (!busy) onClose() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
-                NotebookBar("Import activities", if (!busy) onClose else null)
+                NotebookBar("Health sync", if (!busy) onClose else null)
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 LazyColumn(Modifier.fillMaxSize().testTag("health-preview-list"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { Button(onClick={runningHistory=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import running history")} }
                     item { Text(WATCH_NOTE, style = MaterialTheme.typography.bodyMedium) }
                     item { Text(HEALTH_ACCESS_CONTEXT, style = MaterialTheme.typography.bodySmall) }
                     if (status != HealthConnectClient.SDK_AVAILABLE) item {
@@ -83,7 +86,7 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
                                 Text("Sync when FitNotes opens", Modifier.weight(1f))
                                 Switch(checked = automatic, onCheckedChange = model::setAutomaticHealth)
                             }
-                            Text("Refreshes existing links and attaches Garmin activities with a single clear match by type and recorded times. Date-only, unfinished, unmatched and ambiguous entries need review. Sync stops when you leave the app.", style = MaterialTheme.typography.bodySmall)
+                            Text("Refreshes linked activities and imports completed Garmin runs. Possible run matches need review in Import running history. Sync stops when you leave the app.", style = MaterialTheme.typography.bodySmall)
                             Text(syncStatus, style = MaterialTheme.typography.bodySmall)
                             ChoiceField("Period", listOf("Last 7 days", "Last 30 days"), "Last $days days") {
                                 days = if (it == "Last 7 days") 7 else 30
@@ -104,7 +107,7 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
                         ChoiceField("Source package", listOf("All sources") + sources, source) { source = it }
                         Text("Source identity is the Health Connect origin package. Garmin Connect uses $GARMIN_PACKAGE.", style = MaterialTheme.typography.bodySmall)
                     }
-                    items(candidates.filter { (source == "All sources" || it.session.originPackage == source) && it.session.key !in skipped }, key = { it.session.key }) { candidate ->
+                    items(candidates.filter { it.session.activityType != "running" && (source == "All sources" || it.session.originPackage == source) && it.session.key !in skipped }, key = { it.session.key }) { candidate ->
                         val s = candidate.session; val prior = known.firstOrNull { it.key == s.key }
                         val matches = matchingWorkouts(s, data.workouts.map { it.workout })
                         OutlinedCard(Modifier.fillMaxWidth()) {
@@ -123,7 +126,10 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
                                 if (prior == null) {
                                     TextButton(enabled = !busy, onClick = { model.importHealth(candidate) {} }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import as new session") }
                                     TextButton(enabled = !busy && (data.workouts.isNotEmpty() || data.imported.workouts.isNotEmpty()), onClick = { selectedLocal = null; attaching = candidate }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Attach to local session…") }
-                                } else if ((prior.workoutId != null || prior.importedWorkoutId != null)) TextButton(enabled = !busy, onClick = { model.importHealth(candidate) {} }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Refresh imported data") }
+                                } else if ((prior.workoutId != null || prior.importedWorkoutId != null)) {
+                                    TextButton(enabled = !busy, onClick = { model.importHealth(candidate) {} }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Refresh imported data") }
+                                    TextButton(enabled = !busy, onClick = { selectedLocal=null;attaching=candidate },modifier=Modifier.heightIn(min=48.dp)){Text("Associate with workout…")}
+                                }
                                 TextButton(enabled = !busy, onClick = { skipped = skipped + s.key }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Skip") }
                             }
                         }

@@ -114,6 +114,8 @@ class ProgressPhotoTest {
     }
     @Test fun optInArchiveRoundTripRepeatedRestoreAndLegacyRestorePreservePhotos() = runBlocking {
         val original = image(); val first = import(original); import(original, "2026-02-02")
+        val profile = BodyProfile(heightCm = 180.0, birthDate = "2000-01-01", weightUnit = "lb", heightUnit = "ft-in")
+        db.bodyProfileDao().put(profile)
         val archive = File(temporary, "synthetic-photo-backup.zip")
         val backup = PhotoBackup(photos, workouts)
         backup.export(Uri.fromFile(archive))
@@ -121,8 +123,11 @@ class ProgressPhotoTest {
         assertFalse(jsonOnly.contains(first.id)); assertFalse(BackupCodec.analysis(workouts.backup()).contains(first.id))
         photos.delete(first.id)
         repeat(2) {
+            db.bodyProfileDao().clear()
             val pending = backup.inspect(Uri.fromFile(archive)); assertEquals(2, pending.photos.size)
+            assertEquals(profile, pending.backup.bodyProfile)
             backup.restore(pending)
+            assertEquals(profile, db.bodyProfileDao().get())
             assertEquals(2, db.photoDao().all().size)
             assertTrue(db.photoDao().all().all { photos.file(it).isFile })
         }

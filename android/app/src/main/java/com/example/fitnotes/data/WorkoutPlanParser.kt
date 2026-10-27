@@ -107,8 +107,8 @@ fun normaliseExerciseName(raw: String) = raw.trim().replace(Regex("\\s+"), " ").
 enum class ExerciseMatchKind { EXACT, ALIAS, AMBIGUOUS, UNKNOWN, INCOMPATIBLE }
 data class PlanExerciseMatch(val kind: ExerciseMatchKind, val candidates: List<Exercise>)
 
-// The existing catalogue has no saved alias table. Only explicit aliases passed
-// by a caller are eligible; abbreviations and movement variants are never guessed.
+// Persisted explicit aliases are eligible; abbreviations and movement variants
+// are never guessed.
 fun matchPlanExercise(name: String, catalogue: List<Exercise>, incompatible: Set<Long> = emptySet(), aliases: Map<String, Set<Long>> = emptyMap()): PlanExerciseMatch {
     val key = normaliseExerciseName(name)
     val exact = catalogue.filter { normaliseExerciseName(it.name) == key }
