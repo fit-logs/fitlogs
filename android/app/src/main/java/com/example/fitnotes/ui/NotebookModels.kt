@@ -29,14 +29,16 @@ data class NotebookSet(val key: String, val weight: Double?, val reps: Int?, val
 data class NotebookExercise(val key: String, val name: String, val category: String = "", val entryId: Long? = null, val sets: List<NotebookSet>, val canonicalId: Long? = null, val sourceName: String? = null)
 data class NotebookSession(val key: String, val date: String, val title: String, val notes: String, val completed: Boolean,
     val local: WorkoutDetail? = null, val imported: ImportedWorkoutDetail? = null, val exercises: List<NotebookExercise>) {
-    val summary get() = local?.let(::activitySummary)
+    // Immutable sessions can be read by both the projection worker and Compose.
+    // Keep parsing out of sort comparisons; copy() creates fresh caches.
+    val summary by lazy(LazyThreadSafetyMode.PUBLICATION) { local?.let(::activitySummary) }
     val activity get() = local?.workout?.activityType ?: "strength"
     val activityTitle get() = summary?.sport ?: "Strength training"
-    val duration get() = if(local != null) summary?.seconds else imported?.let { source -> recordedMillis(source.workout.recordedStart)?.let { start -> recordedMillis(source.workout.recordedEnd)?.takeIf { it >= start }?.let { (it-start)/1000.0 } } }
+    val duration get() = if(local != null) summary?.seconds else startedMillis?.let { start -> completedMillis?.takeIf { it >= start }?.let { (it-start)/1000.0 } }
     val count get() = exercises.sumOf { it.sets.size }
     val dateOnly get() = if (local != null) summary?.start == null && summary?.end == null else imported != null && imported.workout.recordedStart == null
-    val startedMillis get() = summary?.start ?: recordedMillis(imported?.workout?.recordedStart)
-    val completedMillis get() = summary?.end ?: recordedMillis(imported?.workout?.recordedEnd)
+    val startedMillis by lazy(LazyThreadSafetyMode.PUBLICATION) { summary?.start ?: recordedMillis(imported?.workout?.recordedStart) }
+    val completedMillis by lazy(LazyThreadSafetyMode.PUBLICATION) { summary?.end ?: recordedMillis(imported?.workout?.recordedEnd) }
     val timeLabel get() = if (dateOnly) "Date-only" else if (local != null) summary!!.timeLabel
         else imported?.workout?.recordedStart?.substringAfter('T')?.substringBefore('+')?.take(5) ?: "Date-only"
 }
@@ -54,8 +56,10 @@ fun sortNotebookSessions(sessions: List<NotebookSession>): List<NotebookSession>
 
 fun notebookSessions(data: AppData, includeDrafts: Boolean = false): List<NotebookSession> {
     val identity = ExerciseIdentityIndex(data)
+    val exercisesById = data.exercises.associateBy { it.id }
     val locals = data.workouts.filter { includeDrafts || !it.workout.historicalDraft }.map { d ->
-        NotebookSession("local:" + d.workout.id, activitySummary(d).date, activitySummary(d).title, d.workout.notes, d.workout.isComplete,
+        val summary = activitySummary(d)
+        NotebookSession("local:" + d.workout.id, summary.date, summary.title, d.workout.notes, d.workout.isComplete,
             local = d, exercises = orderedEntries(d).map { e -> NotebookExercise("entry:" + e.entry.id, e.exercise.name, entryId = e.entry.id,
                 sets = orderedSets(e).map { s -> NotebookSet("set:" + s.id, if (s.reps > 0 && s.weightSpecified) s.weightKg else null, if (s.reps > 0) s.reps else null,
                     s.distance, s.distanceUnit, s.durationSeconds, s.comment, local = s) }, canonicalId = e.exercise.id) })
@@ -64,7 +68,7 @@ fun notebookSessions(data: AppData, includeDrafts: Boolean = false): List<Notebo
         NotebookSession("import:" + d.workout.id, d.workout.date, "", d.workout.notes, true, imported = d,
             exercises = d.sets.sortedBy { it.sourceOrder }.groupBy { it.exercise to it.category }.map { (group, records) ->
                 val canonical = identity.source(d.workout.importId, group.first, group.second)
-                NotebookExercise("original:" + group.first + "\u001f" + group.second, data.exercises.firstOrNull { it.id == canonical }?.name ?: group.first, group.second,
+                NotebookExercise("original:" + group.first + "\u001f" + group.second, exercisesById[canonical]?.name ?: group.first, group.second,
                     sets = records.map { s -> NotebookSet(s.id, s.weightKg, s.reps, s.distance, s.distanceUnit, s.durationSeconds, s.comment, imported = s) }, canonicalId = canonical, sourceName = group.first) })
     }
     val hidden = hiddenRunParents(data)

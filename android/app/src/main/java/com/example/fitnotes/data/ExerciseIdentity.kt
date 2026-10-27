@@ -7,12 +7,18 @@ import java.util.Locale
 fun aliasMap(values: List<ExerciseAlias>) = values.groupBy { it.nameKey }.mapValues { (_, aliases) -> aliases.map { it.exerciseId }.toSet() }
 class ExerciseIdentityIndex(data: AppData) {
     private val mappings=data.exerciseMappings.associateBy { Triple(it.importId,it.sourceName,it.category) }
-    private val categories=data.imported.workouts.flatMap{it.sets}.groupBy{normaliseExerciseName(it.exercise)}.mapValues{(_,rows)->rows.map{it.category}.toSet()}
+    private val names = mutableMapOf<String, String>()
+    private fun nameKey(name: String) = names.getOrPut(name) { normaliseExerciseName(name) }
+    private val categories = buildMap<String, MutableSet<String>> {
+        data.imported.workouts.forEach { detail -> detail.sets.forEach { set ->
+            getOrPut(nameKey(set.exercise)) { mutableSetOf() }.add(set.category)
+        } }
+    }
     private val exact=data.exercises.groupBy{normaliseExerciseName(it.name)}.mapValues{(_,rows)->rows.map{it.id}.toSet()}
     private val aliases=aliasMap(data.exerciseAliases)
     fun source(importId:String,name:String,category:String):Long? {
         mappings[Triple(importId,name,category)]?.let{return it.exerciseId}
-        val key=normaliseExerciseName(name)
+        val key=nameKey(name)
         if(categories[key].orEmpty().size>1)return null
         return (exact[key].orEmpty()+aliases[key].orEmpty()).singleOrNull()
     }

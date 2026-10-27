@@ -20,7 +20,7 @@ class TrainingRepository(val database: FitDatabase) {
         if (dao.timer()?.sourceTargetId == targetId) dao.clearTimer()
     }
     suspend fun applyWeight(entryId: Long, weight: PlanWeight) = database.withTransaction {
-        database.planDao().runTargets().filter { it.entryId == entryId && !it.skipped && dao.result(it.id) == null }.forEach { target ->
+        dao.pendingEntryTargets(entryId).forEach { target ->
             val next = target.target.copy(weight = weight)
             WorkoutPlanParser.validateSet(next)
             dao.updateTarget(target.copy(weightValue = weight.value, weightUnit = weight.unit))
@@ -28,13 +28,13 @@ class TrainingRepository(val database: FitDatabase) {
     }
     suspend fun addTarget(entryId: Long) = database.withTransaction {
         require(database.planDao().run(database.dao().entry(entryId)?.workoutId ?: -1) != null) { "This exercise has no plan snapshot." }
-        val targets = database.planDao().runTargets().filter { it.entryId == entryId }
+        val targets = dao.entryTargets(entryId)
         require(targets.size < WorkoutPlanParser.MAX_SETS) { "At most 100 target sets." }
         database.planDao().insertRunTargets(listOf(WorkoutSetTarget(entryId = entryId, position = targets.size, repsMin = null, repsMax = null, weightValue = null, weightUnit = null, restSeconds = null)))
     }
     suspend fun moveTarget(targetId: Long, direction: Int) = database.withTransaction {
         val target = requireNotNull(dao.target(targetId))
-        val targets = database.planDao().runTargets().filter { it.entryId == target.entryId }.sortedBy { it.position }.toMutableList()
+        val targets = dao.entryTargets(target.entryId).toMutableList()
         val from = targets.indexOfFirst { it.id == targetId }; val to = from + direction
         require(to in targets.indices) { "Cannot move this set further." }
         targets.add(to, targets.removeAt(from))

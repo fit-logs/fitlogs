@@ -38,11 +38,11 @@ fun ProgressModeSwitch(running: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 @Composable
-fun ProgressScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, onLibrary: () -> Unit, onWorkout: (String) -> Unit, onRun: (String) -> Unit) {
+fun ProgressScreen(data: AppData, model: FitNotesViewModel, busy: Boolean, onLibrary: () -> Unit, onWorkout: (String) -> Unit, onRun: (String) -> Unit, runs: List<RunRecord>) {
     val prefs = LocalContext.current.getSharedPreferences("running-progress", 0)
     var running by rememberSaveable { mutableStateOf(prefs.getBoolean("running", false)) }
     val change: (Boolean) -> Unit = { running = it; prefs.edit().putBoolean("running", it).apply() }
-    if (running) RunningProgressScreen(data, onRun, change)
+    if (running) RunningProgressScreen(data, onRun, change, runs)
     else StrengthProgressScreen(data, model, busy, onLibrary, onWorkout = onWorkout, modeSwitch = { ProgressModeSwitch(false, change) })
 }
 @Composable
@@ -56,10 +56,10 @@ fun RunRow(run: RunRecord, onOpen: (String) -> Unit) {
     }
 }
 @Composable
-fun RunningProgressScreen(data: AppData, onRun: (String) -> Unit, onMode: (Boolean) -> Unit = {}) {
+fun RunningProgressScreen(data: AppData, onRun: (String) -> Unit, onMode: (Boolean) -> Unit = {}, preparedRuns: List<RunRecord>? = null) {
     val prefs = LocalContext.current.getSharedPreferences("running-progress", 0)
     var range by rememberSaveable { mutableStateOf(prefs.getString("range", "3M")?.takeIf { it in listOf("1M", "3M", "1Y", "All") } ?: "3M") }
-    val records = remember(data) { runningRecords(data) }
+    val records = preparedRuns ?: remember(data) { runningRecords(data) }
     val stats = remember(records, range) { runningStats(records, progressFrom(range, todayDate())) }
     var info by remember { mutableStateOf(false) }
     val scroll = rememberLazyListState()
