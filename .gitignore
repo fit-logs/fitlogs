@@ -13,3 +13,6 @@ data/parsed_history.json
 # Next.js build/export output
 web/.next/
 web/out/
+
+# Public documentation build
+_site/

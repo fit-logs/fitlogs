@@ -1,0 +1,11 @@
+title: FitLogs
+url: https://fit-logs.github.io
+baseurl: /fitlogs
+markdown: kramdown
+exclude:
+  - android
+  - catalog
+  - data
+  - scripts
+  - README.md
+  - LICENSE
