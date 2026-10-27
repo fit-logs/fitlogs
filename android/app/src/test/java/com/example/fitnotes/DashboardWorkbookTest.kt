@@ -44,6 +44,7 @@ class DashboardWorkbookTest {
         assertFalse(sheets.single { it.id == 104 }.hidden)
         assertEquals(DashboardWorkbook.create(snapshot).toString(), DashboardWorkbook.create(snapshot).toString())
         // Reproducible payload for inspecting the template without personal data.
-        File("build/dashboard-synthetic-create.json").apply { parentFile.mkdirs(); writeText(DashboardWorkbook.create(snapshot).toString(2)) }
+        File("build/dashboard-synthetic-create.json").apply { parentFile!!.mkdirs(); writeText(DashboardWorkbook.create(snapshot).toString(2)) }
+        File("build/dashboard-synthetic-format.json").writeText(org.json.JSONArray(DashboardWorkbook.formatting(sheets)).toString())
     }
 }

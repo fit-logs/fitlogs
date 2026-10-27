@@ -19,7 +19,7 @@ object DashboardWorkbook {
         val body = snapshot.table("_measurements")
         val strength = snapshot.table("Strength progress")
         val selected = strength.rows.sortedWith(compareByDescending<List<Any?>> { (it[2] as Number).toInt() }.thenBy { it[0].toString() }).firstOrNull()
-        val strengthChart = DashboardTable("_chart_strength", listOf("date", "max_external_kg", "estimated_1rm_kg"),
+        val strengthChart = DashboardTable("_chart_strength", listOf("Date", "Max external (kg)", "Estimated 1RM (kg)"),
             snapshot.table("_strength_trend").rows.filter { it[2] == selected?.get(0) && (it[4] != null || it[5] != null) }
                 .map { listOf(it[0], it[4], it[5]) })
         val bodySeries = body.rows.firstOrNull()?.let { it[3] to it[5] }
@@ -57,7 +57,7 @@ object DashboardWorkbook {
     fun create(snapshot: DashboardSnapshotV1): JSONObject {
         val sheets = sheets(snapshot)
         return JSONObject().put("properties", JSONObject().put("title", "FitLogs training dashboard")
-            .put("locale", "en_NZ").put("timeZone", snapshot.timeZone))
+            .put("locale", "en_GB").put("timeZone", snapshot.timeZone))
             .put("sheets", JSONArray(sheets.map { sheet ->
                 JSONObject().put("properties", properties(sheet)).put("data", JSONArray().put(JSONObject()
                     .put("rowData", rows(sheet.table.values))))
@@ -83,20 +83,45 @@ object DashboardWorkbook {
         val range = JSONObject().put("sheetId", sheet.id).put("startRowIndex", 0).put("endRowIndex", 1)
             .put("startColumnIndex", 0).put("endColumnIndex", sheet.table.columns.size)
         val header = JSONObject().put("backgroundColor", color(0.08, 0.20, 0.30)).put("textFormat",
-            JSONObject().put("bold", true).put("foregroundColor", color(1.0, 1.0, 1.0))).put("wrapStrategy", "WRAP")
+            JSONObject().put("bold", true).put("fontFamily", "Arial").put("fontSize", 10).put("foregroundColor", color(1.0, 1.0, 1.0)))
+            .put("wrapStrategy", "WRAP").put("verticalAlignment", "MIDDLE")
         buildList {
+            add(JSONObject().put("repeatCell", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
+                .put("startRowIndex", 0).put("endRowIndex", sheet.table.values.size).put("startColumnIndex", 0).put("endColumnIndex", sheet.table.columns.size))
+                .put("cell", JSONObject().put("userEnteredFormat", JSONObject().put("textFormat", JSONObject().put("fontFamily", "Arial").put("fontSize", 10))))
+                .put("fields", "userEnteredFormat.textFormat")))
             add(JSONObject().put("repeatCell", JSONObject().put("range", range).put("cell", JSONObject().put("userEnteredFormat", header)).put("fields", "userEnteredFormat")))
             add(
             JSONObject().put("updateDimensionProperties", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
                 .put("dimension", "COLUMNS").put("startIndex", 0).put("endIndex", sheet.table.columns.size))
                 .put("properties", JSONObject().put("pixelSize", if (sheet.id == 100) 270 else 170)).put("fields", "pixelSize")))
             if (!sheet.hidden && sheet.id != 100) {
+                add(JSONObject().put("updateDimensionProperties", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
+                    .put("dimension", "ROWS").put("startIndex", 0).put("endIndex", 1))
+                    .put("properties", JSONObject().put("pixelSize", 60)).put("fields", "pixelSize")))
                 add(JSONObject().put("setBasicFilter", JSONObject().put("filter", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
                     .put("startRowIndex", 0).put("endRowIndex", maxOf(2, sheet.table.values.size)).put("startColumnIndex", 0).put("endColumnIndex", sheet.table.columns.size)))))
                 add(JSONObject().put("updateDimensionProperties", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
                     .put("dimension", "COLUMNS").put("startIndex", 0).put("endIndex", if (sheet.id == 103) 2 else 1))
                     .put("properties", JSONObject().put("hiddenByUser", true)).put("fields", "hiddenByUser")))
             }
+            if (sheet.id == 100) {
+                listOf(200, 300, 24).forEachIndexed { column, width ->
+                    add(JSONObject().put("updateDimensionProperties", JSONObject().put("range", JSONObject().put("sheetId", 100)
+                        .put("dimension", "COLUMNS").put("startIndex", column).put("endIndex", column + 1))
+                        .put("properties", JSONObject().put("pixelSize", width)).put("fields", "pixelSize")))
+                }
+                add(JSONObject().put("repeatCell", JSONObject().put("range", JSONObject().put("sheetId", 100)
+                    .put("startRowIndex", 1).put("endRowIndex", sheet.table.values.size).put("startColumnIndex", 0).put("endColumnIndex", 2))
+                    .put("cell", JSONObject().put("userEnteredFormat", JSONObject().put("wrapStrategy", "WRAP").put("verticalAlignment", "MIDDLE")))
+                    .put("fields", "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment")))
+                add(JSONObject().put("autoResizeDimensions", JSONObject().put("dimensions", JSONObject().put("sheetId", 100)
+                    .put("dimension", "ROWS").put("startIndex", 0).put("endIndex", sheet.table.values.size))))
+            }
+            if (sheet.id == 101) add(JSONObject().put("repeatCell", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
+                .put("startRowIndex", 1).put("endRowIndex", maxOf(2, sheet.table.values.size)).put("startColumnIndex", 4).put("endColumnIndex", 9))
+                .put("cell", JSONObject().put("userEnteredFormat", JSONObject().put("numberFormat", JSONObject().put("type", "NUMBER").put("pattern", "0.0"))))
+                .put("fields", "userEnteredFormat.numberFormat")))
         }
     }
 
@@ -109,8 +134,8 @@ object DashboardWorkbook {
                 add(chart(501, "Completed sessions by week", "COLUMN", weekly, listOf(1), 100, 1, "Sessions"))
                 add(chart(502, "Recorded running distance by week", "COLUMN", weekly, listOf(4), 100, 19, "Kilometres"))
             }
-            if (strength.table.rows.isNotEmpty()) add(chart(503, "${sheets.single { it.id == 100 }.table.rows[6][1]} · strength", "LINE", strength, listOf(1, 2), 101, 2, "Kilograms"))
-            if (body.table.rows.isNotEmpty()) add(chart(504, body.table.columns[1], "LINE", body, listOf(1), 104, 2, body.table.columns[1]))
+            if (strength.table.rows.isNotEmpty()) add(chart(503, "${sheets.single { it.id == 100 }.table.rows[6][1]} · strength", "LINE", strength, listOf(1, 2), 101, sheets.single { it.id == 101 }.table.values.size + 2, "Kilograms"))
+            if (body.table.rows.isNotEmpty()) add(chart(504, body.table.columns[1], "LINE", body, listOf(1), 104, sheets.single { it.id == 104 }.table.values.size + 2, body.table.columns[1]))
         }
     }
 
@@ -121,12 +146,13 @@ object DashboardWorkbook {
         val basic = JSONObject().put("chartType", type).put("headerCount", 1).put("legendPosition", if (columns.size == 1) "NO_LEGEND" else "BOTTOM_LEGEND")
             .put("domains", JSONArray().put(JSONObject().put("domain", range(0))))
             .put("series", JSONArray(columns.mapIndexed { n, column -> JSONObject().put("series", range(column)).put("targetAxis", "LEFT_AXIS")
-                .put("colorStyle", JSONObject().put("rgbColor", if (n == 0) color(0.05, 0.48, 0.58) else color(0.9, 0.5, 0.1))) }))
+                .put("colorStyle", JSONObject().put("rgbColor", if (n == 0) color(0.05, 0.48, 0.58) else color(0.9, 0.5, 0.1)))
+                .also { if (type == "LINE") it.put("pointStyle", JSONObject().put("shape", "CIRCLE").put("size", 5)) } }))
             .put("axis", JSONArray().put(JSONObject().put("position", "BOTTOM_AXIS").put("title", "Date"))
                 .put(JSONObject().put("position", "LEFT_AXIS").put("title", unit)))
         return JSONObject().put("chartId", id).put("spec", JSONObject().put("title", title).put("fontName", "Arial").put("basicChart", basic))
             .put("position", JSONObject().put("overlayPosition", JSONObject().put("anchorCell", JSONObject().put("sheetId", target)
-                .put("rowIndex", row).put("columnIndex", if (target == 100) 3 else 10)).put("widthPixels", 720).put("heightPixels", 330)))
+                .put("rowIndex", row).put("columnIndex", if (target == 100) 3 else 1)).put("widthPixels", if (target == 100) 580 else 720).put("heightPixels", 330)))
     }
 
     private fun color(r: Double, g: Double, b: Double) = JSONObject().put("red", r).put("green", g).put("blue", b)

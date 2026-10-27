@@ -27,6 +27,9 @@ their own spreadsheet and FitLogs folder; no shared developer Drive is used.
 The synthetic template is reproduced by `DashboardWorkbookTest` at
 `android/app/build/dashboard-synthetic-create.json`. Formatting requests come
 from `DashboardWorkbook.formatting`; no personal records are used by the test.
+The native Sheets API accepted these chart/format requests against a separate
+synthetic preview workbook. Sheets requires the supported `en_GB` locale;
+`en_NZ` is rejected. Local calendar grouping still uses the captured time zone.
 
 ## Android Google registration
 
@@ -45,6 +48,10 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
 - During setup, use External/Testing and explicitly allow test accounts.
   Before general availability, finish Branding and switch to Production so
   every app user can authorize their own account; a test-user list is temporary.
+- Public app/privacy documentation is built and checked by
+  `.github/workflows/public-pages.yml`, deployed from main at
+  `https://fit-logs.github.io/fitlogs/`. These static pages receive no training
+  records or Google credentials.
 - Each phone must approve its own Google access. Console registration does not
   grant the developer access to anyone's files.
 

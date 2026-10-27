@@ -1,3 +1,9 @@
+---
+layout: default
+title: Privacy
+permalink: /privacy/
+---
+
 # FitLogs privacy
 
 FitLogs stores workout history, measurements, imported activity records and
