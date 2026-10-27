@@ -17,6 +17,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GRADLE_OPTS: -Dorg.gradle.caching=true
+
 jobs:
   prepare:
     if: github.ref == 'refs/heads/main'
@@ -98,6 +101,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Restore Gradle dependencies and build cache
+        uses: gradle/actions/setup-gradle@v5
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools'
