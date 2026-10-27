@@ -22,5 +22,9 @@ preserve completed and skipped sets. There is no database schema change.
 - `TrainingWorkflowTest`: weight changes leave completed/skipped targets and
   other exercises untouched.
 - Existing unit tests, lint, unsigned release assembly and instrumentation
-  compilation remain release gates. Physical-device smoothness still needs a
+  compilation passed. The isolated preview emulator also passed exercise
+  reordering, cancel/save, process recreation, scrolling and completing a
+  target while preserving existing results and the rest timer. Its test now
+  uses the current completion checkbox and permits the existing last-action
+  timestamp update. Physical-device smoothness still needs a
   check with the user's actual history; synthetic tests do not establish that.
