@@ -59,8 +59,8 @@ fun ActivityEntryDialog(busy: Boolean, model: FitNotesViewModel, onCancel: () ->
                 OutlinedTextField(distance, { distance = it }, label = { Text("Optional distance") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 ChoiceField("Unit", listOf("m", "km", "ft", "mi"), unit) { unit = it }
             }
-            Text(WATCH_NOTE, style = MaterialTheme.typography.bodySmall)
-            Text("The app timer records elapsed wall time. It does not start your watch, record GPS or receive live heart rate.", style = MaterialTheme.typography.bodySmall)
+
+
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !busy, onClick = {
@@ -288,7 +288,7 @@ private fun compactTimeRange(start: Long, end: Long?, includeDate: Boolean): Str
         (if (day.format(Date(start)) != day.format(Date(end))) shortDate(end) + " · " else "") + shortTime(end)
 }
 private fun compactActivityDuration(seconds: Double?): String {
-    if (seconds == null) return "Duration unknown"
+    if (seconds == null) return ""
     val total = seconds.toLong(); val hours = total / 3600; val minutes = total % 3600 / 60; val remaining = total % 60
     return buildList {
         if (hours > 0) add("$hours h")

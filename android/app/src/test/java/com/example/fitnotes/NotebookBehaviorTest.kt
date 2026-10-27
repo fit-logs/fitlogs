@@ -48,7 +48,7 @@ class NotebookBehaviorTest {
             assertEquals(original.id, db.dao().entrySets(entry).first().id)
             repo.duplicateSet(original.id)
             assertEquals("Edited note", db.dao().entrySets(entry).last().comment)
-            val backup = repo.backup(); assertEquals(13, backup.version)
+            val backup = repo.backup(); assertEquals(14, backup.version)
             val decoded = BackupCodec.decode(BackupCodec.encode(backup))
             assertEquals(backup, decoded)
             repo.restore(decoded)
@@ -92,6 +92,36 @@ class NotebookBehaviorTest {
             repo.deleteMeasurement(first.id); assertEquals(1, db.importedDao().body().size)
         } finally { db.close() }
     }
+    @Test fun minutePrecisionMeasurementsSurviveRestartAndRestoreAndInvalidTimesWriteNothing() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "measurement-time-${java.util.UUID.randomUUID()}.db"
+        var db = Room.databaseBuilder(context, FitDatabase::class.java, name).build()
+        try {
+            var repo = HistoryImportRepository(db)
+            val empty = WorkoutRepository(db).backup()
+            try { repo.saveMeasurement(null, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", "24:12", "Synthetic note"); fail("Invalid time accepted") }
+            catch (_: IllegalArgumentException) {}
+            assertEquals(empty, WorkoutRepository(db).backup().copy(exportedAt = empty.exportedAt))
+            repo.saveMeasurement(null, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", " 20:12 ", "Synthetic note")
+            val measurement = db.importedDao().body().single()
+            assertEquals("20:12:00", measurement.time)
+            assertEquals(72.625, measurement.value, 0.0)
+            assertEquals("kgs", measurement.unit); assertEquals("Synthetic note", measurement.comment)
+            val backup = WorkoutRepository(db).backup()
+            db.close()
+            db = Room.databaseBuilder(context, FitDatabase::class.java, name).build()
+            assertEquals(listOf(measurement), db.importedDao().body())
+            repo = HistoryImportRepository(db)
+            try { repo.saveMeasurement(measurement.id, "Test weight", "84", "kgs", "kgs", "2026-10-15", "20:60", "changed"); fail("Invalid edit accepted") }
+            catch (_: IllegalArgumentException) {}
+            assertEquals(backup, WorkoutRepository(db).backup().copy(exportedAt = backup.exportedAt))
+            repo.saveMeasurement(measurement.id, "Test weight", "72.625", "kgs", "kgs", "2026-10-15", " ", "Date only")
+            assertEquals("", db.importedDao().body().single().time)
+            WorkoutRepository(db).restore(BackupCodec.decode(BackupCodec.encode(backup)))
+            assertEquals(listOf(measurement), db.importedDao().body())
+            assertTrue(db.dao().workouts().isEmpty()); assertTrue(db.dao().sets().isEmpty())
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
     @Test fun previousReferenceExcludesSelfFutureDateOnlySameDayAndExerciseVariations() {
         val set = NotebookSet("s", 60.0, 10, null, null, null, "")
         val exercise = NotebookExercise("e", "Lat pulldown", sets = listOf(set))
@@ -128,7 +158,7 @@ class NotebookBehaviorTest {
             old.execSQL("INSERT INTO imported_workouts VALUES('original','source','2026-10-11',NULL,NULL,'Imported note')")
             old.version = 2
         }
-        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
+        val migrated = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(NOTEBOOK_MIGRATION_2_3, ACTIVITY_MIGRATION_3_4, ACTIVITY_MIGRATION_4_5, PHOTO_MIGRATION_5_6, PLAN_MIGRATION_6_7, PLAN_MIGRATION_7_8, TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15, *UNIFIED_MIGRATIONS_TO_16).build()
         try {
             assertEquals(6L, migrated.dao().sets().single().id); assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)
             assertEquals("", migrated.dao().sets().single().comment); assertEquals("original", migrated.importedDao().workouts().single().id)

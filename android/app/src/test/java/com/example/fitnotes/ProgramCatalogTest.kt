@@ -23,7 +23,7 @@ import java.net.URL
 class ProgramCatalogTest {
     private val context get()=ApplicationProvider.getApplicationContext<Context>()
     private val directory get()=File(context.filesDir,"program-catalog")
-    private val source=File("../../web/public/catalog")
+    private val source=File("../../catalog")
     private val manifest get()=File(source,"manifest.json").readText()
     private val parsed get()=CatalogValidator.manifest(manifest)
     private val offline=CatalogTransport{_,_->throw IOException("Offline synthetic fixture")}

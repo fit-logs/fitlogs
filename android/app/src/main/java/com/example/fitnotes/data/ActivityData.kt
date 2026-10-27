@@ -61,6 +61,7 @@ data class HealthSession(
     val maximumBpm: Double? = null,
     @ColumnInfo(defaultValue = "''") val heartOrigin: String = "",
     @ColumnInfo(defaultValue = "''") val sportLabel: String = "",
+    @ColumnInfo(defaultValue = "'{}'") val runData: String = "{}",
 )
 @Entity(tableName = "health_samples", foreignKeys = [ForeignKey(entity = HealthSession::class,
     parentColumns = ["key"], childColumns = ["sessionKey"], onDelete = ForeignKey.CASCADE)], indices = [Index("sessionKey")])

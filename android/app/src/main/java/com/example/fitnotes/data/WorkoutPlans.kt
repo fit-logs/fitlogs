@@ -18,7 +18,7 @@ data class PlannedWorkout(@PrimaryKey val id: String, val title: String, val sch
 @Entity(tableName = "planned_exercises", foreignKeys = [
     ForeignKey(entity = PlannedWorkout::class, parentColumns = ["id"], childColumns = ["planId"], onDelete = ForeignKey.CASCADE),
     ForeignKey(entity = Exercise::class, parentColumns = ["id"], childColumns = ["exerciseId"], onDelete = ForeignKey.RESTRICT)],
-    indices = [Index("exerciseId"), Index(value = ["planId", "position"], unique = true), Index(value = ["planId", "exerciseId"], unique = true)])
+    indices = [Index("exerciseId"), Index(value = ["planId", "position"], unique = true), Index(value = ["planId", "exerciseId"])])
 data class PlannedExercise(@PrimaryKey(autoGenerate = true) val id: Long = 0, val planId: String, val exerciseId: Long,
     val position: Int, val sourceName: String, val sets: Int, val repsMin: Int, val repsMax: Int,
     val weightValue: String?, val weightUnit: String?, val note: String, @ColumnInfo(defaultValue = "''") val supersetGroup: String = "")
@@ -163,7 +163,6 @@ class WorkoutPlanRepository(private val database: FitDatabase) {
                 local.insertExercise(Exercise(name = name, nameKey = key))
             }
         }
-        require(ids.distinct().size == ids.size) { "The same catalogue exercise was selected twice. Combine its prescriptions or choose distinct exercises." }
         val planId = existing?.id ?: UUID.randomUUID().toString()
         val spec = preview.spec
         val plan = PlannedWorkout(planId, spec.title.trim(), spec.date, spec.durationMinutes, spec.note, existing?.createdAt ?: System.currentTimeMillis(),

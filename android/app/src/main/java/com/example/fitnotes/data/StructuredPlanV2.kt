@@ -25,8 +25,8 @@ internal object StructuredPlanV2 {
                         try {
                             val set = sets.getJSONObject(position)
                             keys(set, WorkoutPlanFormat.setFields)
-                            val low = integer(set, "repsMin")!!
-                            val high = integer(set, "repsMax")!!
+                            val low = if(set.has("repsMin")&&set.isNull("repsMin")) null else integer(set,"repsMin")
+                            val high = if(set.has("repsMax")&&set.isNull("repsMax")) null else integer(set,"repsMax")
                             val weight = if (!set.has("weight") && !set.has("unit")) PlanWeight(null, null)
                                 else if (text(set, "unit", required = true).equals("bodyweight", true)) {
                                     require(!set.has("weight")) { "Bodyweight must omit numeric weight." }; PlanWeight(null, "bodyweight")

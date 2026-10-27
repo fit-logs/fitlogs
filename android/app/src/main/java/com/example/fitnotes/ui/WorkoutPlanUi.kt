@@ -1,5 +1,8 @@
 package com.example.fitnotes.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -38,6 +41,9 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
         }
     }
     var resolving by rememberSaveable { mutableStateOf<String?>(null) }
+    var expandedExercise by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(draft?.editingId) { model.planFocusPosition?.let{position->expandedExercise=draft?.exercises?.getOrNull(position)?.key};model.planFocusPosition=null }
+    var planDetails by rememberSaveable { mutableStateOf(false) }
     var formatCopied by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val focus = LocalFocusManager.current
@@ -98,24 +104,26 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
             }
             item { Text("Preview and Cancel leave training data unchanged. Saving creates a planned workout; starting and recording results are separate actions.", style = MaterialTheme.typography.bodySmall) }
         } else {
-            item { Text("Planned · targets only", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
-            if (!savedUnchanged) item { Text("Save the plan before starting. Planning changes never start a session.", style = MaterialTheme.typography.bodySmall) }
-            if (p.recoveryWorkoutId != null) item { Text("Save plan will move this empty import out of training and remove its accidental start timestamp. Cancel leaves it unchanged.", color = MaterialTheme.colorScheme.primary) }
-            item { OutlinedTextField(p.title, { value -> modify { it.copy(title = value) } }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth(), enabled = !busy) }
-            item { OutlinedTextField(p.date, { value -> modify { it.copy(date = value) } }, label = { Text("Scheduled date (optional YYYY-MM-DD)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy) }
-            item { OutlinedTextField(p.minutes, { value -> modify { it.copy(minutes = value) } }, label = { Text("Time budget (optional minutes)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), enabled = !busy) }
-            item { OutlinedTextField(p.note, { value -> modify { it.copy(note = value) } }, label = { Text("Session note") }, minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth(), enabled = !busy) }
-            item { EditableGuidance("Warm-up", p.warmUp, busy) { value -> modify { it.copy(warmUp = value) } } }
-            if (p.legacyGuidance.isNotBlank()) item { EditableGuidance("Additional instructions · review before starting", p.legacyGuidance, busy, initiallyExpanded = true) { value -> modify { it.copy(legacyGuidance = value) } } }
-            item { Text("Select the intended movement for unresolved names. The app does not guess abbreviations or combine movement variants.", style = MaterialTheme.typography.bodySmall) }
+            item { Text(p.title,style=MaterialTheme.typography.headlineSmall);Text(planSubtitle(p.exercises.size,p.minutes.toIntOrNull() ?: 0));if(p.date.isNotBlank())Text(prettyDay(p.date)) }
+            item { TextButton(onClick={planDetails=!planDetails}){Text("Plan details")};if(planDetails)Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(p.title,{value->modify{it.copy(title=value)}},label={Text("Title")},modifier=Modifier.fillMaxWidth())
+                OutlinedTextField(p.date,{value->modify{it.copy(date=value)}},label={Text("Scheduled date (optional YYYY-MM-DD)")},modifier=Modifier.fillMaxWidth())
+                OutlinedTextField(p.minutes,{value->modify{it.copy(minutes=value)}},label={Text("About how many minutes?")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth())
+            } }
+            item { var notesOpen by rememberSaveable{mutableStateOf(false)};TextButton(onClick={notesOpen=!notesOpen}){Text("Workout notes"+if(notesOpen)" ▴" else " ▾")};if(notesOpen)Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(p.note,{value->modify{it.copy(note=value)}},label={Text("General notes")},modifier=Modifier.fillMaxWidth())
+                OutlinedTextField(p.warmUp,{value->modify{it.copy(warmUp=value)}},label={Text("Warm-up")},modifier=Modifier.fillMaxWidth())
+                if(p.legacyGuidance.isNotBlank())OutlinedTextField(p.legacyGuidance,{value->modify{it.copy(legacyGuidance=value)}},label={Text("Guidance")},modifier=Modifier.fillMaxWidth())
+            } }
             items(p.exercises, key = { it.key }) { e ->
                 val index = p.exercises.indexOf(e)
                 val match = matchPlanExercise(e.sourceName, data.exercises, incompatible)
                 val selected = data.exercises.firstOrNull { it.id == e.exerciseId }
-                Surface(modifier = Modifier.testTag("plan-row:${e.key}"), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+                Surface(onClick={expandedExercise=if(expandedExercise==e.key)null else e.key},modifier = Modifier.testTag("plan-row:${e.key}"),color=MaterialTheme.colorScheme.surface) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${index + 1}. ${e.sourceName}", style = MaterialTheme.typography.titleMedium)
+                        Text(editablePrescription(e.targets),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        if(expandedExercise==e.key) {
                         val label = when {
                             e.createName != null -> "New strength exercise: ${e.createName} (created on save)"
                             selected != null && selected.id !in incompatible -> "Matched: ${selected.name}"
@@ -123,7 +131,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                             match.kind == ExerciseMatchKind.AMBIGUOUS -> "Ambiguous name · choose the intended exercise"
                             else -> "Unknown name · select or explicitly create a strength exercise"
                         }
-                        Text(label, color = if (e.createName != null || (selected != null && selected.id !in incompatible)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                        if(selected==null || e.createName!=null) Text(label, color = if (e.createName != null || (selected != null && selected.id !in incompatible)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                         OutlinedButton(onClick = { resolving = e.key }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Resolve exercise") }
                         OutlinedTextField(e.note, { value -> target(e.key) { it.copy(note = value) } }, label = { Text("Exercise guidance") }, minLines = 1, maxLines = 3, modifier = Modifier.fillMaxWidth(), enabled = !busy)
                         e.targets.forEachIndexed { position, set ->
@@ -137,6 +145,7 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
                             TextButton(onClick = { move(e.key, -1) }, enabled = !busy && index > 0) { Text("Move up") }
                             TextButton(onClick = { move(e.key, 1) }, enabled = !busy && index < p.exercises.lastIndex) { Text("Move down") }
                             TextButton(onClick = { modify { it.copy(exercises = it.exercises.filter { row -> row.key != e.key }) } }, enabled = !busy) { Text("Remove") }
+                        }
                         }
                     }
                 }
@@ -181,6 +190,10 @@ fun PastePlanDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, onCl
 @Composable
 fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, selectedId: String?, onSelect: (String?) -> Unit,
     onClose: () -> Unit, onPaste: () -> Unit, onEdit: (String) -> Unit, onStart: (String) -> Unit, onOpenWorkout: (Long) -> Unit) {
+    var exportingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val exportPlan = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.fitnotes.plan")) { uri ->
+        if (uri != null) exportingId?.let { model.exportPlan(uri, it) }
+    }
     val allPlans by model.plans.collectAsState()
     val programs by model.programs.collectAsState()
     val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
@@ -199,6 +212,8 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
             if(!programDay) Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
             TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Review suggested weights") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
+            TextButton(onClick = { exportingId = selected.plan.id; exportPlan.launch("FitLogs plan.fitnotesplan") }, enabled = !busy) { Text("Export plan") }
+            TextButton(onClick = { model.duplicatePlan(selected.plan.id) { onSelect(it) } }, enabled = !busy) { Text("Duplicate") }
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
             if(!programDay) TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete template") }
         }
@@ -234,10 +249,19 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
             if (data.active != null && selected.plan.startedWorkoutId == null) item { Text("Finish or delete the unfinished workout before starting this plan.", color = MaterialTheme.colorScheme.error) }
         }
     }
-    if (deleting && selected != null) NotebookConfirm("Delete planned workout?", "Plan targets will be removed. Any recorded workout and actual sets remain.", "Delete", busy, { deleting = false }) {
-        model.deletePlan(selected.plan.id) { deleting = false; onSelect(null) }
-    }
+    if(deleting&&selected!=null)NotebookConfirm("Delete plan?","Recorded workouts and sets are kept.","Delete",busy,{deleting=false}){model.deletePlan(selected.plan.id){deleting=false;onSelect(null)}}
 }
+
+fun compactPrescription(targets:List<PlanSetTarget>):String {
+    if(targets.isEmpty())return "View targets"
+    val uniform=targets.map{Triple(it.repsMin to it.repsMax,it.weight,it.loadMode)}.distinct().size==1
+    if(!uniform)return "${targets.size} sets · View targets"
+    val first=targets.first()
+    val reps=first.repsMin?.let{if(it==first.repsMax)it.toString()else "$it–${first.repsMax}"}
+    val load=when(first.loadMode){LoadMode.BODYWEIGHT->if(first.weight.unit==null||first.weight.unit=="bodyweight")"Bodyweight"else "Bodyweight + ${first.weight.text}";LoadMode.ASSISTANCE->first.weight.unit?.let{"${first.weight.text} assistance"};else->first.weight.unit?.let{first.weight.text}}
+    return "${targets.size}"+(reps?.let{" × $it"} ?: " sets")+load?.let{" · $it"}.orEmpty()
+}
+fun editablePrescription(targets:List<EditableTarget>):String=runCatching{compactPrescription(targets.map{it.validated("Exercise")})}.getOrElse{"${targets.size} sets · View targets"}
 
 @Composable
 fun TargetReference(target: PlanPrescription) {

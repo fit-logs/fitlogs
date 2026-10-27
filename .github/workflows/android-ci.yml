@@ -5,7 +5,8 @@ on:
     paths:
       - 'android/**'
       - 'data/programs/**'
-      - 'web/public/catalog/**'
+      - 'catalog/**'
+      - 'scripts/*catalog*'
       - '.github/workflows/android-ci.yml'
       - '.github/workflows/android-release.yml'
   push:
@@ -13,7 +14,8 @@ on:
     paths:
       - 'android/**'
       - 'data/programs/**'
-      - 'web/public/catalog/**'
+      - 'catalog/**'
+      - 'scripts/*catalog*'
       - '.github/workflows/android-ci.yml'
       - '.github/workflows/android-release.yml'
   workflow_dispatch:
@@ -27,7 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test automatic release selection
-        run: python3 -m unittest discover -s android/scripts -p 'test_release_metadata.py' -v
+        run: python3 -m unittest discover -s android/scripts -p 'test_*.py' -v
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install jsonschema==4.26.0
+      - run: python scripts/validate_catalog.py
+      - run: python scripts/test_catalog_validation.py
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -44,7 +56,7 @@ jobs:
         run: sdkmanager --channel=3 --install 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
       - name: Test, lint and assemble unsigned APK
         working-directory: android
-        run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --console=plain
+        run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease :app:assembleDebugAndroidTest --no-daemon --console=plain
       - name: Upload test and lint reports
         if: always()
         uses: actions/upload-artifact@v4

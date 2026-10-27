@@ -43,14 +43,7 @@ internal object TrainingBackupJson {
 }
 
 fun validateTrainingBackup(b: Backup) {
-    if (b.version < 7) {
-        require(b.exerciseAliases.isEmpty() && b.exerciseMappings.isEmpty() && b.exerciseRedirects.isEmpty() && b.exerciseProgression.isEmpty() && b.trainingPreferences==null && b.restTimer==null &&
-            b.sets.all { it.targetId==null && it.completedAt==null && it.loadMode==LoadMode.UNKNOWN && !it.isWarmUp && it.weightSpecified } &&
-            b.entries.all { it.supersetGroup.isEmpty() } && b.plannedExercises.all { it.supersetGroup.isEmpty() } &&
-            b.plannedSets.all { it.loadMode==LoadMode.target(PlanWeight(it.weightValue,it.weightUnit)) && !it.isWarmUp } &&
-            b.runTargets.all { it.loadMode==LoadMode.target(PlanWeight(it.weightValue,it.weightUnit)) && !it.isWarmUp && !it.skipped }) { "These training fields require backup version 7." }
-        return
-    }
+
     val exercises=b.exercises.map{it.id}.toSet(); val sources=b.imports.map{it.id}.toSet(); val targets=b.runTargets.associateBy{it.id}
     require(b.sets.mapNotNull{it.targetId}.distinct().size == b.sets.count{it.targetId!=null}) { "More than one result fulfils a target." }
     b.sets.forEach { s ->

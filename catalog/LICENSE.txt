@@ -5,7 +5,7 @@ https://creativecommons.org/licenses/by/4.0/
 Legal terms: https://creativecommons.org/licenses/by/4.0/legalcode
 
 Attribution: FitNotes contributors — FitNotes Workout Library.
-Source: https://avivajpeyi.github.io/fitnotes/library/
+Source: https://github.com/fit-logs/fitlogs/tree/main/catalog
 
 These generic routines and descriptions were independently authored for this
 library. No third-party routine articles, branded packages, screenshots or images

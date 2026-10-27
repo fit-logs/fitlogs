@@ -31,12 +31,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import com.example.fitnotes.data.*
 
+val LocalKeyboardVisible = compositionLocalOf { false }
+
 @Composable
 fun NotebookBar(title: String, onBack: (() -> Unit)? = null, backLabel: String = "Back", actions: @Composable RowScope.() -> Unit = {}) {
+    val keyboardOpen=LocalKeyboardVisible.current
+    var showTitle by remember { mutableStateOf(false) }
+    if(showTitle)AlertDialog(onDismissRequest={showTitle=false},title={Text("Exercise")},text={Text(title)},confirmButton={TextButton(onClick={showTitle=false}){Text("Close")}})
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, backLabel) }
-            Text(title, Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, Modifier.weight(1f).heightIn(min=48.dp).then(if(title.length>36)Modifier.clickable{showTitle=true}else Modifier).padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge,maxLines=if(keyboardOpen)2 else Int.MAX_VALUE,overflow=TextOverflow.Ellipsis)
             actions()
         }
     }
@@ -44,30 +49,16 @@ fun NotebookBar(title: String, onBack: (() -> Unit)? = null, backLabel: String =
 @Composable
 fun OverflowMenu(content: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    var settings by remember { mutableStateOf(false) }
-    var notices by remember { mutableStateOf(false) }
-    val appearance = LocalAppearance.current
+    val settingsAction = LocalSettingsAction.current
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, "More actions") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             content { open = false }
             HorizontalDivider()
-            MenuAction("Open-source notices") { open=false;notices=true }
-            MenuAction("Settings") { open = false; settings = true }
+            MenuAction("Settings") { open = false; settingsAction() }
         }
     }
-    if(notices) OpenSourceNotices { notices=false }
-    if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text("Settings") }, text = {
-        Column {
-            Text("Appearance", style = MaterialTheme.typography.titleMedium)
-            ThemeMode.entries.forEach { mode ->
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.RadioButton) { appearance.choose(mode) }, verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = appearance.mode == mode, onClick = { appearance.choose(mode) })
-                    Text(mode.name)
-                }
-            }
-        }
-    }, confirmButton = { TextButton(onClick = { settings = false }) { Text("Done") } })
+
 }
 @Composable
 fun MenuAction(text: String, onClick: () -> Unit) = DropdownMenuItem(text = { Text(text) }, onClick = onClick)
@@ -105,7 +96,6 @@ fun NotebookSetRow(set: NotebookSet, number: Int, selected: Boolean = false, onC
                     if (set.comment.isNotBlank()) Text("•", Modifier.semantics { contentDescription = "Has note" }, color = MaterialTheme.colorScheme.primary)
                 }
             }
-            if((set.reps ?: 0)>0 && (set.local?.loadMode==LoadMode.UNKNOWN || set.imported!=null)) Text("Load mode unknown",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             if (selected && set.comment.isNotBlank()) Text(set.comment, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
         }
     }

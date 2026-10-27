@@ -11,7 +11,7 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-const val CATALOG_URL="https://avivajpeyi.github.io/fitnotes/catalog/"
+const val CATALOG_URL="https://raw.githubusercontent.com/fit-logs/fitlogs/main/catalog/"
 data class CatalogEntry(val id:String,val version:String,val path:String,val sha256:String,val title:String,val description:String,
     val goal:String,val level:String,val equipment:List<String>,val days:Int,val minutes:Int,val starter:Boolean)
 data class CatalogManifest(val version:String,val entries:List<CatalogEntry>,val exercises:Map<String,String>,val raw:String)
@@ -67,7 +67,7 @@ class PublicCatalogTransport(private val connect:(URL)->HttpURLConnection={it.op
         connection.requestMethod="GET";connection.setRequestProperty("Accept","application/json");connection.setRequestProperty("Cache-Control","no-cache")
         try {
             require(connection.responseCode==200){"Catalog unavailable (HTTP ${connection.responseCode}). Cached starters and installed programs still work."}
-            require(connection.contentType?.substringBefore(';')?.trim()=="application/json"){"Catalog response is not JSON."}
+            require(connection.contentType?.substringBefore(';')?.trim() in setOf("application/json", "text/plain")){"Catalog response is not JSON."}
             require(connection.contentLengthLong<=maxBytes){"Catalog response exceeds its size limit."}
             return connection.inputStream.use{input->val output=java.io.ByteArrayOutputStream();val block=ByteArray(8192);while(true){val n=input.read(block);if(n<0)break;require(output.size()+n<=maxBytes){"Catalog response exceeds its size limit."};output.write(block,0,n)};output.toString("UTF-8")}
         } finally {connection.disconnect()}

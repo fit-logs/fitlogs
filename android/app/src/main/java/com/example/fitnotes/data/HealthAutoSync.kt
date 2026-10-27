@@ -13,7 +13,7 @@ fun automaticHealthTargets(candidates: List<HealthCandidate>, workouts: List<Wor
     return buildMap {
         for (candidate in garmin) {
             val s = candidate.session
-            if (s.key in knownKeys || s.activityType == "other" || s.end <= s.start) continue
+            if (s.key in knownKeys || s.activityType in setOf("other", "running") || s.end <= s.start) continue
             val w = overlaps[s.key]?.singleOrNull() ?: continue
             val localEnd = w.completedAt ?: continue
             if (!w.isComplete || w.id in linkedIds || localEnd <= w.startedAt) continue

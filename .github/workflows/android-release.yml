@@ -1,11 +1,12 @@
-name: Publish Android beta
-run-name: Publish Android beta (${{ github.event_name }})
+name: Publish Android release
+run-name: Publish Android release (${{ github.event_name }})
 
 on:
   push:
     branches: [main]
     paths:
       - 'android/app/build.gradle.kts'
+      - 'android/version.properties'
   workflow_dispatch:
     inputs:
       tag:
@@ -28,7 +29,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Test release selection
-        run: python3 -m unittest discover -s android/scripts -p 'test_release_metadata.py' -v
+        run: python3 -m unittest discover -s android/scripts -p 'test_*.py' -v
       - name: Select changed Android version or manual retry
         id: release
         env:
@@ -119,33 +120,11 @@ jobs:
           FITNOTES_KEY_ALIAS: ${{ secrets.FITNOTES_KEY_ALIAS }}
           FITNOTES_BUILD_TOOLS: '36.0.0'
         run: ./scripts/package-release.sh
-      - name: Upload verified APK and publish release
+      - name: Upload verified updater assets and publish stable release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          version=${RELEASE_TAG#v}
-          notes="android/docs/releases/$RELEASE_TAG.md"
-          apk="android/build/release/fitnotes-$version.apk"
-          sums='android/build/release/SHA256SUMS'
-          (cd android/build/release && sha256sum --check SHA256SUMS)
-          title="FitNotes Android $RELEASE_TAG"
-          release_state=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)
-          if [[ "$release_state" == 'true' ]]; then
-            gh release edit "$RELEASE_TAG" --target "$GITHUB_SHA" --title "$title" --notes-file "$notes" --prerelease
-            gh release upload "$RELEASE_TAG" "$apk" "$sums" --clobber
-          elif [[ -z "$release_state" ]]; then
-            gh release create "$RELEASE_TAG" "$apk" "$sums" --draft --prerelease --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"
-          else
-            echo 'Release was published while packaging; refusing to overwrite it.' >&2
-            exit 1
-          fi
-          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq "fitnotes-$version.apk"
-          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq SHA256SUMS
-          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
-          echo "Published $RELEASE_TAG with signed update and SHA256SUMS."
+        run: python3 android/scripts/publish_release.py --tag "$RELEASE_TAG" --commit "$GITHUB_SHA"
       - name: Remove temporary signing keystore
         if: always()
         shell: bash

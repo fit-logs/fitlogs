@@ -3,7 +3,7 @@ package com.example.fitnotes.data
 import org.json.JSONObject
 
 object HealthBackupJson {
-    fun encode(s: HealthSession, version: Int = 9) = JSONObject().put("key", s.key).put("workoutId", s.workoutId ?: JSONObject.NULL)
+    fun encode(s: HealthSession, version: Int = 14) = JSONObject().put("key", s.key).put("workoutId", s.workoutId ?: JSONObject.NULL)
         .put("recordId", s.recordId).put("originPackage", s.originPackage).put("sourceName", s.sourceName)
         .put("clientRecordId", s.clientRecordId ?: JSONObject.NULL).put("clientRecordVersion", s.clientRecordVersion)
         .put("modifiedAt", s.modifiedAt).put("importedAt", s.importedAt).put("start", s.start).put("end", s.end)
@@ -11,6 +11,7 @@ object HealthBackupJson {
         .put("activityType", s.activityType).put("exerciseType", s.exerciseType).put("title", s.title).put("notes", s.notes)
         .put("distanceMeters", s.distanceMeters ?: JSONObject.NULL).put("distanceOrigins", s.distanceOrigins)
         .put("hrStatus", s.hrStatus).put("distanceStatus", s.distanceStatus).put("sourceStatus", s.sourceStatus).put("device", s.device).put("importedWorkoutId", s.importedWorkoutId ?: JSONObject.NULL).also {
+            if (version >= 14) it.put("runData", s.runData)
             if (version >= 8) it.put("sourceCreated", s.isSourceCreated).put("elevationMeters", s.elevationMeters ?: JSONObject.NULL)
                 .put("elevationOrigins", s.elevationOrigins).put("elevationStatus", s.elevationStatus)
                 .put("movingSeconds", s.movingSeconds ?: JSONObject.NULL).put("movingOrigin", s.movingOrigin)
@@ -31,7 +32,7 @@ object HealthBackupJson {
             "start", "end", "startOffsetSeconds", "endOffsetSeconds", "activityType", "exerciseType", "title", "notes", "distanceMeters",
             "distanceOrigins", "hrStatus", "distanceStatus", "sourceStatus", "device", *if (j.has("importedWorkoutId")) arrayOf("importedWorkoutId") else emptyArray(),
             *if (j.has("sourceCreated")) arrayOf("sourceCreated", "elevationMeters", "elevationOrigins", "elevationStatus", "movingSeconds", "movingOrigin") else emptyArray(),
-            *if (j.has("provider")) arrayOf("provider", "accountId", "averageBpm", "maximumBpm", "heartOrigin", "sportLabel") else emptyArray())
+            *if (j.has("provider")) arrayOf("provider", "accountId", "averageBpm", "maximumBpm", "heartOrigin", "sportLabel") else emptyArray(), *if(j.has("runData")) arrayOf("runData") else emptyArray())
         return HealthSession(j.string("key"), j.optionalLong("workoutId"), j.string("recordId"), j.string("originPackage"), j.string("sourceName"),
             j.optionalString("clientRecordId"), j.long("clientRecordVersion"), j.long("modifiedAt"), j.long("importedAt"), j.long("start"), j.long("end"),
             j.optionalLong("startOffsetSeconds")?.also { require(it in -64800..64800) }?.toInt(),
@@ -47,7 +48,7 @@ object HealthBackupJson {
             if (j.has("provider")) j.string("provider") else HEALTH_CONNECT_PROVIDER, if (j.has("accountId")) j.string("accountId") else "",
             if (!j.has("averageBpm") || j.isNull("averageBpm")) null else (j.get("averageBpm") as? Number)?.toDouble() ?: error("Invalid average HR"),
             if (!j.has("maximumBpm") || j.isNull("maximumBpm")) null else (j.get("maximumBpm") as? Number)?.toDouble() ?: error("Invalid maximum HR"),
-            if (j.has("heartOrigin")) j.string("heartOrigin") else "", if (j.has("sportLabel")) j.string("sportLabel") else "")
+            if (j.has("heartOrigin")) j.string("heartOrigin") else "", if (j.has("sportLabel")) j.string("sportLabel") else "", if(j.has("runData")) j.string("runData") else "{}")
     }
     fun sample(j: JSONObject): HealthSample {
         j.fields("key", "sessionKey", "recordId", "originPackage", "time", "bpm")
@@ -60,6 +61,7 @@ fun validateHealthBackup(sessions: List<HealthSession>, samples: List<HealthSamp
     require(sessions.map { it.key }.distinct().size == sessions.size && samples.map { it.key }.distinct().size == samples.size) { "Duplicate health IDs." }
     val parents = sessions.associateBy { it.key }
     sessions.forEach {
+        RunSourceData.read(it.runData)
         require(it.key == activitySourceKey(it.provider, it.accountId, it.originPackage, it.recordId) && it.recordId.isNotBlank() && it.originPackage.isNotBlank() &&
             it.start > 0 && it.end > it.start && it.importedAt > 0 && (it.workoutId == null || it.workoutId in workouts) &&
             (it.importedWorkoutId == null || it.importedWorkoutId in importedWorkouts) && (it.workoutId == null || it.importedWorkoutId == null)) { "Invalid health session." }

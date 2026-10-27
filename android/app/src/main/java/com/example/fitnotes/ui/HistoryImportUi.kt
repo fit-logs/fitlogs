@@ -85,7 +85,7 @@ fun OriginalImportPreview(document: HistoryDocument, already: HistoryImport?, bu
                     item { Text("Other source records", style = MaterialTheme.typography.titleSmall) }
                     items(document.unsupported) { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
-                item { Text("Identical repeated sets are retained. Re-importing this export is a no-op, even after renaming it. Different overlapping exports are separate imports.", style = MaterialTheme.typography.bodySmall) }
+                item { Text("Identical repeated sets are retained. Re-importing this export is a no-op, even after renaming it. Native source identities are reused across later backups. CSV exports lack stable source identifiers; overlapping files need review.", style = MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton = {

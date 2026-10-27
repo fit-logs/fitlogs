@@ -1,7 +1,13 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+}
+
+val appVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
 }
 
 android {
@@ -14,8 +20,9 @@ android {
         applicationId = if (providers.gradleProperty("photoVerification").orNull == "true") "com.example.fitnotes.preview.photos" else "com.example.fitnotes"
         minSdk = 24
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.0.0-beta.2"
+        versionCode = (if (providers.gradleProperty("photoVerification").orNull == "true")
+            providers.gradleProperty("previewVersionCode").orNull else null)?.toInt() ?: appVersion.getProperty("VERSION_CODE").toInt()
+        versionName = appVersion.getProperty("VERSION_NAME")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,7 +57,7 @@ ksp {
 
 // The public JSON is the source of truth; bundle three exact starter files.
 val syncStarterCatalog = tasks.register<Sync>("syncStarterCatalog") {
-    from("../../web/public/catalog") {
+    from("../../catalog") {
         include("manifest.json", "exercises.json", "LICENSE.txt",
             "programs/full-body-beginner-3day-v1.json",
             "programs/full-body-express-2day-v1.json",

@@ -19,7 +19,7 @@ import android.content.Intent
 
 data class ImportedData(val imports: List<HistoryImport> = emptyList(), val workouts: List<ImportedWorkoutDetail> = emptyList(), val body: List<BodyMeasurement> = emptyList(), val loading: Boolean = false)
 data class AppData(val exercises: List<Exercise> = emptyList(), val workouts: List<WorkoutDetail> = emptyList(), val loading: Boolean = true,
-    val imported: ImportedData = ImportedData(), val storageError: String? = null,
+    val imported: ImportedData = ImportedData(), val runLinks: List<RunLink> = emptyList(), val storageError: String? = null,
     val exerciseAliases: List<ExerciseAlias> = emptyList(), val exerciseMappings: List<ExerciseSourceMapping> = emptyList(), val exerciseRedirects: List<ExerciseRedirect> = emptyList()) {
     val active get() = workouts.firstOrNull { !it.workout.isComplete && !it.workout.historicalDraft }
     val history get() = workouts.filter { it.workout.isComplete }
@@ -97,6 +97,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private val identity = ExerciseIdentityRepository(database)
     val restController = RestTimerController(application, database)
     val restTimer = database.trainingDao().observeTimer().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val bodyProfile = database.bodyProfileDao().observe().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val trainingPreferences = database.trainingDao().observePreferences().map { it ?: TrainingPreferences() }.stateIn(viewModelScope, SharingStarted.Eagerly, TrainingPreferences())
     val progression = database.trainingDao().observeProgression().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val mergePreview = MutableStateFlow<ExerciseMergePreview?>(null)
@@ -116,6 +117,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.Eagerly, HandoffPreferenceState())
     val preparedHandoff = MutableStateFlow<PreparedHandoff?>(null)
     val handoffError = MutableStateFlow<String?>(null)
+    var planFocusPosition: Int? = null
     val planImportText = MutableStateFlow("")
     val planEdit = MutableStateFlow<EditablePlan?>(null)
     val planImportError = MutableStateFlow<String?>(null)
@@ -128,6 +130,78 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         }
     }
     private val importer = HistoryImportRepository(database)
+    private val runningRepository = RunningRepository(database)
+    val runImport = MutableStateFlow(RunImportState())
+    private var runningJob: kotlinx.coroutines.Job? = null
+    fun cancelRunningImport() { runningJob?.cancel() }
+    fun previewRunningHistory(months: Int?) {
+        if (busy.value || runningJob?.isActive == true || android.os.Build.VERSION.SDK_INT < 28) return
+        automaticHealthJob?.cancel()
+        runImport.value = RunImportState(working = true, stage = "Reading runs…")
+        runningJob = viewModelScope.launch {
+            try {
+                healthReadMutex.withLock {
+                    val reader = HealthConnectReader(getApplication())
+                    val access = reader.access()
+                    require(access.exercise) { "Allow exercise access to preview runs." }
+                    val coverage = if (access.history) "Extended history access is enabled. All available means records Garmin has written to Health Connect."
+                        else "History is limited to 30 days before your first permission grant. Older Garmin runs may not have been written to Health Connect."
+                    runImport.value = runImport.value.copy(coverage = coverage)
+                    val end = java.time.Instant.now()
+                    val start = months?.let { java.time.ZonedDateTime.now().minusMonths(it.toLong()).toInstant() }
+                    val candidates = readRunningHistory({ reader.runningPage(start, end, it) }, { reader.enrich(it) }) { count ->
+                        runImport.value = runImport.value.copy(stage = "Read $count runs…")
+                    }
+                    val snapshot = runningSnapshot(database); val existing = runningRecords(snapshot)
+                    val known = healthImporter.known(); val knownKeys = known.filter { it.workoutId != null || it.importedWorkoutId != null }.map { it.key }.toSet()
+                    val clientMatches = candidates.mapNotNull { c -> known.filter { it.originPackage==c.session.originPackage && !it.clientRecordId.isNullOrBlank() && it.clientRecordId==c.session.clientRecordId }.maxWithOrNull(compareBy<HealthSession>{it.clientRecordVersion}.thenBy{it.modifiedAt})?.let { c.session.key to it } }.toMap()
+                    val presentRaw = knownKeys + clientMatches.filterValues { it.workoutId!=null || it.importedWorkoutId!=null }.keys
+                    val ignored = known.filter { it.workoutId == null && it.importedWorkoutId == null }.map { it.key }.toSet() + snapshot.runLinks.filter { it.ignored }.map { it.sourceKey } + clientMatches.filterValues { source -> source.workoutId==null && source.importedWorkoutId==null || snapshot.runLinks.any { it.ignored && it.sourceKey==source.key } }.keys
+                    val presentKeys = presentRaw - ignored
+                    val matches = candidates.filter { it.session.key !in presentKeys && it.session.key !in ignored }.associate { c ->
+                        c.session.key to potentialRunMatches(healthRun(HealthDetail(c.session, c.samples), "health:${c.session.key}", ""), existing)
+                    }
+                    runImport.value = RunImportState(preview = RunImportPreview(candidates, presentKeys, ignored, matches), coverage = coverage,
+                        message = if (candidates.isEmpty()) "No accessible Garmin runs in this period." else "Review the preview, then import.")
+                }
+            } catch (error: Exception) {
+                if (error !is kotlinx.coroutines.CancellationException) android.util.Log.w("RunningImport", "Foreground history read failed", error)
+                val message = when(error) {
+                    is kotlinx.coroutines.CancellationException -> "Import paused. Preview again to retry safely."
+                    is SecurityException -> "Health Connect access changed. Review permissions, then try again."
+                    is IllegalArgumentException -> "Allow exercise access and try the preview again."
+                    else -> "Could not read runs. Wait a moment, then retry. Saved runs are unchanged."
+                }
+                runImport.value = runImport.value.copy(working = false, stage = "", message = message)
+                if (error is kotlinx.coroutines.CancellationException) throw error
+            }
+        }
+    }
+    fun importRunningHistory(choices: Map<String, String>) {
+        val preview = runImport.value.preview ?: return
+        if (preview.matches.any { (key, values) -> values.isNotEmpty() && key !in choices }) return
+        change(null, register = { runningJob = it }, failure = { runImport.value = runImport.value.copy(working = false, stage = "", message = it) }) {
+            var added = 0; var present = 0; var linked = 0; var ignored = 0; var updated = 0
+            runImport.value = runImport.value.copy(working = true, stage = "Importing runs…")
+            try {
+                if (choices.values.any { it != "separate" }) repairBackup()
+                for (batch in preview.candidates.chunked(20)) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val outcomes = database.withTransaction { batch.map { runningRepository.import(it, choices[it.session.key]) } }
+                    added += outcomes.count { it == "added" }; present += outcomes.count { it == "present" }; linked += outcomes.count { it == "linked" }; ignored += outcomes.count { it == "ignored" }; updated += outcomes.count { it == "updated" }
+                    runImport.value = runImport.value.copy(stage = "Imported ${added + present + linked + ignored + updated} of ${preview.candidates.size} runs…")
+                }
+                val result = "Imported $added runs; $present already present." + (if (linked > 0) " $linked linked." else "") + (if (updated > 0) " $updated updated." else "") + (if (ignored > 0) " $ignored previously deleted." else "")
+                runImport.value = runImport.value.copy(working = false, stage = "", preview = null, message = result)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                runImport.value = runImport.value.copy(working = false, stage = "", preview = null, message = "Import paused after $added new runs. Preview again to continue safely."); throw error
+            }
+        }
+    }
+    fun deleteRun(key: String, done: () -> Unit) = change("Run deleted from FitNotes.", done) { runningRepository.delete(key) }
+    fun saveRun(key: String, title: String, notes: String, km: Double?, seconds: Double?, done: () -> Unit) = change(null, done) { runningRepository.save(key, title, notes, km, seconds) }
+    fun keepRunsSeparate(a:String,b:String,done:()->Unit) = change("Runs kept separate.",done) { runningRepository.keepSeparate(a,b) }
+    fun mergeRuns(source: String, target: String, done: () -> Unit) = change("Runs linked. A recovery backup is saved on this device.", done) { repairBackup(); runningRepository.merge(source, target) }
     private val healthImporter = HealthImportRepository(database)
     private var healthReadJob: kotlinx.coroutines.Job? = null
     private var automaticHealthJob: kotlinx.coroutines.Job? = null
@@ -161,17 +235,38 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
             database.importedDao().observeBody()) { sources, workouts, body -> ImportedData(sources, workouts, body) })
     }
     private val identities = combine(database.trainingDao().observeAliases(),database.trainingDao().observeMappings(),database.trainingDao().observeRedirects()) { aliases,mappings,redirects -> Triple(aliases,mappings,redirects) }
-    val data = combine(localData, importedData, identities) { local, imported, identity ->
-        local.copy(imported = imported,exerciseAliases=identity.first,exerciseMappings=identity.second,exerciseRedirects=identity.third)
+    val data = combine(localData, importedData, identities, database.runDao().observe()) { local, imported, identity, runLinks ->
+        local.copy(imported = imported,runLinks=runLinks,exerciseAliases=identity.first,exerciseMappings=identity.second,exerciseRedirects=identity.third)
     }.catch {
         notices.send("Unable to read workouts. Restart the app to retry.")
         emit(AppData(loading = false, storageError = "Unable to read workouts. Your database has not been reset. Close and reopen FitNotes after updating the app to retry."))
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppData())
     val busy = MutableStateFlow(false)
     val pendingRestore = MutableStateFlow<Backup?>(null)
+    private val systemBackup = SystemBackupStore(application)
+    private var restoringSystemBackup = false
+    private var offeredSystemBackup = false
     val pendingImport = MutableStateFlow<HistoryDocument?>(null)
     val previouslyImported = MutableStateFlow<HistoryImport?>(null)
     val messages = notices.receiveAsFlow()
+    private val deletedNotices=Channel<DeletedSetUndo>(Channel.BUFFERED)
+    val deletedSets=deletedNotices.receiveAsFlow()
+    data class DeletedSetUndo(val local:WorkoutSet?=null,val imported:ImportedSet?=null)
+    fun undoDeletedSet(value:DeletedSetUndo)=change(null){
+        value.local?.let{repository.restoreDeletedSet(it)}
+        value.imported?.let{importer.restoreDeletedRecord(it)}
+    }
+
+    private val historyRepair = viewModelScope.launch {
+        data.first { !it.loading && !it.imported.loading && it.storageError==null }
+        try {
+            val count=importer.repairExactDuplicates { repairBackup() }
+            if(count>0)notices.send("Repeated imports combined. A recovery backup is saved on this device.")
+        } catch(error:Exception) {
+            if(error is kotlinx.coroutines.CancellationException)throw error
+            notices.send("Repeated imports need review in Settings. Saved records were retained.")
+        }
+    }
 
     private fun change(success: String?, done: () -> Unit = {}, register: ((kotlinx.coroutines.Job) -> Unit)? = null,
         failure: ((String) -> Unit)? = null, block: suspend () -> Unit) {
@@ -227,7 +322,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun removeAlias(id: Long) = change(null) { identity.removeAlias(id) }
     fun mapExerciseSource(value: ExerciseSourceMapping) = change(null,failure={trainingError.value=it}) { trainingError.value=null;identity.mapSource(value) }
     fun previewExerciseMerge(survivor: Long, removed: Long) = change(null,failure={trainingError.value=it}) { trainingError.value=null;mergePreview.value=identity.preview(survivor,removed) }
-    fun confirmExerciseMerge() = change("Exercises merged.",failure={trainingError.value=it}) { identity.merge(requireNotNull(mergePreview.value));mergePreview.value=null }
+    fun confirmExerciseMerge() = change("Exercises merged. A recovery backup is saved on this device.",failure={trainingError.value=it}) { repairBackup();identity.merge(requireNotNull(mergePreview.value));mergePreview.value=null }
 
     fun start() = change("Session ready.") { repository.start() }
     private suspend fun captureFavouritePreferences() {
@@ -253,11 +348,40 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
                 .bufferedWriter(Charsets.UTF_8).use { it.write(prepared.fullText) }
         }
     }
-    fun previewPlan(fallbackDate: String) = change(null, failure = { planImportError.value = it }) {
+    fun planFromSession(session: com.example.fitnotes.ui.NotebookSession) {
+        val preview=planFromCompletedSession(session,planRuns.value.flatMap{it.exercises}.flatMap{it.targets})
+        planImportError.value = null
+        planEdit.value=preview.spec.editable(preview.resolutions)
+    }
+
+    fun newPlan() {
+        planImportError.value = null
+        planEdit.value = com.example.fitnotes.data.PlanSpec("New workout", "", 0, "", emptyList(), planFingerprint(java.util.UUID.randomUUID().toString())).editable(emptyList())
+    }
+    val openedPlanReview=MutableStateFlow(false)
+    private val openedPlanHashes=mutableSetOf<String>()
+    fun openPlanFile(uri:Uri)=change(null,failure={planImportError.value="Cannot open this plan. Use a current FitNotes plan file.";openedPlanReview.value=true}) {
+        require(uri.scheme in setOf("content","file")){"Unsupported plan location."}
+        data.first{!it.loading&&!it.imported.loading}
+        val text=withContext(Dispatchers.IO){readUtf8(uri,WorkoutPlanParser.MAX_INPUT)}
+        val hash=planFingerprint(text)
+        if(hash in openedPlanHashes)return@change
+        preparePlan(text,"")
+        openedPlanHashes.add(hash)
+        planImportText.value=text
+        openedPlanReview.value=true
+    }
+    fun exportPlan(uri:Uri,id:String)=change("Plan exported.") {
+        val plan=requireNotNull(database.planDao().detail(id)){"Plan no longer exists."}
+        val text=WorkoutPlanFormat.encode(plan.spec)
+        withContext(Dispatchers.IO){requireNotNull(getApplication<Application>().contentResolver.openOutputStream(uri,"wt")).bufferedWriter(Charsets.UTF_8).use{it.write(text)}}
+    }
+    fun previewPlan(fallbackDate:String)=change(null,failure={planImportError.value=it}){preparePlan(planImportText.value,fallbackDate)}
+    private suspend fun preparePlan(raw:String,fallbackDate:String) {
         planImportError.value = null
         val data = data.value
         require(!data.loading && !data.imported.loading && data.storageError == null) { "Wait for the full exercise catalogue to load." }
-        val spec = withContext(Dispatchers.Default) { WorkoutPlanParser.parse(planImportText.value, fallbackDate) }
+        val spec = withContext(Dispatchers.Default) { WorkoutPlanParser.parse(raw, fallbackDate) }
         val incompatible = incompatiblePlanExercises(data.exercises, data.workouts.flatMap { it.entries.map { e -> e.entry } },
             data.workouts.flatMap { it.entries.flatMap { e -> e.sets } }, data.imported.workouts.flatMap { it.sets },canonicalImportedSetIds(data))
         planEdit.value = spec.editable(spec.exercises.map { p ->
@@ -360,6 +484,13 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun completeProgramDay(id: String, workoutId: Long) = change("Program day completed.", failure = { programError.value = it }) { programError.value = null; programRepository.complete(id, workoutId) }
     fun startProgramDay(id: String, done: (Long) -> Unit) = change(null, failure = { programError.value = it }) { programError.value = null; done(programRepository.start(id)) }
     fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; val workout = planRepository.start(id); planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null; onReady(workout) }
+    fun duplicatePlan(id: String, done: (String) -> Unit) = change(null,failure={planImportError.value=it}) {
+        val plan=requireNotNull(database.planDao().detail(id))
+        val spec=plan.spec.copy(title=plan.plan.title+" copy",fingerprint=planFingerprint(java.util.UUID.randomUUID().toString()))
+        val preview=PlanPreview(spec,plan.ordered.map{ResolvedPlanExercise(it.prescription,it.exercise.id,supersetGroup=it.target.supersetGroup)})
+        val result=planRepository.save(preview,true,null,null)
+        if(result is PlanSaveResult.Saved)done(result.id)
+    }
     fun deletePlan(id: String, done: () -> Unit) = change("Plan deleted.", done, failure = { planImportError.value = it }) { planImportError.value = null; planRepository.delete(id) }
     fun addExercise(workoutId: Long, exerciseId: Long, done: () -> Unit) =
         change("Exercise added.", done) { repository.addExercise(workoutId, exerciseId) }
@@ -372,7 +503,8 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun saveSet(entryId: Long, weight: String, reps: String, setId: Long? = null, done: () -> Unit = {}) =
         change("Set saved.", done) { repository.saveSet(entryId, weight, reps, setId) }
     fun duplicateSet(id: Long, done: () -> Unit = {}) = change(null, done) { repository.duplicateSet(id) }
-    fun deleteSet(id: Long, done: () -> Unit = {}) = change(null, done) { repository.deleteSet(id) }
+    fun deleteSet(id: Long, done: () -> Unit = {}) = change(null, done) { deletedNotices.send(DeletedSetUndo(local=repository.deleteSet(id))) }
+    fun saveExerciseNote(entryId:Long,note:String,done:()->Unit)=change(null,done){repository.saveExerciseNote(entryId,note)}
     fun removeExercise(id: Long, done: () -> Unit) = change("Exercise removed.", done) { repository.removeExercise(id) }
     fun saveDetails(id: Long, title: String, notes: String) = change("Session details saved.") { repository.saveDetails(id, title, notes) }
     fun finish(id: Long, done: () -> Unit) = change("Session finished.", done) {
@@ -387,24 +519,15 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         }
     }
     fun repeat(id: Long, done: () -> Unit) = change("Exercise list repeated. No sets copied.", done) { repository.repeat(id) }
-    fun deleteWorkout(id: Long, done: () -> Unit) = change("Session deleted.", done) { repository.deleteWorkout(id) }
+    fun deleteWorkout(id: Long, done: () -> Unit) = change("Session deleted.", done) { repository.deleteWorkout(id); retainDeletedRunDecisions(database) }
     fun repeatImported(id: String, done: () -> Unit) = change("Imported exercise list repeated. No sets copied.", done) { importer.repeatWorkout(id) }
     fun editImportedRecord(id: String, weight: String, reps: String, distance: String, unit: String?, seconds: String, comment: String, done: () -> Unit) =
         change("Record saved.", done) { importer.updateRecord(id, weight, reps, distance, unit, seconds, comment) }
     fun duplicateImportedRecord(id: String) = change("Record duplicated.") { importer.duplicateRecord(id) }
-    fun deleteImportedRecord(id: String) = change("Record deleted.") { importer.deleteRecord(id) }
-    fun deleteImportedWorkout(id: String, done: () -> Unit) = change("Imported workout deleted.", done) { importer.deleteImportedWorkout(id) }
+    fun deleteImportedRecord(id: String) = change(null) { deletedNotices.send(DeletedSetUndo(imported=importer.deleteRecord(id))) }
+    fun deleteImportedWorkout(id: String, done: () -> Unit) = change("Imported workout deleted.", done) { importer.deleteImportedWorkout(id); retainDeletedRunDecisions(database) }
     fun saveImportedNotes(id: String, notes: String) = change("Notes saved.") { importer.saveNotes(id, notes) }
 
-    fun planFromSession(session: com.example.fitnotes.ui.NotebookSession) {
-        val preview = planFromCompletedSession(session, planRuns.value.flatMap { it.exercises }.flatMap { it.targets })
-        planImportError.value = null
-        planEdit.value = preview.spec.editable(preview.resolutions)
-    }
-    fun newPlan() {
-        cancelPlanImport()
-        planEdit.value = PlanSpec("New workout", "", 0, "", emptyList(), planFingerprint(java.util.UUID.randomUUID().toString())).editable(emptyList())
-    }
     fun startEmpty(onReady: (Long) -> Unit) = change(null) { onReady(WorkoutStartRepository(database).startEmpty()) }
     fun resolveActiveAndStart(id: Long, action: ActiveWorkoutAction, planId: String?, onReady: (Long) -> Unit) = change(null) {
         val next = WorkoutStartRepository(database).resolveAndStart(id, action, planId)
@@ -514,6 +637,7 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun healthBackground() {
         healthForeground = false
         staleWorkoutJob?.cancel()
+        cancelRunningImport()
         automaticHealthJob?.cancel()
         cancelHealthRead()
     }
@@ -620,8 +744,37 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     }
     fun saveMeasurement(id: String?, name: String, value: String, unit: String, unitName: String, date: String, time: String, comment: String, done: () -> Unit) =
         change(null, done) { importer.saveMeasurement(id, name, value, unit, unitName, date, time, comment) }
-    fun deleteMeasurement(id: String, done: () -> Unit) = change(null, done) { importer.deleteMeasurement(id) }
+    private val deletedMeasurementsChannel = Channel<BodyMeasurement>(Channel.BUFFERED)
+    val deletedMeasurements = deletedMeasurementsChannel.receiveAsFlow()
+    fun deleteMeasurement(id: String, done: () -> Unit) = change(null, done) {
+        val record = requireNotNull(database.importedDao().measurement(id)) { "Measurement no longer exists." }
+        importer.deleteMeasurement(id); deletedMeasurementsChannel.send(record)
+    }
+    fun undoDeletedMeasurement(record: BodyMeasurement) = change(null) {
+        database.withTransaction {
+            require(database.importedDao().imported(record.importId) != null) { "The measurement source was removed." }
+            require(database.importedDao().measurement(record.id) == null) { "This measurement is already present." }
+            database.importedDao().insertMeasurement(record)
+        }
+    }
+    fun saveBodyProfile(profile: BodyProfile, done: () -> Unit) = change(null, done) {
+        validateBodyProfile(profile)
+        database.bodyProfileDao().put(profile)
+    }
+    fun bodyChartRange(range: String, defaultUnit: String) = change(null) {
+        database.withTransaction {
+            val profile = database.bodyProfileDao().get() ?: BodyProfile(weightUnit = defaultUnit)
+            database.bodyProfileDao().put(profile.copy(chartRange = range).also { validateBodyProfile(it) })
+        }
+    }
 
+    fun recoveryBackups():List<java.io.File> = java.io.File(getApplication<Application>().filesDir,"repair-backups").listFiles().orEmpty().filter{it.extension=="json"}.sortedByDescending{it.lastModified()}
+    fun exportRecovery(uri:Uri,name:String)=change("Recovery backup exported.") {
+        val file=recoveryBackups().firstOrNull{it.name==name} ?: error("Recovery backup no longer exists.")
+        withContext(Dispatchers.IO) {
+            requireNotNull(getApplication<Application>().contentResolver.openOutputStream(uri,"wt")).use{out->file.inputStream().use{it.copyTo(out)}}
+        }
+    }
     fun export(uri: Uri) = change("Backup exported. Progress photos are not included.") {
         withContext(Dispatchers.IO) {
             captureFavouritePreferences()
@@ -701,13 +854,31 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
 
     fun confirmImport(plan: ImportPlan, done: () -> Unit) {
         if (plan.document.id != pendingImport.value?.id) return
-        change("Import complete. Existing workouts were preserved.", {
+        change(null, {
             pendingImport.value = null; previouslyImported.value = null; done()
-        }) { importer.importHistory(plan) }
+        }) { notices.send(importer.importHistory(plan).message) }
     }
     fun cancelImport() { if (!busy.value) { pendingImport.value = null; previouslyImported.value = null } }
 
+    fun offerRecoveredBackup() {
+        if (!offeredSystemBackup && !busy.value) {
+            offeredSystemBackup = true
+            if (systemBackup.hasRecovery()) reviewSystemBackup()
+        }
+    }
+
+    fun reviewSystemBackup() = change("Recovered backup validated. Review before restoring.") {
+        restoringSystemBackup = false
+        pendingRestore.value = null
+        photoRecovery.join()
+        photoBackup.discard(pendingPhotoRestore.value)
+        pendingPhotoRestore.value = null
+        pendingRestore.value = withContext(Dispatchers.IO) { SystemBackupSnapshot.read(systemBackup.file) }
+        restoringSystemBackup = true
+    }
+
     fun inspectBackup(uri: Uri) = change("Backup validated. Review before restoring.") {
+        restoringSystemBackup = false
         photoRecovery.join()
         pendingRestore.value = null
         photoBackup.discard(pendingPhotoRestore.value)
@@ -739,10 +910,19 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
             if (photos == null) repository.restore(backup) else photoBackup.restore(photos)
             backup.trainingPreferences?.let { preferences->val values=org.json.JSONArray(preferences.favouriteKeys);val keys=(0 until values.length()).map{values.getString(it)}.toSet();getApplication<Application>().getSharedPreferences("appearance",android.content.Context.MODE_PRIVATE).edit().putStringSet("favourite_exercises",keys).apply() }
             restController.sync()
+            if (restoringSystemBackup) {
+                withContext(Dispatchers.IO) {
+                    runCatching { systemBackup.discardRecovery() }.onFailure {
+                        systemBackup.failed("Training was restored, but the recovered backup file could not be removed.")
+                    }
+                }
+                restoringSystemBackup = false
+            }
         }
     }
 
     fun cancelRestore() = change(null) {
+        restoringSystemBackup = false
         photoBackup.discard(pendingPhotoRestore.value)
         pendingRestore.value = null; pendingPhotoRestore.value = null
     }
@@ -763,8 +943,23 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
         return decoder.decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())).toString()
     }
 
+    val historyMergeReview = MutableStateFlow<HistoryMergePreview?>(null)
+    val historyMergeError = MutableStateFlow<String?>(null)
+    private suspend fun repairBackup(): java.io.File = withContext(Dispatchers.IO) {
+        val folder=java.io.File(getApplication<Application>().filesDir,"repair-backups").apply{mkdirs()}
+        val file=java.io.File(folder,"before-repair-${System.currentTimeMillis()}.json")
+        file.writeText(BackupCodec.encode(repository.backup()))
+        require(file.length()>0){"Unable to save a repair backup."}
+        file
+    }
+    fun mergeHistory() = change("Workouts merged. A recovery backup is saved on this device.",failure={historyMergeError.value=it}) {
+        val preview=historyMergeReview.value ?: return@change
+        repairBackup();importer.merge(preview);historyMergeReview.value=null
+    }
     override fun onCleared() {
         super.onCleared()
+        staleWorkoutJob?.cancel()
+        cancelRunningImport()
         database.close()
     }
 }

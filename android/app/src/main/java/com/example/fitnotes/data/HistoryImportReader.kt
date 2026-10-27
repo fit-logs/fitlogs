@@ -175,7 +175,7 @@ object HistoryImportReader {
                 try {
                     val measurement = requireNotNull(measurements[row.getLong("measurement_id")]) { "Unknown measurement definition." }
                     val unit = requireNotNull(units[measurement.getLong("unit_id")]) { "Unknown measurement unit." }
-                    BodySourceRow(row.get("_id").toString(), row.getString("date"), row.getString("time"),
+                    BodySourceRow(row.get("_id").toString(), row.getString("date"), if (row.isNull("time")) "" else row.getString("time"),
                         measurement.getString("name"), row.getDouble("value"), unit.getString("short_name"),
                         unit.getString("long_name"), if (row.isNull("comment")) "" else row.getString("comment"), row.toString())
                 } catch (error: Exception) {
@@ -248,7 +248,7 @@ object HistoryImportReader {
         }
         val body = document.body.mapNotNull { row ->
             try {
-                require(validHistoryDate(row.date) && validHistoryTime(row.time)) { "Invalid measurement date or time." }
+                require(validHistoryDate(row.date) && (row.time.isEmpty() || validHistoryTime(row.time))) { "Invalid measurement date or time." }
                 require(row.name.isNotBlank() && row.name.length <= 500 && row.value.isFinite()) { "Invalid measurement name or value." }
                 BodyMeasurement(document.id + ":body:" + row.recordId, document.id, row.recordId, row.date, row.time,
                     row.name, row.value, row.unit, row.unitName, row.comment, row.rawValues)

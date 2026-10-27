@@ -9,7 +9,12 @@
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_ELEVATION_GAINED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
         <package android:name="com.google.android.apps.healthdata" />
         <package android:name="com.garmin.android.apps.connectmobile" />
     </queries>
@@ -19,7 +24,10 @@
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
     <application
-        android:allowBackup="false"
+        android:allowBackup="true"
+        android:backupAgent=".FitNotesBackupAgent"
+        android:fullBackupOnly="true"
+        android:backupInForeground="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -60,6 +68,16 @@
                 <data android:mimeType="text/plain" />
                 <data android:mimeType="application/json" />
                 <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.fitnotes.plan" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
         <receiver android:name=".RestTimerReceiver" android:exported="false">

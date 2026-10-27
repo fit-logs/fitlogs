@@ -24,9 +24,9 @@ import com.example.fitnotes.data.*
 fun LoadModePicker(value:String,onChange:(String)->Unit,enabled:Boolean) {
     var open by remember{mutableStateOf(false)}
     Box {
-        TextButton(onClick={open=true},enabled=enabled){Text(LoadMode.label(value)+" ▾")}
+        TextButton(onClick={open=true},enabled=enabled){Text((if(value==LoadMode.UNKNOWN)"Load type" else LoadMode.label(value))+" ▾")}
         DropdownMenu(expanded=open,onDismissRequest={open=false}) {
-            LoadMode.values.forEach { mode->DropdownMenuItem(text={Text(LoadMode.label(mode))},onClick={open=false;onChange(mode)}) }
+            LoadMode.values.forEach { mode->DropdownMenuItem(text={Text(if(mode==LoadMode.UNKNOWN)"Unspecified" else LoadMode.label(mode))},onClick={open=false;onChange(mode)}) }
         }
     }
 }
@@ -72,7 +72,7 @@ fun ExerciseLibraryScreen(model:FitNotesViewModel,data:AppData,busy:Boolean,onCl
                 Row { Text(row.name,Modifier.weight(1f));TextButton(onClick={model.removeAlias(row.id)},enabled=!busy){Text("Remove alias")} }
             }
             item { OutlinedTextField(alias,{alias=it},label={Text("New alias")},modifier=Modifier.fillMaxWidth()) }
-            item { FlowRow { TextButton(onClick={model.addAlias(selected.id,alias){alias=""}},enabled=!busy&&alias.isNotBlank()){Text("Add alias")};TextButton(onClick={merging=true},enabled=!busy){Text("Preview merge into this exercise")} } }
+            item { FlowRow { TextButton(onClick={model.addAlias(selected.id,alias){alias=""}},enabled=!busy&&alias.isNotBlank()){Text("Add alias")};TextButton(onClick={merging=true},enabled=!busy){Text("Merge exercises")} } }
             item { Text("Aliases require an exact case/whitespace match. Fuzzy search ranks candidates; it never joins history automatically.",style=MaterialTheme.typography.bodySmall) }
             if(config!=null) {
                 item{Text("Double progression",style=MaterialTheme.typography.titleMedium)}
@@ -93,79 +93,18 @@ fun ExerciseLibraryScreen(model:FitNotesViewModel,data:AppData,busy:Boolean,onCl
     }
     if(selecting||merging||selectedSource!=null) {
         androidx.compose.ui.window.Dialog(onDismissRequest={selecting=false;merging=false;selectedSource=null},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-            Surface(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { ExercisePicker(data.exercises,if(merging)setOfNotNull(selectedId) else emptySet(),emptyList(),emptyMap(),busy,
-                onCancel={selecting=false;merging=false;selectedSource=null},onSelect={ids->val chosen=ids.single();when{merging->model.previewExerciseMerge(selectedId!!,chosen);selectedSource!=null->mapping=selectedSource!!.copy(exerciseId=chosen);else->selectedId=chosen};selecting=false;merging=false;selectedSource=null},onCreate={},singleSelection=true,aliases=data.exerciseAliases,allowCreation=false) }
+            Surface(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { Column { if(merging)Text("Merge ${selected?.name} into…",Modifier.padding(16.dp),style=MaterialTheme.typography.titleLarge); ExercisePicker(data.exercises,if(merging)setOfNotNull(selectedId) else emptySet(),emptyList(),emptyMap(),busy,
+                onCancel={selecting=false;merging=false;selectedSource=null},onSelect={ids->val chosen=ids.single();when{merging->model.previewExerciseMerge(chosen,selectedId!!);selectedSource!=null->mapping=selectedSource!!.copy(exerciseId=chosen);else->selectedId=chosen};selecting=false;merging=false;selectedSource=null},onCreate={},singleSelection=true,aliases=data.exerciseAliases,allowCreation=false) } }
         }
     }
     mapping?.let { value->NotebookConfirm("Save source mapping?","${value.sourceName} (${value.category}) will refer to ${data.exercises.firstOrNull{it.id==value.exerciseId}?.name}. Original source rows remain unchanged.","Save mapping",busy,{mapping=null}) { model.mapExerciseSource(value);mapping=null } }
     preview?.let { p->
         var confirmed by remember(p.fingerprint){mutableStateOf(false)}
         AlertDialog(onDismissRequest={model.mergePreview.value=null},title={Text("Review exercise merge")},text={Column(Modifier.verticalScroll(rememberScrollState())) {
-            Text("Keep ${p.survivor.name}; merge ${p.removed.name}. ${p.workoutCount} workouts, ${p.planCount} plans, ${p.actualSets} actual sets and ${p.targetSets} targets. ${p.combinedWorkouts} workouts and ${p.combinedPlans} plans contain both names.")
+            Text("Canonical name: ${p.survivor.name}. Merge ${p.removed.name}. ${p.workoutCount} workouts, ${p.planCount} plans, ${p.actualSets} actual sets and ${p.targetSets} targets. ${p.combinedWorkouts} workouts and ${p.combinedPlans} plans contain both names.")
             p.warnings.forEach{Text(it,Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall)}
             p.blockers.forEach{Text(it,color=MaterialTheme.colorScheme.error)}
             Row{Checkbox(confirmed,{confirmed=it},modifier=Modifier.testTag("confirm-exercise-merge"));Text("These names describe the same movement",Modifier.padding(top=12.dp))}
         }},confirmButton={TextButton(onClick={model.confirmExerciseMerge()},enabled=!busy&&confirmed&&p.blockers.isEmpty()){Text("Merge exercises")}},dismissButton={TextButton(onClick={model.mergePreview.value=null}){Text("Cancel")}})
     }
-}
-
-@Composable
-fun StrengthProgressScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onLibrary:()->Unit,onClose:()->Unit) {
-    val records=remember(data){observations(data)}
-    val stats=remember(records){StrengthStatistics.calculate(records)}
-    var selectedKey by rememberSaveable{mutableStateOf<String?>(null)}
-    var choosing by remember{mutableStateOf(false)}
-    var chartMode by rememberSaveable { mutableStateOf(LoadMode.EXTERNAL) }
-    val selected=stats.exercises.firstOrNull{it.key==selectedKey} ?: stats.exercises.firstOrNull()
-    LaunchedEffect(selected?.key) { if(selected!=null && selected.volumeByDate.isEmpty()) chartMode=if(selected.volumeByModeDate[LoadMode.UNKNOWN].orEmpty().isNotEmpty())LoadMode.UNKNOWN else "reps" }
-    HandoffScreen("Strength progress",busy,onClose,"strength-progress",footer={TextButton(onClick=onLibrary){Text("Exercise library")};TextButton(onClick=onClose){Text("Close")}}) {
-        item{Text("${stats.completedWorkouts} completed workouts · ${stats.actualSets} actual strength sets",style=MaterialTheme.typography.titleMedium)}
-        item{Text("Statistics cover finished sessions. Active results stay in the logger until Finish. Plans, pending targets and skipped sets are excluded. Missing dates stay missing. Multiple sessions on one day are included.",style=MaterialTheme.typography.bodySmall)}
-        item{TextButton(onClick={choosing=true}){Text((selected?.name ?: "No recorded strength sets")+" ▾")}}
-        selected?.let{e->
-            item{Text("${e.setCount} sets · ${e.totalReps} reps")}
-            item{Text("External-load volume: ${weightText(e.externalVolume)} kg·reps")}
-            item{Text("Added-bodyweight load volume: ${weightText(e.addedBodyweightVolume)} kg·reps; body mass excluded")}
-            item{Text("Recorded volume with unknown load mode: ${weightText(e.unknownModeVolume)} kg·reps. This is not inferred total load.")}
-            e.heaviestExternal?.let{item{Text("Heaviest external set: ${weightText(it)} kg")}}
-            e.estimatedOneRepMax?.let{item{Text("Estimated 1RM: ${estimateText(it)} kg · Epley, external working sets, 1–10 reps")}}
-            val series=if(chartMode=="reps")e.repsByDate else e.volumeByModeDate[chartMode].orEmpty()
-            item{FlowRow { listOf(LoadMode.EXTERNAL,LoadMode.BODYWEIGHT,LoadMode.UNKNOWN,"reps").forEach{choice->FilterChip(chartMode==choice,{chartMode=choice},label={Text(if(choice=="reps")"Reps" else if(choice==LoadMode.UNKNOWN)"Unknown mode" else LoadMode.label(choice))})} } }
-            item{Text(if(chartMode=="reps")"Actual reps by recorded date" else "Recorded ${LoadMode.label(chartMode).lowercase()} volume; body mass excluded",style=MaterialTheme.typography.titleSmall)}
-            item{VolumeChart(series)}
-            items(series.toList(),key={"volume:${it.first}"}){(date,value)->Text("$date · ${weightText(value)} ${if(chartMode=="reps")"reps" else "kg·reps"}")}
-            item{Text("Best reps at a recorded load",style=MaterialTheme.typography.titleSmall)}
-            items(e.repsAtWeight.toList(),key={"reps:${it.first}"}){(load,reps)->Text("${LoadMode.label(load.first)} · ${weightText(load.second)} kg · $reps reps")}
-        }
-        item{HorizontalDivider();Text("Weekly completed training",style=MaterialTheme.typography.titleMedium)}
-        items(stats.weeks,key={"week:${it.week}"}){week->Text("Week of ${week.week}: ${week.workouts} workouts · ${week.sets} actual strength sets")}
-    }
-    if(choosing)AlertDialog(onDismissRequest={choosing=false},title={Text("Recorded exercise")},text={androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max=360.dp)){items(stats.exercises,key={it.key}){e->TextButton(onClick={selectedKey=e.key;choosing=false}){Text(e.name+if(e.key.startsWith("source:"))" (unmapped source)" else "")}}}},confirmButton={TextButton(onClick={choosing=false}){Text("Close")}})
-}
-@Composable
-private fun VolumeChart(points:Map<String,Double>) {
-    val color=MaterialTheme.colorScheme.primary
-    val values=points.toList()
-    if(values.isEmpty()) { Text("No recorded values in this load mode. Choose another series; missing dates are not zeroes.");return }
-    Text("${values.first().first} to ${values.last().first}; dots are recorded dates",style=MaterialTheme.typography.bodySmall)
-    Canvas(Modifier.fillMaxWidth().height(150.dp).testTag("volume-chart")) {
-        val dates=values.map{dayMillis(it.first)};val span=(dates.last()-dates.first()).coerceAtLeast(1).toDouble();val max=values.maxOf{it.second}.coerceAtLeast(1.0)
-        val positions=values.mapIndexed{index,point->Offset((12+(dates[index]-dates.first())/span*(size.width-24)).toFloat(),(size.height-12-point.second/max*(size.height-24)).toFloat())}
-        // No zero-valued observations are inserted for unrecorded days.
-        positions.zipWithNext().forEach{(a,b)->drawLine(color,a,b,2.dp.toPx())}
-        positions.forEach{drawCircle(color,4.dp.toPx(),it)}
-    }
-}
-
-@Composable
-fun OpenSourceNotices(onClose:()->Unit) {
-    val context=androidx.compose.ui.platform.LocalContext.current
-    var fullLicence by rememberSaveable{mutableStateOf(false)}
-    val notices=remember{context.assets.open("third-party-notices.txt").bufferedReader().use{it.readText()}}
-    val licence=remember{context.assets.open("AGPL-3.0.txt").bufferedReader().use{it.readText()}}
-    HandoffScreen("Open-source notices",false,onClose,"source-notices",footer={
-        TextButton(onClick={fullLicence=!fullLicence}){Text(if(fullLicence)"Show attribution" else "Read licence")}
-        TextButton(onClick={context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://github.com/avivajpeyi/fitnotes/tree/android-mvp/android")))}){Text("Application source")}
-        TextButton(onClick=onClose){Text("Close")}
-    }) { item{Text(if(fullLicence)licence else notices)} }
 }

@@ -65,10 +65,5 @@ fi
 output_dir="$project_dir/build/release"
 mkdir -p "$output_dir"
 mv "$temporary_dir/$apk_name" "$output_dir/$apk_name"
-cd "$output_dir"
-if command -v sha256sum >/dev/null; then
-    sha256sum "$apk_name" > SHA256SUMS
-else
-    shasum -a 256 "$apk_name" > SHA256SUMS
-fi
-printf 'Verified update APK: %s/%s\nChecksum: %s/SHA256SUMS\n' "$output_dir" "$apk_name" "$output_dir"
+python3 "$project_dir/scripts/prepare_update_assets.py" "$output_dir/$apk_name" --output "$output_dir"
+printf 'Verified updater bundle: %s\n' "$output_dir"

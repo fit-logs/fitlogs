@@ -1,3 +1,9 @@
+# FitLogs Android
+
+Active source and releases: [fit-logs/fitlogs](https://github.com/fit-logs/fitlogs). See the [root README](../README.md), [migration notes](docs/fitlogs-migration.md) and [current release workflow](docs/github-actions-release.md). The package remains `com.example.fitnotes` for installation compatibility.
+
+The following development notes include historical commands and verification records from the legacy repository.
+
 # FitNotes Android
 
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
@@ -107,7 +113,7 @@ original fields, import fingerprints, planned workouts/targets and saved handoff
 preferences, individual target sets and workout suggestion snapshots, target/result
 links, load modes, aliases/source mappings, superset groups, progression settings
 and favourites. A running rest countdown is exported as paused remaining time and
-restored paused with a fresh action token. Versions 1–6 remain readable. Store it outside this repository
+restored paused with a fresh action token. The Body profile and display preferences are also retained. Store it outside this repository
 in a private location. Backups are readable JSON and are not encrypted.
 
 Use **Choose backup to restore** to validate a file and see its export date,
@@ -118,7 +124,7 @@ if you want to retain it.
 
 Malformed JSON, unsupported versions, duplicate IDs/names, broken references,
 invalid values, and multiple unfinished sessions are rejected before replacement.
-The current JSON backup size limit is 50 MB. This format is for this Android app;
+The current JSON backup format is v8; older formats are rejected. Its size limit is 50 MB. This format is for this Android app;
 it does not import the sibling web app's data.
 
 Actual training data lives in the app's private `fitnotes.db`, outside Git.
@@ -144,6 +150,10 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
   choices. Weight can be kg/lb; distance m/km/ft/mi; time seconds, minutes, h:m:s,
   m:s, or h:m. Pounds convert to kg while original source values are retained.
   Quoted commas, multiline comments, and doubled quotes are supported.
+- **Body overview:** latest imported/manual weight, persistent 1M/3M/1Y/All chart,
+  daily-balanced four-week comparison, and BMI from locally saved height. Optional
+  birth date enables CDC adult categories from age 20. Profile data stays out of
+  ChatGPT exports. See [calculations and data handling](docs/body-overview.md).
 - **Body Tracker CSV is deferred until an actual CSV export is supplied.** The
   shared `.fitnotes` file is a database, not a CSV example. Its body records are
   fully supported through native backup import; no body CSV columns were guessed.
@@ -163,7 +173,14 @@ units, invalid/skipped rows with reasons, and unsupported configuration records.
   Original raw fields remain available for analysis. Deleting an imported session
   requires confirmation and retains its import fingerprint, preventing accidental
   re-addition by the same file. Repeating copies only its exercise list.
-- The **Body** tab lists dated measurements. Graphs are deferred.
+- The **Body** tab plots the selected measurement with 1M / 3M / 1Y / All ranges.
+  Tap a point (or **View plotted measurements**) to inspect/edit the original
+  reading. Units stay separate; repeated readings are retained without averaging.
+  Date-only entries keep their recorded dates, and the complete list stays below
+  the chart. Chart ticks follow the measurement precision.
+  Manual measurement times accept `HH:mm` or `HH:mm:ss` (24-hour time), or blank
+  for date-only. Minute-only input is stored with `:00` seconds; invalid times
+  show a field error. Existing recorded seconds, units and values are preserved.
   Period sharing includes body measurements. **Backup and restore → Export analysis JSON**
   exports recorded training with format `fitnotes-analysis`, version 2 and
   `backupSchemaVersion: 7`. It excludes plans, target snapshots, progression
@@ -495,6 +512,15 @@ Local strength workouts support **More actions → Reorder exercises**.
 See [usage and verification](docs/exercise-order.md).
 
 ## Progress photos
+
+Automatic record backups are available through **Settings → Backup and restore →
+Automatic backup**. They are off until enabled in FitNotes and use Android's
+encrypted device backup with the account selected in Android Settings. Android
+controls the schedule and retains the latest snapshot. Workouts, imported health
+data, measurements, plans, targets and training preferences are included;
+progress photos and their metadata are excluded. A recovered snapshot opens the
+existing review/restore confirmation. For an independent copy now, export a JSON
+backup and choose Drive in the system picker. See [automatic backup](docs/automatic-backup.md).
 
 **Body → Measurements / Photos** keeps measurements separate from optional photos.
 In Photos, choose Front / Side / Back / Other. The grid lists newest dates first.

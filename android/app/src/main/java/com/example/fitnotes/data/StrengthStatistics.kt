@@ -2,6 +2,7 @@ package com.example.fitnotes.data
 
 import com.example.fitnotes.AppData
 import com.example.fitnotes.ui.notebookSessions
+import com.example.fitnotes.ui.NotebookSession
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -18,7 +19,8 @@ data class TrainingStatisticsResult(val exercises: List<ExerciseStatistics>, val
 fun estimateText(value:Double)=java.math.BigDecimal.valueOf(value).setScale(1,java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
 fun estimatedOneRepMax(kg: Double?, reps: Int, mode: String, warmUp: Boolean): Double? =
     if (kg==null || kg<=0 || mode!=LoadMode.EXTERNAL || warmUp || reps !in 1..10) null else if(reps==1)kg else kg*(1+reps/30.0)
-fun observations(data: AppData): List<TrainingObservation> = notebookSessions(data).map { session ->
+fun observations(data: AppData): List<TrainingObservation> = observations(notebookSessions(data))
+fun observations(sessions: List<NotebookSession>): List<TrainingObservation> = sessions.map { session ->
     TrainingObservation(session.key,session.date,session.completed,session.startedMillis,session.completedMillis,
         session.exercises.flatMap { exercise -> exercise.sets.mapNotNull { set ->
             if(set.reps==null || set.reps<=0) null else StrengthResult(exercise.canonicalId?.let{"exercise:$it"} ?: "source:${session.imported?.workout?.importId}:${exercise.name}:${exercise.category}",

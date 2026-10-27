@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.example.fitnotes.data.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -91,7 +92,7 @@ class TrainingWorkflowTest {
     }
     @Test fun unknownActualLoadIsNotNumericZeroForDisplayStatisticsOrBackup()=runBlocking {
         val workout=plans.start(plan());repo.saveSet(db.dao().workoutEntries(workout).single().id,"","9",loadMode=LoadMode.UNKNOWN);repo.finish(workout)
-        val actual=db.dao().sets().single();assertFalse(actual.weightSpecified);assertTrue(localSetText(actual).contains("unspecified"))
+        val actual=db.dao().sets().single();assertFalse(actual.weightSpecified);assertEquals("9 reps",localSetText(actual))
         val backup=repo.backup();repo.restore(BackupCodec.decode(BackupCodec.encode(backup)));assertFalse(db.dao().sets().single().weightSpecified)
         val record=WorkoutDetail(db.dao().workout(workout)!!,listOf(EntryDetail(db.dao().entries().single(),db.dao().exercise(1)!!,db.dao().sets())))
         val stats=StrengthStatistics.calculate(observations(AppData(exercises=db.dao().exercises(),workouts=listOf(record),loading=false)))
@@ -104,14 +105,14 @@ class TrainingWorkflowTest {
         assertEquals(ExerciseMatchKind.ALIAS,matchPlanExercise("Known press",db.dao().exercises(),aliases=aliasMap(db.trainingDao().aliases())).kind)
         assertEquals(ExerciseMatchKind.UNKNOWN,matchPlanExercise("Incline synthetic press",db.dao().exercises(),aliases=aliasMap(db.trainingDao().aliases())).kind)
     }
-    @Test fun mergeCombinesBothParentsWithoutLosingSetsTargetsNotesOrSourcePlanIdentity()=runBlocking {
+    @Test fun mergePreservesOccurrencesSetsTargetsNotesAndSourcePlanIdentity()=runBlocking {
         val plan=plan(true);val workout=plans.start(plan);val rows=db.planDao().runTargets();training.complete(rows[0].id,"40.5","10","First",LoadMode.EXTERNAL);training.complete(rows[2].id,"41","9","Second",LoadMode.EXTERNAL)
         val ids=db.dao().sets().map{it.id};val targetIds=rows.map{it.id};val identity=ExerciseIdentityRepository(db)
         val preview=identity.preview(1,2);assertEquals(1,preview.combinedWorkouts);assertEquals(1,preview.combinedPlans);assertTrue(preview.blockers.isEmpty())
         identity.merge(preview)
         assertEquals(ids.toSet(),db.dao().sets().map{it.id}.toSet());assertEquals(targetIds.toSet(),db.planDao().runTargets().map{it.id}.toSet())
-        assertEquals(1,db.dao().workoutEntries(workout).size);assertEquals(1,db.planDao().detail(plan)!!.exercises.size)
-        assertEquals(4,db.planDao().sets().size);assertTrue(db.dao().entries().single().planNote.contains("Guidance 2"))
+        assertEquals(2,db.dao().workoutEntries(workout).size);assertEquals(2,db.planDao().detail(plan)!!.exercises.size)
+        assertEquals(4,db.planDao().sets().size);assertTrue(db.dao().entries().last().planNote.contains("Guidance 2"))
         assertEquals(1,db.trainingDao().redirects().single().exerciseId);BackupCodec.validate(repo.backup())
     }
     @Test fun mergeRejectsChangedDataAndConflictingLoadModes()=runBlocking {
@@ -184,9 +185,75 @@ class TrainingWorkflowTest {
             old.execSQL("INSERT INTO workout_sets(id,entryId,weightKg,reps,position,comment) VALUES (7,6,42.5,8,0,'Keep actual')")
             old.version=8
         }
-        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15).build()
+        db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(TRAINING_MIGRATION_8_9, ACTIVITY_SUMMARY_MIGRATION_9_10, ACTIVITY_PROVIDER_MIGRATION_10_11, WORKOUT_LIFECYCLE_MIGRATION_11_12, PROGRAM_MIGRATION_12_13, PROGRAM_IMPORT_MIGRATION_13_14, LOAD_ADVICE_MIGRATION_14_15, *UNIFIED_MIGRATIONS_TO_16).build()
         val actual=db.dao().sets().single();assertEquals(7,actual.id);assertEquals(42.5,actual.weightKg,0.0);assertEquals("Keep actual",actual.comment)
         assertNull(actual.targetId);assertNull(actual.completedAt);assertEquals(LoadMode.UNKNOWN,actual.loadMode);assertTrue(actual.weightSpecified)
         assertEquals("Keep note",db.dao().workout(5)!!.notes)
     }
+    @Test fun undoDeletedCompletionRestoresExactValuesPositionAndTargetWithoutRestRestart()=runBlocking {
+        val workout=plans.start(plan());val rows=db.planDao().runTargets()
+        training.complete(rows[0].id,"40.5","10","Saved note",LoadMode.EXTERNAL)
+        training.complete(rows[1].id,"45","7","Second note",LoadMode.EXTERNAL)
+        val before=db.dao().sets();val old=repo.deleteSet(before.first().id)
+        repo.restoreDeletedSet(old)
+        assertEquals(before,db.dao().sets());assertNull(db.trainingDao().timer())
+        assertEquals(rows[0].id,db.dao().sets().first().targetId);assertEquals(workout,db.dao().entry(old.entryId)!!.workoutId)
+    }
+    @Test fun undoDetachesAssociationIfTargetWasRemovedAndNeverLosesActualResult()=runBlocking {
+        plans.start(plan());val target=db.planDao().runTargets().first();training.complete(target.id,"40","9","Saved",LoadMode.EXTERNAL)
+        val old=repo.deleteSet(db.dao().sets().single().id)
+        db.openHelper.writableDatabase.execSQL("DELETE FROM workout_set_targets WHERE id = ?",arrayOf(target.id))
+        repo.restoreDeletedSet(old);assertEquals(old.copy(targetId=null),db.dao().sets().single())
+    }
+    @Test fun progressionConflictsBlockMergeWithoutChangingAnyRecords()=runBlocking {
+        db.trainingDao().putProgression(ExerciseProgression(1,true,"2.5","kg"))
+        db.trainingDao().putProgression(ExerciseProgression(2,true,"5","kg"))
+        val before=repo.backup();val identity=ExerciseIdentityRepository(db);val preview=identity.preview(1,2)
+        assertTrue(preview.blockers.any{it.contains("Progression")});reject{identity.merge(preview)}
+        val after=repo.backup();assertEquals(before.copy(exportedAt=after.exportedAt),after)
+    }
+    @Test fun reimportAfterMergeUsesAliasWithoutRecreatingExerciseOrDuplicatingSourceSets()=runBlocking {
+        val csv="Date,Exercise,Category,Weight,Reps,Distance,Time,Comment\n2026-10-10,Synthetic press duplicate,Strength,40,8,,,\n"
+        val importer=HistoryImportRepository(db)
+        val source=HistoryImportReader.plan(HistoryImportReader.workoutCsv(csv,"one.csv"),ImportOptions(weightUnit="kg"))
+        assertEquals(1,importer.importHistory(source).added)
+        val original=db.importedDao().sets();val identity=ExerciseIdentityRepository(db);identity.merge(identity.preview(1,2))
+        assertEquals(1,db.dao().exercises().size);assertEquals(original,db.importedDao().sets())
+        assertEquals(1,importer.importHistory(source).alreadyImported)
+        val next=HistoryImportReader.plan(HistoryImportReader.workoutCsv(csv.replace("2026-10-10","2026-10-11"),"two.csv"),ImportOptions(weightUnit="kg"))
+        importer.importHistory(next);assertEquals(1,db.dao().exercises().size)
+        val data=AppData(exercises=db.dao().exercises(),imported=ImportedData(imports=db.importedDao().imports(),workouts=db.importedDao().details()),exerciseAliases=db.trainingDao().aliases(),exerciseMappings=db.trainingDao().mappings())
+        assertTrue(canonicalImportedSetIds(data).values.all{it==1L});assertEquals(2,db.importedDao().sets().size)
+    }
+
+    @Test fun completedWorkoutPlanCopiesActualsAndOnlyPrescribedRestWithoutStartingTraining()=runBlocking {
+        val workout=plans.start(plan());val targets=db.planDao().runTargets()
+        training.complete(targets[0].id,"42","9","Actual note",LoadMode.EXTERNAL)
+        repo.saveSet(targets[0].entryId,"","8",loadMode=LoadMode.UNKNOWN)
+        repo.finish(workout)
+        val data=AppData(exercises=db.dao().exercises(),workouts=db.dao().observeWorkouts().first())
+        val session=com.example.fitnotes.ui.notebookSessions(data).single()
+        val preview=planFromCompletedSession(session,targets)
+        val values=preview.spec.exercises.single().setTargets
+        assertEquals(listOf(9,8),values.map{it.repsMin});assertEquals("42",values[0].weight.value);assertEquals(90,values[0].restSeconds)
+        assertNull(values[1].weight.value);assertNull(values[1].restSeconds);assertEquals("",preview.spec.date)
+        val before=repo.backup();plans.save(preview,allowDuplicate=true)
+        assertNull(db.dao().active());assertEquals(before.workouts,db.dao().workouts());assertEquals(before.sets,db.dao().sets())
+    }
+
+    @Test fun mergedRepeatedOccurrencesKeepDifferentTargetsThroughEditSaveAndStart()=runBlocking {
+        val original=plan(true);val identity=ExerciseIdentityRepository(db);identity.merge(identity.preview(1,2))
+        val detail=db.planDao().detail(original)!!
+        val resolved=detail.ordered.map{ResolvedPlanExercise(it.prescription,it.exercise.id,supersetGroup=it.target.supersetGroup)}
+        val changed=resolved.mapIndexed{index,row->if(index==1)row.copy(prescription=row.prescription.copy(setTargets=listOf(PlanSetTarget(5,6,PlanWeight("75","kg"),120))))else row}
+        plans.save(PlanPreview(detail.spec.copy(exercises=changed.map{it.prescription}),changed),editingId=original)
+        val workout=plans.start(original);val entries=db.dao().workoutEntries(workout)
+        assertEquals(listOf(1L,1L),entries.map{it.exerciseId});assertEquals(listOf(0,1),entries.map{it.position})
+        val targets=db.planDao().runTargets()
+        assertEquals(listOf("40.5","45.25"),targets.filter{it.entryId==entries[0].id}.map{it.weightValue})
+        assertEquals(listOf("75"),targets.filter{it.entryId==entries[1].id}.map{it.weightValue})
+        val backup=repo.backup();repo.restore(BackupCodec.decode(BackupCodec.encode(backup)))
+        assertEquals(entries,db.dao().workoutEntries(workout));assertEquals(targets,db.planDao().runTargets())
+    }
+
 }

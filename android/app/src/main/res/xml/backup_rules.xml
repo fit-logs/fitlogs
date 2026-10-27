@@ -1,14 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
--->
+<?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Includes progress-photo metadata; manual backup is explicit. -->
-    <exclude domain="database" path="."/>
-    <!-- Excludes private progress-photo originals, thumbnails and pending imports. -->
-    <exclude domain="file" path="."/>
-    <exclude domain="sharedpref" path="."/>
+    <!-- The agent also requires opt-in and encrypted transport or device transfer.
+         Raw databases, photos, exports and shared preferences stay out. -->
+    <include domain="file" path="system-backup/training.json.gz"/>
 </full-backup-content>

@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             else IntentCompat.getParcelableExtra(intent,Intent.EXTRA_STREAM,Uri::class.java)?.let(model::receiveProgramFileShare)
         }
     }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent);setIntent(intent);receiveSharedProgram(intent) }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent);setIntent(intent);receiveSharedProgram(intent);deliverPlan(intent) }
 
     override fun onResume() {
         super.onResume()
@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
+        deliverPlan(intent)
         setContent {
             FitNotesTheme {
                 val model: FitNotesViewModel = viewModel()
@@ -47,4 +48,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    private fun deliverPlan(intent:android.content.Intent) {
+        if(intent.action==android.content.Intent.ACTION_VIEW) intent.data?.let {
+            androidx.lifecycle.ViewModelProvider(this)[FitNotesViewModel::class.java].openPlanFile(it)
+        }
+    }
+
 }

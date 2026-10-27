@@ -14,7 +14,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = ROOT / "web/public/catalog"
+CATALOG = ROOT / "catalog"
 SCHEMA = ROOT / "data/programs/schema-v1.json"
 
 
@@ -107,7 +107,7 @@ def validate(directory=CATALOG):
 
 def validate_published_versions(base):
     assert re.fullmatch(r"[A-Za-z0-9/_.-]+", base) and ".." not in base
-    names = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", base, "--", "web/public/catalog/programs"], cwd=ROOT, text=True).splitlines()
+    names = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", base, "--", "catalog/programs"], cwd=ROOT, text=True).splitlines()
     for name in names:
         before = subprocess.check_output(["git", "show", f"{base}:{name}"], cwd=ROOT)
         assert (ROOT / name).read_bytes() == before, f"Published version changed/deleted: {name}. Add a new version and retain the old file."
@@ -116,7 +116,6 @@ def validate_published_versions(base):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--prepare", action="store_true")
-    parser.add_argument("--export", action="store_true")
     parser.add_argument("--base", help="Git ref whose published program bytes must remain unchanged")
     args = parser.parse_args()
     if args.prepare:
@@ -124,11 +123,4 @@ if __name__ == "__main__":
     count = validate()
     if args.base:
         validate_published_versions(args.base)
-    if args.export:
-        exported = ROOT / "web/out/catalog"
-        validate(exported)
-        for p in CATALOG.rglob("*"):
-            if p.is_file():
-                assert (exported / p.relative_to(CATALOG)).read_bytes() == p.read_bytes(), p
-        assert (exported / "schema-v1.json").read_bytes() == SCHEMA.read_bytes()
     print(f"Validated {count} original programs, shared schema, exercise references and licensing.")

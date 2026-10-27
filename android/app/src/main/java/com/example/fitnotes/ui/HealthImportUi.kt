@@ -32,6 +32,8 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
         AlertDialog(onDismissRequest = onClose, title = { Text("Import activities") }, text = { Text("Health Connect requires Android 9 or later. Manual activity logging remains available.") }, confirmButton = { TextButton(onClick = onClose) { Text("Close") } })
         return
     }
+    var runningHistory by rememberSaveable { mutableStateOf(false) }
+    if (runningHistory) { RunningImportDialog(model) { runningHistory = false }; return }
     var days by rememberSaveable { mutableIntStateOf(7) }
     val candidates by model.healthCandidates.collectAsState(); val known by model.knownHealth.collectAsState()
     val message by model.healthMessage.collectAsState()
@@ -86,6 +88,7 @@ fun HealthImportDialog(model: FitNotesViewModel, data: AppData, busy: Boolean, o
                 NotebookBar("Health connection", if (!busy) onClose else null)
                 if (reading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 LazyColumn(Modifier.fillMaxSize().testTag("health-preview-list"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { Button(onClick={runningHistory=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import running history")} }
                     item { Text(WATCH_NOTE, style = MaterialTheme.typography.bodyMedium) }
                     if (status != HealthConnectClient.SDK_AVAILABLE) item {
                         Text(if (status == HealthConnectClient.SDK_UNAVAILABLE) "Health Connect is not supported or available for this device/profile." else "Install or update Health Connect, then return here.")

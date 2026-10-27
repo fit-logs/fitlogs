@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 13,
+    val version: Int = 14,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -28,6 +28,7 @@ data class Backup(
     val programs: List<TrainingProgram> = emptyList(), val programDays: List<ProgramDay> = emptyList(),
     val programSessions: List<ProgramSession> = emptyList(), val programSteps: List<ProgramStep> = emptyList(),
     val loadProfiles: List<LoadProfile> = emptyList(), val setLoadContexts: List<SetLoadContext> = emptyList(), val sessionLoadLocks: List<SessionLoadLock> = emptyList(),
+    val bodyProfile: BodyProfile? = null, val runLinks: List<RunLink> = emptyList(),
     val trainingPreferences: TrainingPreferences? = null, val restTimer: RestTimerState? = null,
 )
 
@@ -105,6 +106,7 @@ object BackupCodec {
         if (backup.version >= 7) TrainingBackupJson.add(root, backup)
         if (backup.version >= 11) ProgramBackupJson.add(root, backup)
         if (backup.version >= 13) LoadAdviceBackupJson.add(root, backup)
+        if (backup.version >= 14) MigratedBackupFields.add(root, backup)
         return root.toString(2).also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Backup exceeds the 50 MB limit." } }
     }
 
@@ -113,17 +115,20 @@ object BackupCodec {
         try {
             StrictJson(text).check()
             val root = JSONObject(text)
+            MigratedBackupFields.upgradeLocal(root)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..13) { "Unsupported backup version." }
+            require(version in 1..14) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
             else if (version == 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples")
             else if (version == 5) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences")
             else if (version == 6) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets")
-            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets", *TrainingBackupJson.rootKeys, *if(version >= 11) ProgramBackupJson.keys else emptyArray(), *if(version>=13)LoadAdviceBackupJson.keys else emptyArray())
+            else root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements", "healthSessions", "healthSamples", "plannedWorkouts", "plannedExercises", "handoffPreferences", "plannedSets", "planRuns", "runTargets", *TrainingBackupJson.rootKeys, *if(version >= 11) ProgramBackupJson.keys else emptyArray(), *if(version>=13)LoadAdviceBackupJson.keys else emptyArray(), *if(version>=14)MigratedBackupFields.keys else emptyArray())
             val backup = Backup(
+                bodyProfile = if(version < 14 || root.isNull("bodyProfile")) null else BodyProfileJson.decode(root.getJSONObject("bodyProfile")),
+                runLinks = if(version < 14) emptyList() else MigratedBackupFields.links(root),
                 loadProfiles=if(version>=13)LoadAdviceBackupJson.profiles(root) else emptyList(), setLoadContexts=if(version>=13)LoadAdviceBackupJson.contexts(root) else emptyList(),sessionLoadLocks=if(version>=13)LoadAdviceBackupJson.locks(root) else emptyList(),
                 programs = if(version >= 11) ProgramBackupJson.programs(root,version) else emptyList(), programDays = if(version >= 11) ProgramBackupJson.days(root) else emptyList(),
                 programSessions = if(version >= 11) ProgramBackupJson.sessions(root) else emptyList(), programSteps = if(version >= 11) ProgramBackupJson.steps(root) else emptyList(),
@@ -185,9 +190,9 @@ object BackupCodec {
                         it.string("comment"), it.string("rawValues"))
                 },
                 bodyMeasurements = if (version == 1) emptyList() else root.objects("bodyMeasurements", 1000000).map {
-                    it.keysExactly("id", "importId", "sourceRecordId", "date", "time", "name", "value", "unit", "unitName", "comment", "rawValues")
+                    it.keysExactly("id", "importId", "sourceRecordId", "date", "time", "name", "value", "unit", "unitName", "comment", "rawValues", *if(version>=14) arrayOf("createdAt") else emptyArray())
                     BodyMeasurement(it.string("id"), it.string("importId"), it.string("sourceRecordId"), it.string("date"), it.string("time"),
-                        it.string("name"), requireNotNull(it.optionalNumber("value")), it.string("unit"), it.string("unitName"), it.string("comment"), it.string("rawValues"))
+                        it.string("name"), requireNotNull(it.optionalNumber("value")), it.string("unit"), it.string("unitName"), it.string("comment"), it.string("rawValues"), if(version>=14) it.long("createdAt") else 0L)
                 },
                 healthSessions = if (version < 4) emptyList() else root.objects("healthSessions", 100000).map(HealthBackupJson::session),
                 healthSamples = if (version < 4) emptyList() else root.objects("healthSamples", 1000000).map(HealthBackupJson::sample),
@@ -212,9 +217,11 @@ object BackupCodec {
     }
 
     fun validate(backup: Backup) {
+        validateRunLinks(backup)
+        backup.bodyProfile?.let(::validateBodyProfile)
         LoadAdviceBackupJson.validate(backup)
         ProgramBackupJson.validate(backup)
-        require(backup.version in 1..13) { "Unsupported backup version." }
+        require(backup.version in 1..14) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&
@@ -251,7 +258,6 @@ object BackupCodec {
             require(it.distance == null || (it.distance.isFinite() && it.distance >= 0 && it.distanceUnit in listOf("m", "km", "ft", "mi"))) { "Invalid distance." }
             require(it.title.length <= 200 && it.notes.length <= 10000) { "Title or notes are too long." }
         }
-        require(backup.entries.map { it.workoutId to it.exerciseId }.toSet().size == backup.entries.size) { "An exercise appears twice in a session." }
         require(backup.entries.map { it.workoutId to it.position }.toSet().size == backup.entries.size) { "Duplicate exercise positions." }
         backup.entries.forEach {
             require(it.workoutId in workouts && it.exerciseId in exercises && it.position in 0 until Int.MAX_VALUE) { "Invalid exercise reference or position." }

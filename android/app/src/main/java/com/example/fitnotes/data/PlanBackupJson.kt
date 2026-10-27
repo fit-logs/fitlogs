@@ -62,7 +62,7 @@ fun validatePlanBackup(backup: Backup) {
     val exerciseIds = backup.exercises.map { it.id }.toSet()
     val workouts = backup.workouts.associateBy { it.id }
     require(plans.mapNotNull { it.startedWorkoutId }.distinct().size == plans.count { it.startedWorkoutId != null }) { "A recorded workout is linked to multiple plans." }
-    require(targets.map { it.planId to it.position }.distinct().size == targets.size && targets.map { it.planId to it.exerciseId }.distinct().size == targets.size) { "Duplicate plan positions or exercises." }
+    require(targets.map { it.planId to it.position }.distinct().size == targets.size) { "Duplicate plan positions." }
     targets.forEach { require(it.planId in planIds && it.exerciseId in exerciseIds && it.position >= 0) { "Invalid planned exercise reference." } }
     plans.forEach { plan ->
         require(plan.startedWorkoutId == null || workouts[plan.startedWorkoutId]?.activityType == "strength") { "Invalid started-plan workout reference." }

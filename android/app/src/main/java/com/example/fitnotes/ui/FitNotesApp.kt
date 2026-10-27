@@ -44,8 +44,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var includePhotos by rememberSaveable { mutableStateOf(false) }
     val original by model.pendingImport.collectAsState()
     val already by model.previouslyImported.collectAsState()
-    val localSessions=remember(data.workouts){notebookSessions(AppData(exercises=data.exercises,workouts=data.workouts))}
-    val importedSessions=remember(data.imported.workouts,data.exercises,data.exerciseAliases,data.exerciseMappings){notebookSessions(data.copy(workouts=emptyList()))}
+    val localSessions=remember(data.workouts,data.runLinks){notebookSessions(AppData(exercises=data.exercises,workouts=data.workouts,runLinks=data.runLinks))}
+    val importedSessions=remember(data.imported.workouts,data.exercises,data.exerciseAliases,data.exerciseMappings,data.runLinks){notebookSessions(data.copy(workouts=emptyList()))}
     val sessions=remember(localSessions,importedSessions){sortNotebookSessions(localSessions+importedSessions)}
     val pastDrafts by model.pastDrafts.collectAsState()
     val draftSessions = remember(pastDrafts, data.exercises) { notebookSessions(data.copy(workouts = pastDrafts, imported = ImportedData()), includeDrafts = true) }
@@ -55,10 +55,13 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var timingWorkoutId by rememberSaveable { mutableStateOf<Long?>(null) }
     var discardPastId by rememberSaveable { mutableStateOf<Long?>(null) }
     var library by rememberSaveable { mutableStateOf(false) }
+    var repairHistory by rememberSaveable { mutableStateOf(false) }
+    var updateApp by rememberSaveable { mutableStateOf(false) }
     var progress by rememberSaveable { mutableStateOf(false) }
     var trainingSettings by rememberSaveable { mutableStateOf(false) }
     val summary by model.completionSummary.collectAsState()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var returnToProgress by rememberSaveable { mutableStateOf(false) }
     var workoutDay by rememberSaveable { mutableStateOf(todayDate()) }
     var workoutKey by rememberSaveable { mutableStateOf<String?>(null) }
     var browsingWorkoutDay by rememberSaveable { mutableStateOf(false) }
@@ -76,12 +79,15 @@ fun FitNotesApp(model: FitNotesViewModel) {
     var discardActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
     var discardForStart by rememberSaveable { mutableStateOf(false) }
     var finishActiveId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedRunKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val runs = remember(data) { runningRecords(data) }
     var activityEntry by remember { mutableStateOf(false) }
     var healthImport by remember { mutableStateOf(false) }
     var stravaExport by rememberSaveable { mutableStateOf(false) }
     var importMenu by remember { mutableStateOf(false) }
     var native by rememberSaveable { mutableStateOf(true) }
     var backupMenu by remember { mutableStateOf(false) }
+    var automaticBackup by rememberSaveable { mutableStateOf(false) }
     var rangeMenu by remember { mutableStateOf(false) }
     var shareText by remember { mutableStateOf<String?>(null) }
     var askChatGpt by rememberSaveable { mutableStateOf(false) }
@@ -100,6 +106,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val historyState = rememberLazyListState()
     val bodyState = rememberLazyListState()
     fun openHistory(key: String) {
+        runs.firstOrNull { it.parentKey == key && it.key.startsWith("local:") }?.let { selectedRunKey = it.key; return }
         val session = sessions.firstOrNull { it.key == key } ?: return
         loggerKey = null; exerciseKey = null; historyKey = key; historyDay = session.date; tab = 1; editableKey = null
     }
@@ -136,27 +143,43 @@ fun FitNotesApp(model: FitNotesViewModel) {
         else { historyKey = key; session?.let { historyDay = it.date } }
         editableKey = null
     }
+    var recoveryBackupName by rememberSaveable { mutableStateOf<String?>(null) }
+    val recoveryExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> recoveryBackupName?.let{name->uri?.let{model.exportRecovery(it,name)}} }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::export) }
     val photoExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let(model::exportPhotos) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::inspectBackup) }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> model.inspectOriginal(uri, native) } }
     val analysis = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(model::exportAnalysis) }
     LaunchedEffect(backupMenu) { if (backupMenu) includePhotos = false }
+    LaunchedEffect(model) { model.offerRecoveredBackup() }
+    val openedPlan by model.openedPlanReview.collectAsState()
+    LaunchedEffect(openedPlan) { if(openedPlan){pastePlan=true;model.openedPlanReview.value=false} }
     LaunchedEffect(model) { model.messages.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(model) { model.deletedMeasurements.collect { record ->
+        if (snackbar.showSnackbar("Measurement deleted", actionLabel = "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) model.undoDeletedMeasurement(record)
+    } }
+    LaunchedEffect(model) { model.deletedSets.collect { deleted ->
+        if(snackbar.showSnackbar("Set deleted",actionLabel="Undo",duration=SnackbarDuration.Short)==SnackbarResult.ActionPerformed) model.undoDeletedSet(deleted)
+    } }
     BackHandler(enabled = addingTo != null || loggerKey != null || historyDay != null || (tab == 0 && (workoutKey != null || browsingWorkoutDay))) {
         if (addingTo != null) addingTo = null
         else if (loggerKey != null) { loggerKey = null; exerciseKey = null }
         else if (tab == 0 && (workoutKey != null || browsingWorkoutDay)) { workoutKey = null; browsingWorkoutDay = false; editableKey = null }
         else { historyKey = null; historyDay = null; editableKey = null }
     }
-    Scaffold(bottomBar = {
+    CompositionLocalProvider(LocalSettingsAction provides { settings = true },LocalKeyboardVisible provides (WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)>0)) {
+    Scaffold(modifier=Modifier.imePadding(),bottomBar = {
+        Column() {
+        data.active?.let { RestControls(model,it.workout.id,busy) }
         if (loggerKey == null && addingTo == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; browsingWorkoutDay = false; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train") })
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History") })
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body") })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
+            NavigationBarItem(selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { ProgressSymbol() }, label = { Text("Progress", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 3, onClick = { tab = 3; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
+        }
         }
     }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
             if (busy || healthSyncing) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (data.loading) {
                 NotebookBar("FitNotes")
@@ -182,20 +205,17 @@ fun FitNotesApp(model: FitNotesViewModel) {
                     ExerciseLogger(logSession, logExercise, sessions, data, model, busy, !logSession.completed || editableKey == logSession.key,
                         onBack = { loggerKey = null; exerciseKey = null }, onSwitch = { exerciseKey = it }, onAdd = { addingTo = logSession.key },
                         onEditWorkout = { editableKey = logSession.key }, onHistory = ::openHistory, onSavePast = { logSession.local?.let { savePast(it.workout.id) } })
-                } else if (tab == 2) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
+                } else if (tab == 3) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
                 else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
-                    onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={progress=true},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onPast=::openPast)
-                else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) CompositionLocalProvider(LocalSettingsAction provides { settings = true }) {
-                    TrainScreen(data, model, busy,
-                        onResume = { data.active?.let { enterWorkout(it.workout.id) } }, onStart = ::startWorkout,
-                        onFinish = { finishActiveId = data.active?.workout?.id },
-                        onDiscard = { discardActiveId = data.active?.workout?.id; discardForStart = false },
-                        onPast = ::openPast, onDraft = { id -> enterWorkout(id) }, onEditTime = ::editTime, onResumeFinished = { id -> model.resumeFinishedWorkout(id) { enterWorkout(id) } }, onDiscardDraft = { discardPastId = it },
-                        onProgramStart = { id -> model.startProgramDay(id) { enterWorkout(it) } },
-                        onImportProgram = { model.cancelProgramImport(); programImport = true },
-                        onPlan = { selectedPlan = it; plansMenu = true }, onNew = { model.newPlan(); pastePlan = true },
-                        onAsk = { askChatGpt = true }, onImport = { model.cancelPlanImport(); pastePlan = true })
+                    onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={tab=2},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onRun={selectedRunKey=it})
+                else if (tab == 2) holder.SaveableStateProvider("progress:$restoreRevision") {
+                    ProgressScreen(data,model,busy,{library=true},onWorkout={key->returnToProgress=true;openHistory(key)},onRun={selectedRunKey=it})
                 }
+                else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) TrainScreen(data,model,busy,
+                    onResume={data.active?.let{workoutKey="local:${it.workout.id}";workoutDay=com.example.fitnotes.data.localWorkoutDate(it.workout)}},onStart=::startWorkout,
+                    onFinish={finishActiveId=data.active?.workout?.id},onDiscard={discardActiveId=data.active?.workout?.id;discardForStart=false},
+                    onPast=::openPast,onDraft={enterWorkout(it)},onEditTime=::editTime,onResumeFinished={id->model.resumeFinishedWorkout(id){enterWorkout(id)}},onDiscardDraft={discardPastId=it},onProgramStart={id->model.startProgramDay(id){enterWorkout(it)}},onImportProgram={programImport=true},
+                    onPlan={selectedPlan=it;plansMenu=true},onNew={model.newPlan();pastePlan=true},onAsk={askChatGpt=true},onImport={model.cancelPlanImport();pastePlan=true})
                 else {
                     val key = if (tab == 0) workoutKey else historyKey
                     val day = if (tab == 0) workoutDay else historyDay ?: todayDate()
@@ -228,18 +248,20 @@ fun FitNotesApp(model: FitNotesViewModel) {
             }
         }
     }
-    if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text("Settings") }, text = {
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            TextButton(onClick = { settings = false; trainingSettings = true }) { Text("Training") }
-            TextButton(onClick = { settings = false; healthImport = true }) { Text("Garmin via Health Connect") }
-            TextButton(onClick = { settings = false; stravaExport = true }) { Text("Strava activity files") }
-            TextButton(onClick = { settings = false; importMenu = true }) { Text("Import history") }
-            TextButton(onClick = { settings = false; backupMenu = true }) { Text("Backup and restore") }
-            TextButton(onClick = { settings = false; library = true }) { Text("Exercise library") }
-            TextButton(onClick = { settings = false; progress = true }) { Text("Strength progress") }
-            TextButton(onClick = { settings = false; activityEntry = true }) { Text("Log another activity") }
-        }
-    }, confirmButton = { TextButton(onClick = { settings = false }) { Text("Done") } })
+    if(settings) AlertDialog(onDismissRequest={settings=false},title={Text("Settings")},text={Column(Modifier.verticalScroll(rememberScrollState())) {
+        TextButton(onClick={settings=false;trainingSettings=true}){Text("Training")}
+        TextButton(onClick={settings=false;healthImport=true}){Text("Health sync")}
+        TextButton(onClick={settings=false;importMenu=true}){Text("Import history")}
+        TextButton(onClick={settings=false;backupMenu=true}){Text("Backup and restore")}
+        TextButton(onClick={settings=false;repairHistory=true}){Text("Review repeated imports")}
+        TextButton(onClick={settings=false;library=true}){Text("Exercise library")}
+        TextButton(onClick={settings=false;activityEntry=true}){Text("Log another activity")}
+        TextButton(onClick={settings=false;updateApp=true}){Text("Update app")}
+        Text("Appearance",style=MaterialTheme.typography.titleMedium)
+        com.example.fitnotes.ui.theme.ThemeMode.entries.forEach{mode->Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){RadioButton(appearance.mode==mode,{appearance.choose(mode)});Text(mode.name)}}
+    }},confirmButton={TextButton(onClick={settings=false}){Text("Done")}})
+    if(updateApp)AppUpdateDialog(onClose={updateApp=false})
+    if(repairHistory)HistoryRepairDialog(data,model,busy){repairHistory=false}
     val pendingActive = data.workouts.firstOrNull { it.workout.id == pendingActiveId }
     if (resolvingStart) AlertDialog(onDismissRequest = { if (!busy) resolvingStart = false }, title = { Text("Workout already in progress") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -261,7 +283,6 @@ fun FitNotesApp(model: FitNotesViewModel) {
     } }
     if(trainingSettings)TrainingSettingsDialog(model,busy){trainingSettings=false}
     if(library)ExerciseLibraryScreen(model,data,busy){library=false}
-    if(progress)StrengthProgressScreen(data,model,busy,{progress=false;library=true}){progress=false}
     summary?.let { text->AlertDialog(onDismissRequest={model.completionSummary.value=null},title={Text("Workout complete")},text={Column(Modifier.verticalScroll(rememberScrollState())){Text(text)}},confirmButton={TextButton(onClick={model.completionSummary.value=null}){Text("Done")}}) }
     if (activityEntry) ActivityEntryDialog(busy, model, { activityEntry = false }) { id ->
         activityEntry = false; workoutKey = "local:$id"; browsingWorkoutDay = false; workoutDay = todayDate(); tab = 0; historyDay = null; loggerKey = null; editableKey = null
@@ -276,6 +297,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         model.deleteWorkout(id) { discardPastId = null; if(workoutKey == "local:$id"){workoutKey = null;browsingWorkoutDay = false;loggerKey = null;exerciseKey = null} }
     } }
     if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
+    selectedRunKey?.let { key -> runs.firstOrNull { it.key == key }?.let { RunDetailsDialog(it,data,model,busy){selectedRunKey=null} } }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
     if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
     if(loadAdviceOpen) LoadAdviceDialog(model,data,busy)
@@ -307,8 +329,13 @@ fun FitNotesApp(model: FitNotesViewModel) {
     original?.let { document -> OriginalImportPreview(document, already, busy, model::cancelImport) { plan ->
         model.confirmImport(plan) { tab = 1; historyKey = null; historyDay = null; loggerKey = null }
     } }
+    if (automaticBackup) SystemBackupDialog(onClose = { automaticBackup = false }, onExport = {
+        automaticBackup = false
+        export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json")
+    }, onReview = { automaticBackup = false; model.reviewSystemBackup() })
     if (backupMenu) AlertDialog(onDismissRequest = { backupMenu = false }, title = { Text("Backup and restore") }, text = {
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            TextButton(onClick = { backupMenu = false; automaticBackup = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Automatic backup") }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Checkbox(includePhotos, { includePhotos = it }, modifier = Modifier.semantics { contentDescription = "Include progress photos" })
                 Text("Include progress photos", Modifier.weight(1f))
@@ -316,6 +343,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
             Text(if (includePhotos) "Includes original image files and photo details. Keep this unencrypted ZIP private." else "Progress photos are not in this backup. They remain on this device.", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { backupMenu = false; if (includePhotos) photoExport.launch("fitnotes-photos-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".zip") else export.launch("fitnotes-backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (includePhotos) "Export backup with photos" else "Export JSON backup") }
             TextButton(onClick = { backupMenu = false; restore.launch(arrayOf("application/json", "application/zip", "application/x-zip-compressed", "text/plain", "application/octet-stream")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Choose backup to restore") }
+            model.recoveryBackups().forEach{file->TextButton(onClick={recoveryBackupName=file.name;backupMenu=false;recoveryExport.launch(file.name)},modifier=Modifier.heightIn(min=48.dp)){Text("Export recovery backup · "+SimpleDateFormat("d MMM HH:mm",Locale.getDefault()).format(Date(file.lastModified())))}}
             TextButton(onClick = { backupMenu = false; analysis.launch("fitnotes-analysis-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date()) + ".json") }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Export analysis JSON") }
         }
     }, confirmButton = { TextButton(onClick = { backupMenu = false }) { Text("Close") } })
@@ -351,4 +379,5 @@ fun FitNotesApp(model: FitNotesViewModel) {
             }) { Text("Share") }
             TextButton(onClick = { shareText = null }) { Text("Close") }
         } }) }
+    }
 }
