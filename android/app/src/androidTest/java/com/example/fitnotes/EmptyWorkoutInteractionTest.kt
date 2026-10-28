@@ -80,7 +80,7 @@ class EmptyWorkoutInteractionTest {
     @Test fun startAddLogEditFinishAndStartAgainWithSuggestionsKeptAsDrafts() {
         val originalPlan = runBlocking { db.planDao().detail(planId)!! }
         capture("empty-train")
-        ui.onNodeWithText("Start empty workout").performTouchInput { doubleClick() }
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performTouchInput { doubleClick() }
         ui.onNodeWithTag("exercise-search").assertExists()
         val first = runBlocking { db.dao().active()!!.id }
         assertEquals(2, runBlocking { db.dao().workouts().size })
@@ -121,7 +121,7 @@ class EmptyWorkoutInteractionTest {
         ui.onNodeWithText("Cancel", substring = false).performClick()
         ui.mainClock.advanceTimeBy(10000) // Let the completion snackbar leave the bottom actions.
         ui.onNode(hasText("Train") and hasClickAction()).performClick()
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.waitUntil(15000) { model.data.value.active != null && !model.busy.value }
         ui.onNodeWithTag("exercise-search").assertExists()
         val second = runBlocking { db.dao().active()!!.id }
@@ -156,17 +156,17 @@ class EmptyWorkoutInteractionTest {
             .writeText(runBlocking { BackupCodec.encode(WorkoutRepository(db).backup()) })
     }
     @Test fun activeSessionChoicesCancelResumeFinishAndDiscardWithoutChangingSavedPlans() {
-        ui.onNodeWithText("Start empty workout").performClick(); choose(press)
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick(); choose(press)
         input("30", "8"); save()
         val first = runBlocking { db.dao().active()!!.id }
         backToTrain()
         val before = runBlocking { WorkoutRepository(db).backup() }
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.onNodeWithText("Workout already in progress").assertExists()
         ui.onNodeWithText("Cancel", substring = false).performClick()
         val after = runBlocking { WorkoutRepository(db).backup() }
         assertEquals(before.copy(exportedAt = after.exportedAt), after)
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.onNodeWithText("Resume", substring = false).performClick()
         assertEquals(first, runBlocking { db.dao().active()!!.id })
         ui.onNodeWithContentDescription("Back", substring = false).performClick()
@@ -181,12 +181,12 @@ class EmptyWorkoutInteractionTest {
         assertEquals(planId, runBlocking { db.planDao().run(planned)!!.planId })
         assertEquals(2, runBlocking { db.dao().sets().size })
         ui.onNodeWithContentDescription("Back", substring = false).performClick()
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.onNodeWithText("Finish and start").assertIsNotEnabled()
         ui.onNodeWithText("Discard and start").performClick()
         ui.onNodeWithText("Cancel", substring = false).performClick()
         assertEquals(planned, runBlocking { db.dao().active()!!.id })
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.onNodeWithText("Discard and start").performClick()
         capture("empty-discard-confirmation")
         ui.onNodeWithText("Discard", substring = false).performClick()

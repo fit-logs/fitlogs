@@ -14,6 +14,7 @@ data class NotebookProjection(
     val sessions: List<NotebookSession> = emptyList(),
     val editingSessions: List<NotebookSession> = emptyList(),
     val runs: List<RunRecord> = emptyList(),
+    val historyRows: List<NotebookHistoryRow> = emptyList(),
 )
 
 // One serial worker owns the cache. Emit data and its derived lists together so
@@ -35,6 +36,7 @@ fun notebookProjections(data: Flow<AppData>, drafts: Flow<List<WorkoutDetail>>):
         val local = notebookSessions(snapshot.copy(imported = ImportedData()))
         val sessions = sortNotebookSessions(local + importedSessions)
         val draftSessions = notebookSessions(snapshot.copy(workouts = pastDrafts, imported = ImportedData()), includeDrafts = true)
-        NotebookProjection(snapshot, pastDrafts, sessions, (sessions + draftSessions).distinctBy { it.key }, runningRecords(snapshot))
+        val runs = runningRecords(snapshot)
+        NotebookProjection(snapshot, pastDrafts, sessions, (sessions + draftSessions).distinctBy { it.key }, runs, historyRows(sessions, runs))
     }.flowOn(Dispatchers.Default)
 }

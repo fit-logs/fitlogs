@@ -36,12 +36,22 @@ val LocalKeyboardVisible = compositionLocalOf { false }
 @Composable
 fun NotebookBar(title: String, onBack: (() -> Unit)? = null, backLabel: String = "Back", actions: @Composable RowScope.() -> Unit = {}) {
     val keyboardOpen=LocalKeyboardVisible.current
-    var showTitle by remember { mutableStateOf(false) }
-    if(showTitle)AlertDialog(onDismissRequest={showTitle=false},title={Text("Exercise")},text={Text(title)},confirmButton={TextButton(onClick={showTitle=false}){Text("Close")}})
+    var showTitle by remember(title) { mutableStateOf(false) }
+    var titleOverflow by remember(title) { mutableStateOf(false) }
+    if(showTitle)AlertDialog(onDismissRequest={showTitle=false},title={Text("Full title")},text={Text(title)},confirmButton={TextButton(onClick={showTitle=false}){Text("Close")}})
     Surface(color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, backLabel) }
-            Text(title, Modifier.weight(1f).heightIn(min=48.dp).then(if(title.length>36)Modifier.clickable{showTitle=true}else Modifier).padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.titleLarge,maxLines=if(keyboardOpen)2 else Int.MAX_VALUE,overflow=TextOverflow.Ellipsis)
+            Text(
+                title,
+                Modifier.weight(1f).heightIn(min=48.dp)
+                    .then(if(titleOverflow)Modifier.clickable{showTitle=true}else Modifier)
+                    .padding(horizontal=12.dp,vertical=8.dp),
+                style=MaterialTheme.typography.titleLarge,
+                maxLines=if(keyboardOpen)1 else 2,
+                overflow=TextOverflow.Ellipsis,
+                onTextLayout={titleOverflow=it.hasVisualOverflow}
+            )
             actions()
         }
     }
@@ -119,8 +129,11 @@ fun NotebookConfirm(title: String, message: String, action: String, busy: Boolea
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DayDialog(day: String, onCancel: () -> Unit, onChoose: (String) -> Unit) {
-    val state = rememberDatePickerState(initialSelectedDateMillis = pickerMillis(day), yearRange = 1..9999)
+fun DayDialog(day: String, onCancel: () -> Unit, latestDay: String? = null, onChoose: (String) -> Unit) {
+    val selectableDates = remember(latestDay) { object : SelectableDates {
+        override fun isSelectableDate(utcTimeMillis: Long): Boolean = latestDay == null || utcTimeMillis <= pickerMillis(latestDay)
+    } }
+    val state = rememberDatePickerState(initialSelectedDateMillis = pickerMillis(day), yearRange = 1..9999, selectableDates=selectableDates)
     DatePickerDialog(onDismissRequest = onCancel,
         confirmButton = { TextButton(onClick = { state.selectedDateMillis?.let { onChoose(pickerDay(it)) } }, enabled = state.selectedDateMillis != null) { Text("Choose") } },
         dismissButton = { TextButton(onClick = onCancel) { Text("Cancel") } }) { DatePicker(state) }

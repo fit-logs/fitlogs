@@ -1,14 +1,18 @@
 # Unplanned workouts
 
-- **Train → Start empty workout** immediately starts a strength session and opens
-  exercise selection. No name, plan, notes or effort are required.
+- **Train → Start workout** asks for a date, defaulting to today. **Start now**
+  starts a strength session and opens exercise selection. No name, plan, notes
+  or effort are required. Opening or cancelling the form creates no session.
+- Choosing an earlier date or **Done** for today opens completed-workout entry
+  without a live timer. History is for browsing and filtering saved sessions.
 - Search switches to **All** exercises. Selecting one exercise and confirming
   opens its logger; multiple selections return to the workout overview.
 - Back from selection keeps the active empty workout. **Add exercise** remains
   available. Previous results fill editable drafts; only **Save set** records a set.
 - Train shows **Resume**, **Finish** and **Discard** for the active workout.
-  Starting another empty workout or a different plan offers Resume, Finish and
-  start, Discard and start, or Cancel. Discard requires a separate confirmation.
+  Confirming **Start now** for another workout or starting a different plan offers
+  Resume, Finish and start, Discard and start, or Cancel. Discard requires a
+  separate confirmation. Past entry keeps the live workout unchanged.
 - Empty strength sessions can be discarded but cannot be finished. Finishing a
   recorded workout permits another session on the same day.
 - Completed strength workouts offer **More actions → Use as plan**. This opens a

@@ -111,7 +111,7 @@ class PastWorkoutNavigationTest {
         ui.activityRule.scenario.recreate()
         ui.activityRule.scenario.onActivity { activityModels += it.viewModelStore; model = ViewModelProvider(it)[FitNotesViewModel::class.java] }
         ui.onNodeWithTag("past-workout-date").assertTextContains(prettyDay(selectedDay, "EEE d MMM yyyy"), substring = true)
-        ui.onNodeWithText("Enter performed sets", substring = false).performClick()
+        ui.onNodeWithTag("confirm-workout-setup").performClick()
         awaitModel { !model.busy.value && model.pastDrafts.value.size == 1 }
         val draft = model.pastDrafts.value.single()
         assertEquals(selectedDay, draft.workout.sessionDate)
@@ -132,7 +132,7 @@ class PastWorkoutNavigationTest {
         assertTrue("Cancel changed drafts: ${model.pastDrafts.value.map { it.workout }}", model.pastDrafts.value.isEmpty())
 
         logForViewedDay()
-        ui.onNodeWithText("Enter performed sets", substring = false).performClick()
+        ui.onNodeWithTag("confirm-workout-setup").performClick()
         awaitModel { !model.busy.value && model.pastDrafts.value.size == 1 }
         assertEquals(selectedDay, model.pastDrafts.value.single().workout.sessionDate)
         assertEquals(20L, model.data.value.active!!.workout.id)

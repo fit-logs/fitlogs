@@ -53,16 +53,25 @@ class HistoryProjectionTest {
         val job = launch { notebookProjections(snapshots, flowOf(emptyList())).collect { results.send(it) } }
         try {
             val first = withTimeout(10000) { results.receive() }
+            assertEquals(1600, first.historyRows.size)
+            assertTrue(first.historyRows.all { it.activities.containsAll(setOf(ActivityType.STRENGTH, ActivityType.RUNNING)) })
+            assertEquals(first.sessions.map { it.key }.toSet(), first.historyRows.map { it.sessionKey }.toSet())
             snapshots.value = initial.copy(workouts = listOf(WorkoutDetail(Workout(id = 1, startedAt = 1000), emptyList())))
             val second = withTimeout(10000) { results.receive() }
             val imported = first.sessions.first { it.imported != null }
             assertSame(imported, second.sessions.first { it.key == imported.key })
             assertEquals(snapshots.value, second.data)
+            assertEquals(first.historyRows, second.historyRows)
             snapshots.value = snapshots.value.copy(exercises = listOf(Exercise(42, "Squat", "squat")))
             val third = withTimeout(10000) { results.receive() }
             val rebuilt = third.sessions.first { it.key == imported.key }
             assertNotSame(imported, rebuilt)
             assertEquals(42L, rebuilt.exercises.first { it.name == "Squat" }.canonicalId)
+            snapshots.value = snapshots.value.copy(workouts=listOf(WorkoutDetail(Workout(id=1, startedAt=1000, completedAt=2000, title="Completed local"), emptyList())))
+            val fourth = withTimeout(10000) { results.receive() }
+            assertEquals(1601, fourth.historyRows.size)
+            assertEquals("Completed local", fourth.historyRows.single { it.sessionKey == "local:1" }.title)
+            assertEquals(third.historyRows, fourth.historyRows.filter { it.sessionKey != "local:1" })
         } finally { job.cancelAndJoin(); results.close() }
     }
 }

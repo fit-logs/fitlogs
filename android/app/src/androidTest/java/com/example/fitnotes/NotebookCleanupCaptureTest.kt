@@ -71,7 +71,7 @@ class NotebookCleanupCaptureTest {
     @Test fun freeformCompletesRepeatedSetsWithoutPlanAndKeepsEdits() {
         runBlocking { db.dao().active()?.let{WorkoutRepository(db).deleteWorkout(it.id)} }
         ui.waitUntil(15000){model.data.value.active==null}
-        ui.onNodeWithText("Start empty workout").performClick()
+        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.waitUntil(15000){model.data.value.active!=null}
         val id=model.data.value.active!!.workout.id
         runBlocking{WorkoutRepository(db).addExercise(id,1)}
