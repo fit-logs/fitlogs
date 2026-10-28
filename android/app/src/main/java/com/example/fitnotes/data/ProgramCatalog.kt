@@ -12,6 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 const val CATALOG_URL="https://raw.githubusercontent.com/fit-logs/fitlogs/main/catalog/"
+const val CATALOG_MANIFEST_PATH="manifest-v2.json"
 data class CatalogEntry(val id:String,val version:String,val path:String,val sha256:String,val title:String,val description:String,
     val goal:String,val level:String,val equipment:List<String>,val days:Int,val minutes:Int,val starter:Boolean)
 data class CatalogManifest(val version:String,val entries:List<CatalogEntry>,val exercises:Map<String,String>,val raw:String)
@@ -19,7 +20,18 @@ data class CatalogSnapshot(val manifest:CatalogManifest,val refreshedAt:Long?,va
 data class CatalogFilter(val query:String="",val goal:String="",val level:String="",val days:Int?=null,val maxMinutes:Int?=null,val equipment:Set<String> = emptySet()) {
     fun matches(e:CatalogEntry)= (query.isBlank() || (e.title+" "+e.description).contains(query,true)) &&
         (goal.isEmpty() || e.goal==goal) && (level.isEmpty() || e.level==level) && (days==null || e.days==days) &&
-        (maxMinutes==null || e.minutes<=maxMinutes) && (equipment.isEmpty() || e.equipment.all{it in equipment})
+        (maxMinutes==null || e.minutes>0 && e.minutes<=maxMinutes) && (equipment.isEmpty() || e.equipment.all{it in equipment})
+}
+fun catalogDurationText(minutes:Int)=if(minutes==0) "Duration unspecified" else "about $minutes min"
+/** Some source routines prescribe failure or week-dependent rest, rather than
+ * numeric reps/rest/effort. Keep these missing values visible without guessing. */
+fun catalogTargetSummary(t:JSONObject,position:Int):String {
+    fun number(key:String)=if(t.isNull(key))null else t.opt(key)
+    val low=number("repsMin");val high=number("repsMax")
+    val reps=when {low==null -> "reps: see exercise notes";high==null || low==high -> "$low reps";else -> "$low–$high reps"}
+    return listOfNotNull("Set $position"+(if(t.optBoolean("isWarmUp"))" (warm-up)" else ""),reps,
+        number("restSeconds")?.let{"${it}s rest"} ?: "rest: see guidance",
+        number("rir")?.let{"RIR $it"},number("rpe")?.let{"RPE $it"}).joinToString(" · ")
 }
 object CatalogValidator {
     fun manifest(raw:String):CatalogManifest {
@@ -38,7 +50,7 @@ object CatalogValidator {
             val hash=text(o,"sha256");require(Regex("[a-f0-9]{64}").matches(hash));require(text(o,"license")=="CC-BY-4.0")
             val gear=o.getJSONArray("equipment");require(gear.length() in 1..20);val equipment=(0 until gear.length()).map{j->val v=gear.get(j);require(v is String && v.length in 1..60 && v.none(Char::isISOControl));v}
             require(equipment.distinct().size==equipment.size);val starter=o.get("starter");require(starter is Boolean)
-            CatalogEntry(key,version,path,hash,text(o,"title"),text(o,"description",2000),text(o,"goal",60),text(o,"level",60),equipment,count(o,"daysPerWeek",1..14),count(o,"minutesPerDay",1..720),starter)
+            CatalogEntry(key,version,path,hash,text(o,"title"),text(o,"description",2000),text(o,"goal",60),text(o,"level",60),equipment,count(o,"daysPerWeek",1..14),count(o,"minutesPerDay",0..720),starter)
         }
         require(entries.map{it.id}.distinct().size==entries.size){"Duplicate catalog program ID."}
         return CatalogManifest(id(root,"catalogVersion"),entries,exercises.toMap(),raw)
@@ -61,7 +73,7 @@ object CatalogValidator {
 fun interface CatalogTransport { fun get(relative:String,maxBytes:Int):String }
 class PublicCatalogTransport(private val connect:(URL)->HttpURLConnection={it.openConnection() as HttpURLConnection}):CatalogTransport {
     override fun get(relative:String,maxBytes:Int):String {
-        require(relative=="manifest.json" || Regex("programs/[A-Za-z0-9._-]+-v[A-Za-z0-9._-]+\\.json").matches(relative))
+        require(relative in setOf("manifest.json",CATALOG_MANIFEST_PATH) || Regex("programs/[A-Za-z0-9._-]+-v[A-Za-z0-9._-]+\\.json").matches(relative))
         val connection=connect(URL(CATALOG_URL+relative))
         connection.instanceFollowRedirects=false;connection.connectTimeout=8000;connection.readTimeout=8000
         connection.requestMethod="GET";connection.setRequestProperty("Accept","application/json");connection.setRequestProperty("Cache-Control","no-cache")
@@ -93,11 +105,11 @@ class ProgramCatalogRepository(context:Context,private val transport:CatalogTran
     private fun snapshot():CatalogSnapshot {
         val cached=runCatching{val root=JSONObject(read(File(directory,"manifest-cache.json"),600000));require(root.getInt("cacheVersion")==1);val m=CatalogValidator.manifest(root.getString("manifest"));val at=root.getLong("refreshedAt");require(at>0);CatalogSnapshot(m,at,available(m),"Cached catalog; refresh when online.")}.getOrNull()
         if(cached!=null)return cached
-        val bundled=CatalogValidator.manifest(asset("manifest.json"));return CatalogSnapshot(bundled,null,available(bundled),"Bundled catalog · three starters available offline.")
+        val bundled=CatalogValidator.manifest(asset(CATALOG_MANIFEST_PATH));return CatalogSnapshot(bundled,null,available(bundled),"Bundled catalog · three starters available offline.")
     }
     suspend fun load():CatalogSnapshot=withContext(Dispatchers.IO){lock.withLock{snapshot()}}
     suspend fun refresh():CatalogSnapshot=withContext(Dispatchers.IO){lock.withLock{
-        val m=CatalogValidator.manifest(transport.get("manifest.json",256000));val at=clock()
+        val m=CatalogValidator.manifest(transport.get(CATALOG_MANIFEST_PATH,256000));val at=clock()
         atomic(File(directory,"manifest-cache.json"),JSONObject().put("cacheVersion",1).put("manifest",m.raw).put("refreshedAt",at).toString())
         trim(m)
         CatalogSnapshot(m,at,available(m),"Catalog refreshed. Installed local copies are unchanged.")

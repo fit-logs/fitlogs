@@ -24,17 +24,20 @@ class ProgramCatalogTest {
     private val context get()=ApplicationProvider.getApplicationContext<Context>()
     private val directory get()=File(context.filesDir,"program-catalog")
     private val source=File("../../catalog")
-    private val manifest get()=File(source,"manifest.json").readText()
+    private val manifest get()=File(source,CATALOG_MANIFEST_PATH).readText()
     private val parsed get()=CatalogValidator.manifest(manifest)
     private val offline=CatalogTransport{_,_->throw IOException("Offline synthetic fixture")}
     @Before fun clean(){directory.deleteRecursively()}
     private suspend fun reject(block:suspend()->Unit){try{block();fail("Expected rejection")}catch(_:IllegalArgumentException){}catch(_:IOException){}}
     @Test fun everyPublicProgramUsesThePortableImportParserAndExplicitExerciseReview() {
-        val m=parsed;assertEquals(8,m.entries.size);assertEquals(3,m.entries.count{it.starter})
+        val m=parsed;assertEquals(11,m.entries.size);assertEquals(3,m.entries.count{it.starter})
         m.entries.forEach{e->val p=CatalogValidator.program(File(source,e.path).readText(),e,m)
             val draft=PortableProgramParser.draft(p,emptyList(),emptyList(),emptySet());assertEquals(e.days,draft.days.size)
             assertTrue(draft.days.flatMap{it.plan.exercises}.all{it.exerciseId==null && it.createName==null})
-            assertTrue(draft.days.flatMap{it.plan.exercises}.flatMap{it.targets}.all{it.weight.isBlank() && it.rir.isNotBlank()})
+            val targets=draft.days.flatMap{it.plan.exercises}.flatMap{it.targets}
+            assertTrue(targets.all{it.weight.isBlank()})
+            if(e.id.startsWith("ms-")) assertTrue(targets.all{it.rir.isBlank() && it.rpe.isBlank()})
+            else assertTrue(targets.all{it.rir.isNotBlank()})
         }
     }
     @Test fun firstLaunchLoadsThreeStartersWithoutAnyNetworkRequest()=runBlocking {
@@ -45,7 +48,7 @@ class ProgramCatalogTest {
     @Test fun downloadedProgramAndRefreshTimestampSurviveOfflineRestart()=runBlocking {
         val requests=mutableListOf<String>();val repo=ProgramCatalogRepository(context,CatalogTransport{path,_->requests+=path;File(source,path).readText()}){12345L}
         val s=repo.refresh();val e=s.manifest.entries.first{!it.starter};repo.program(e,s.manifest)
-        assertEquals(listOf("manifest.json",e.path),requests)
+        assertEquals(listOf(CATALOG_MANIFEST_PATH,e.path),requests)
         val offlineRepo=ProgramCatalogRepository(context,offline);val restarted=offlineRepo.load();assertEquals(12345L,restarted.refreshedAt);assertTrue(e.id in restarted.available);assertEquals(e.id,offlineRepo.program(e,restarted.manifest).id)
         reject{offlineRepo.refresh()};assertEquals(restarted,offlineRepo.load())
     }
@@ -80,15 +83,62 @@ class ProgramCatalogTest {
             val before=workouts.backup();assertTrue(imports.save(draft) is ProgramImportResult.Duplicate)
             val next=JSONObject(File(source,e.path).readText()).put("programVersion","2").toString();val updatedEntry=e.copy(version="2",path="programs/${e.id}-v2.json",sha256=planFingerprint(next))
             val updated=JSONObject(manifest);val array=updated.getJSONArray("programs");for(i in 0 until array.length())if(array.getJSONObject(i).getString("id")==e.id)array.getJSONObject(i).put("programVersion","2").put("path",updatedEntry.path).put("sha256",updatedEntry.sha256)
-            val repo=ProgramCatalogRepository(context,CatalogTransport{path,_->if(path=="manifest.json")updated.toString() else next});val fresh=repo.refresh();assertEquals("2",repo.program(fresh.manifest.entries.single{it.id==e.id},fresh.manifest).version)
+            val repo=ProgramCatalogRepository(context,CatalogTransport{path,_->if(path==CATALOG_MANIFEST_PATH)updated.toString() else next});val fresh=repo.refresh();assertEquals("2",repo.program(fresh.manifest.entries.single{it.id==e.id},fresh.manifest).version)
             val after=workouts.backup();assertEquals(before.copy(exportedAt=after.exportedAt),after);assertEquals("My edited local copy",db.programDao().programs().single().title);assertEquals("1",db.programDao().programs().single().definitionVersion)
         } finally {db.close()}
     }
     @Test fun filtersRequireAllSelectedEquipmentAndComposeWithFrequencyGoalAndDuration(){
-        val rows=parsed.entries;assertEquals(8,rows.count{CatalogFilter().matches(it)})
+        val rows=parsed.entries;assertEquals(11,rows.count{CatalogFilter().matches(it)})
         assertEquals(listOf("dumbbell-home-3day"),rows.filter{CatalogFilter(equipment=setOf("dumbbells","bench")).matches(it)}.map{it.id})
         assertEquals(listOf("full-body-express-2day"),rows.filter{CatalogFilter(goal="general fitness",level="beginner",days=2,maxMinutes=35).matches(it)}.map{it.id})
         assertEquals(1,rows.count{CatalogFilter(query="DUMBBELL HOME").matches(it)});assertEquals(0,rows.count{CatalogFilter(days=6,maxMinutes=35).matches(it)})
+    }
+    @Test fun unspecifiedDurationAndFailureTargetsPreviewWithoutInventingNumbers() {
+        val unknown=parsed.entries.single{it.id=="ms-mass-hypertrophy-8week"}
+        assertEquals("Duration unspecified",catalogDurationText(unknown.minutes))
+        assertFalse(CatalogFilter(maxMinutes=60).matches(unknown))
+        assertTrue(CatalogFilter().matches(unknown))
+        val target=JSONObject("""{"repsMin":null,"repsMax":null,"restSeconds":null,"isWarmUp":false}""")
+        assertEquals("Set 1 · reps: see exercise notes · rest: see guidance",catalogTargetSummary(target,1))
+        target.put("repsMin",8).put("repsMax",10).put("restSeconds",0).put("isWarmUp",true)
+        assertEquals("Set 2 (warm-up) · 8–10 reps · 0s rest",catalogTargetSummary(target,2))
+        assertFalse(catalogTargetSummary(target,2).contains("RIR"))
+    }
+    @Test fun sourceProgramsRoundTripInstallAndStartInFlexibleQueueWithoutPerformedSets()=runBlocking {
+        val db=Room.inMemoryDatabaseBuilder(context,FitDatabase::class.java).build()
+        try {
+            parsed.exercises.values.forEachIndexed{i,name->db.dao().insertExercise(Exercise(i+1L,name,normaliseExerciseName(name)))}
+            for(e in parsed.entries.filter{it.id.startsWith("ms-")}) {
+                val p=CatalogValidator.program(File(source,e.path).readText(),e,parsed)
+                val d=PortableProgramParser.draft(p,db.dao().exercises(),emptyList(),emptySet())
+                val roundTrip=d.validated().first.document
+                assertEquals(p.document.getString("schedule"),roundTrip.getString("schedule"))
+                assertEquals(p.document.getJSONObject("source").toString(),roundTrip.getJSONObject("source").toString())
+                val id=(ProgramImportRepository(db).save(d,flexible=true,activate=false) as ProgramImportResult.Saved).id
+                val installed=db.programDao().detail(id)!!
+                assertEquals(e.days,installed.days.size)
+                assertTrue(db.programDao().steps().any{it.programId==id})
+                assertTrue(db.dao().workouts().isEmpty())
+                if(e.id=="ms-spring-shred-8week") {
+                    val moves=installed.ordered.first().plan.ordered
+                    assertEquals("5",moves[4].target.supersetGroup)
+                    assertEquals("5",moves[5].target.supersetGroup)
+                    assertEquals(2,moves[0].sets.count{it.isWarmUp})
+                    assertTrue(moves[9].sets.all{it.repsMin==null && it.repsMax==null})
+                    TrainingProgramRepository(db).activate(id)
+                    val workout=TrainingProgramRepository(db).start(id)
+                    val entries=db.dao().workoutEntries(workout)
+                    assertEquals("5",entries[4].supersetGroup)
+                    assertEquals("5",entries[5].supersetGroup)
+                    assertTrue(db.dao().sets().isEmpty())
+                    // Starting snapshots targets only; discard the synthetic session
+                    // so the remaining programs can be checked against empty history.
+                    WorkoutRepository(db).deleteWorkout(workout)
+                }
+            }
+            assertEquals(3,db.programDao().programs().size)
+            assertTrue(db.dao().sets().isEmpty())
+        } finally {db.close()}
     }
     private class Response(url:URL,val bytes:ByteArray,val status:Int=200,val mime:String="application/json",val declared:Long=bytes.size.toLong()):HttpURLConnection(url) {
         var closed=false
@@ -98,6 +148,7 @@ class ProgramCatalogTest {
     @Test fun httpTransportSendsOnlyPublicGetsAndRejectsRedirectHtmlAndSizeFailures(){
         var last:Response?=null;val transport=PublicCatalogTransport{url->Response(url,"{}".toByteArray()).also{last=it}}
         assertEquals("{}",transport.get("manifest.json",10));assertEquals(CATALOG_URL+"manifest.json",last!!.url.toString());assertEquals("GET",last!!.requestMethod);assertFalse(last!!.instanceFollowRedirects);assertEquals(setOf("Accept","Cache-Control"),last!!.requestProperties.keys);assertTrue(last!!.closed)
+        assertEquals("{}",transport.get(CATALOG_MANIFEST_PATH,10));assertEquals(CATALOG_URL+CATALOG_MANIFEST_PATH,last!!.url.toString())
         for(r in listOf(Response(URL(CATALOG_URL),byteArrayOf(),302),Response(URL(CATALOG_URL),byteArrayOf(),404),Response(URL(CATALOG_URL),"html".toByteArray(),mime="text/html"),Response(URL(CATALOG_URL),"12345678901".toByteArray(),declared=-1))){assertThrows(IllegalArgumentException::class.java){PublicCatalogTransport{r}.get("manifest.json",10)};assertTrue(r.closed)}
         for(path in listOf("https://other.example/data","../private","manifest.json?history=1","programs/../../private.json"))assertThrows(IllegalArgumentException::class.java){PublicCatalogTransport{error("must not connect")}.get(path,10)}
     }

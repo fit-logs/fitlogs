@@ -37,6 +37,7 @@
       "canonicalId": {"$ref": "#/$defs/id"}, "name": {"type": "string", "minLength": 1, "maxLength": 200}, "sourceName": {"type": "string", "maxLength": 200}, "notes": {"type": "string", "maxLength": 2000},
       "sets": {"oneOf": [{"type": "integer", "minimum": 1, "maximum": 100}, {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/target"}}]},
       "reps": {"type": ["integer", "string"]}, "repRangeMin": {"type": "integer", "minimum": 1, "maximum": 1000}, "repRangeMax": {"type": "integer", "minimum": 1, "maximum": 1000}, "restSeconds": {"type": ["integer", "null"], "minimum": 0, "maximum": 3600}, "rir": {"type": ["number", "null"], "minimum": 0, "maximum": 10}, "rpe": {"type": ["number", "null"], "minimum": 1, "maximum": 10}, "loadMode": {"enum": ["external", "bodyweight", "assistance", "reps_only", "unknown"]},
+      "supersetGroup": {"type": "string", "maxLength": 40, "pattern": "^[^\\u0000-\\u001f\\u007f]*$"},
       "substitutions": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 200}}
     }, "additionalProperties": true}
   }

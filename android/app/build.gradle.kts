@@ -58,7 +58,7 @@ ksp {
 // The public JSON is the source of truth; bundle three exact starter files.
 val syncStarterCatalog = tasks.register<Sync>("syncStarterCatalog") {
     from("../../catalog") {
-        include("manifest.json", "exercises.json", "LICENSE.txt",
+        include("manifest.json", "manifest-v2.json", "exercises.json", "LICENSE.txt",
             "programs/full-body-beginner-3day-v1.json",
             "programs/full-body-express-2day-v1.json",
             "programs/dumbbell-home-3day-v1.json")

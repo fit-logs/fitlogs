@@ -28,7 +28,7 @@ data class ProgramImportDraft(val source: PortableProgram, val name: String, val
             d.put("warmUp",day.plan.warmUp)
             if(day.running != null) d.put("type","running").put("running",day.running.json())
             d.put("exercises",JSONArray(day.plan.exercises.mapIndexed { eIndex,e ->
-                val row=JSONObject(exerciseMetadata[e.key] ?: "{}").put("name",e.sourceName).put("notes",e.note)
+                val row=JSONObject(exerciseMetadata[e.key] ?: "{}").put("name",e.sourceName).put("notes",e.note).put("supersetGroup",e.supersetGroup)
                 row.put("sets",JSONArray(e.targets.mapIndexed { position,set ->
                     val t=previews[index].resolutions[eIndex].prescription.setTargets[position]
                     JSONObject(setMetadata[set.key] ?: "{}").put("repsMin",t.repsMin ?: JSONObject.NULL).put("repsMax",t.repsMax ?: JSONObject.NULL)
@@ -121,6 +121,11 @@ object PortableProgramParser {
                 if(e.has("canonicalId") && !e.isNull("canonicalId"))identifier(text(e,"canonicalId",128,true),"Exercise")
                 if(!e.has("sourceName"))e.put("sourceName",e.getString("name"));text(e,"sourceName",200)
                 if(!e.has("notes") && e.has("note"))e.put("notes",e.get("note"));e.remove("note");e.put("notes",text(e,"notes",2000))
+                if(e.has("supersetGroup")) {
+                    val group=text(e,"supersetGroup",40)
+                    require(group.none(Char::isISOControl)) { "supersetGroup must be readable single-line text." }
+                    e.put("supersetGroup",group)
+                }
                 val substitutions=e.optJSONArray("substitutions")
                 require(!e.has("substitutions") || substitutions!=null && substitutions.length()<=20 && (0 until substitutions.length()).all{substitutions.get(it) is String && substitutions.getString(it).length<=200}) { "substitutions must be a short text list; they are guidance, never automatic replacements." }
                 val sets=when(val v=e.opt("sets")) {
@@ -177,7 +182,7 @@ object PortableProgramParser {
                     val target=PlanSetTarget(if(s.isNull("repsMin"))null else s.getInt("repsMin"),if(s.isNull("repsMax"))null else s.getInt("repsMax"),PlanWeight(if(s.isNull("weight"))null else s.getString("weight"),if(s.isNull("unit"))null else s.getString("unit")),if(s.isNull("restSeconds"))null else s.getInt("restSeconds"),s.getString("loadMode"),s.getBoolean("isWarmUp"),if(s.has("rir") && !s.isNull("rir"))s.getDouble("rir") else null,if(s.has("rpe") && !s.isNull("rpe"))s.getDouble("rpe") else null).editable()
                     sMetadata[target.key]=s.toString();target }
                 val match=matchPlanExercise(e.getString("name"),catalogue,incompatible,aliasMap(aliases))
-                EditablePlanExercise(key,e.getString("name"),targets,e.getString("notes"),match.candidates.singleOrNull()?.id?.takeIf{match.kind in setOf(ExerciseMatchKind.EXACT,ExerciseMatchKind.ALIAS)})
+                EditablePlanExercise(key,e.getString("name"),targets,e.getString("notes"),match.candidates.singleOrNull()?.id?.takeIf{match.kind in setOf(ExerciseMatchKind.EXACT,ExerciseMatchKind.ALIAS)},supersetGroup=e.optString("supersetGroup"))
             }
             val running=if(day.optString("type")=="running")RunningPrescription.parse(day.getJSONObject("running")) else null
             val edit=EditablePlan(day.getString("name"),day.optString("date"),day.getInt("durationMinutes").takeIf{it>0}?.toString().orEmpty(),day.getString("notes"),planFingerprint(p.json+index),exercises,warmUp=day.optString("warmUp"),legacyGuidance=if(running!=null)"Running prescription" else "")

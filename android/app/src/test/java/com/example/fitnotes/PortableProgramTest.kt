@@ -62,6 +62,18 @@ class PortableProgramTest {
         assertEquals(5,rows.getJSONObject(0).getInt("repsMin"));assertEquals(5,rows.getJSONObject(0).getInt("repsMax"));assertEquals(6,rows.getJSONObject(1).getInt("repsMin"));assertEquals(7,rows.getJSONObject(1).getInt("repsMax"));assertEquals(8,rows.getJSONObject(2).getInt("repsMin"));assertEquals(12,rows.getJSONObject(2).getInt("repsMax"))
         assertEquals("external",rows.getJSONObject(0).getString("loadMode"));assertTrue(rows.getJSONObject(0).getBoolean("isWarmUp"));assertFalse(rows.getJSONObject(1).getBoolean("isWarmUp"))
     }
+    @Test fun supersetGroupsSurvivePreviewEditsAndRejectOversizedOrMultilineLabels() {
+        val root=JSONObject(fixture)
+        val row=root.getJSONArray("days").getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+        row.put("supersetGroup","A")
+        val d=draft(root.toString())
+        assertEquals("A",d.days[0].plan.exercises[0].supersetGroup)
+        val day=d.days[0];val exercise=day.plan.exercises[0]
+        val edited=d.copy(days=listOf(day.copy(plan=day.plan.copy(exercises=listOf(exercise.copy(supersetGroup="B"))+day.plan.exercises.drop(1))))+d.days.drop(1))
+        assertEquals("B",edited.validated().first.document.getJSONArray("days").getJSONObject(0).getJSONArray("exercises").getJSONObject(0).getString("supersetGroup"))
+        row.put("supersetGroup","x".repeat(41));reject{parse(root.toString())}
+        row.put("supersetGroup","A\nB");reject{parse(root.toString())}
+    }
     @Test fun malformedAndOversizedJsonReportLocationAndRejectDuplicateFieldsUnsupportedSchemaAndRanges() {
         assertTrue(reject{parse("{\n\"name\":\"A\",\n\"name\":\"B\"}")}.contains("line 3"))
         reject{parse("x".repeat(PortableProgramParser.MAX_INPUT+1))}

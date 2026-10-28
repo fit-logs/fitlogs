@@ -102,7 +102,7 @@ class ProgramWorkflowTest {
             assertEquals("77.5",advice.plan(nextPlan).single().advice.loads.first().value)
             val requests=mutableListOf<String>()
             ProgramCatalogRepository(context,CatalogTransport{path,_->requests+=path;File("../../catalog",path).readText()}).refresh()
-            assertEquals(listOf("manifest.json"),requests)
+            assertEquals(listOf(CATALOG_MANIFEST_PATH),requests)
             val afterRefresh=workouts.backup();assertEquals(restored.copy(exportedAt=afterRefresh.exportedAt),afterRefresh)
         } finally {db.close()}
     }

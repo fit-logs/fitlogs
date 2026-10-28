@@ -7,7 +7,12 @@ Legal terms: https://creativecommons.org/licenses/by/4.0/legalcode
 Attribution: FitNotes contributors — FitNotes Workout Library.
 Source: https://github.com/fit-logs/fitlogs/tree/main/catalog
 
-These generic routines and descriptions were independently authored for this
-library. No third-party routine articles, branded packages, screenshots or images
-are reproduced. No claim of endorsement by another organization is made.
+The original generic routines and descriptions were independently authored for
+this library. The ms-* files transcribe factual exercise/set/rep schedules from
+the Muscle & Strength pages identified in each file's source metadata. Their
+JSON arrangement and concise implementation notes were written for FitLogs.
+Credit for those routines belongs to the named authors and Muscle & Strength.
+The source articles, photographs, videos and other expressive material are not
+included and retain their own rights; this license does not relicense them.
+No claim of endorsement by another organization is made.
 Software and the portable schema retain their repository/module licenses.
