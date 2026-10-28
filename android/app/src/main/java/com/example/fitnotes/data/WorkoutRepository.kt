@@ -262,7 +262,10 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
             if (entry.position != position) dao.updateEntry(entry.copy(position = position))
         }
     }
-    suspend fun deleteWorkout(id: Long) = dao.deleteWorkout(id)
+    suspend fun deleteWorkout(id: Long) = database.withTransaction {
+        TrainingProgramRepository(database).discarded(id)
+        dao.deleteWorkout(id)
+    }
 
     suspend fun saveDetails(id: Long, title: String, notes: String) = database.withTransaction {
         require(title.length <= 200 && notes.length <= 10000) { "Title or notes are too long." }
@@ -284,6 +287,7 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
                 timingEstimated = workout.timingEstimated || end == null, autoFinishAcknowledged = true,
                 timingNote = if (end == null) "Clock moved backwards; end/duration require review." else workout.timingNote))
         }
+        TrainingProgramRepository(database).completeLinked(id)
     }
 
     suspend fun repeat(id: Long): Long = database.withTransaction {

@@ -32,14 +32,14 @@ internal object MigratedBackupFields {
             val values = root.getJSONArray(key)
             for (i in 0 until values.length()) action(values.getJSONObject(i))
         }
-        root.put("version", 14)
+        root.put("version", 15)
         for (key in ProgramBackupJson.keys + LoadAdviceBackupJson.keys) root.put(key, JSONArray())
         rows("workouts") { row ->
             for (key in listOf("lastActionAt", "autoFinishedAt", "resumeStartedAt", "resumeBaseSeconds", "staleSuppressedUntil")) row.put(key, JSONObject.NULL)
             for (key in listOf("timingEdited", "timingEstimated", "durationUnknown", "historicalDraft")) row.put(key, false)
             row.put("autoFinishAcknowledged", true).put("timingNote", "").put("draftSourceKey", "")
         }
-        rows("plannedWorkouts") { it.put("archived", false).put("pinned", false) }
+        rows("plannedWorkouts") { it.put("archived", false).put("pinned", false).put("activityType","strength").put("runningJson","") }
         for (key in listOf("plannedSets", "runTargets")) rows(key) { it.put("rir", JSONObject.NULL).put("rpe", JSONObject.NULL) }
         rows("bodyMeasurements") { if (!it.has("createdAt")) it.put("createdAt", 0L) }
     }

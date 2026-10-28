@@ -50,7 +50,7 @@ class ProgramInteractionTest {
         templateMenu("Renamed synthetic template");ui.onNodeWithText("Delete",substring=false).performClick();ui.onNodeWithText("Delete",substring=false).performClick();settle{runBlocking{db.planDao().detail(template)}==null}
         assertEquals(actual,runBlocking{db.dao().sets()});assertEquals(1,runBlocking{db.dao().workouts().size});capture("templates-managed")
     }
-    @Test fun buildFourDayProgramLogRealSetAndExplicitlyAdvancePauseResumeAndSkip() {
+    @Test fun buildFourDayProgramLogRealSetAndAdvanceLinkedQueuePauseResumeAndSkip() {
         train("My programs");ui.onNodeWithText("Build from templates",substring=false).performClick()
         ui.onNodeWithTag("program-title").performTextInput("Synthetic four day program with a long title")
         ui.onNodeWithTag("program-weeks").performTextReplacement("2");Espresso.closeSoftKeyboard()
@@ -61,24 +61,24 @@ class ProgramInteractionTest {
         ui.onNodeWithTag("program-list").performScrollToNode(hasText("Set active / Resume program",substring=false));ui.onNodeWithText("Set active / Resume program",substring=false).performClick();settle{model.programs.value.single().program.status=="active"}
         ui.onNodeWithText("Close",substring=false).performClick();ui.onNodeWithTag("train-screen").performScrollToNode(hasTestTag("next-program-workout"));capture("program-next-workout")
         assertEquals(5,runBlocking{db.planDao().plans().size});assertEquals(1,runBlocking{db.dao().sets().size});assertEquals(0,model.programs.value.single().program.nextIndex)
-        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Start next workout",substring=false));ui.onNodeWithText("Start next workout",substring=false).performClick();settle{model.data.value.active!=null}
+        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Start workout",substring=false));ui.onNodeWithText("Start workout",substring=false).performClick();settle{model.data.value.active!=null}
         val workout=model.data.value.active!!.workout.id
         ui.onNodeWithTag("workout-overview").performScrollToNode(hasText("Synthetic press",substring=false));ui.onNodeWithText("Synthetic press",substring=false).performClick()
-        val target=runBlocking{db.planDao().runTargets().single()}
-        ui.onNodeWithTag("weight:${target.id}").performTextReplacement("27.5")
+        val target=runBlocking{db.planDao().runTargets().first{it.entryId==model.data.value.active!!.entries.single().entry.id}}
+        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("weight:${target.id}"));ui.onNodeWithTag("weight:${target.id}").performTextReplacement("27.5")
         ui.onNodeWithTag("reps:${target.id}").performTextReplacement("9");Espresso.closeSoftKeyboard()
         ui.onNodeWithTag("complete-target:${target.id}").performClick();settle{runBlocking{db.dao().sets().size}==2}
-        ui.onNodeWithContentDescription("Back to workout").performClick()
-        ui.onNodeWithText("Finish",substring=false).performClick();settle{runBlocking{db.dao().workout(workout)!!.isComplete}}
+        ui.onNodeWithContentDescription("Back to workout").performClick();ui.onNodeWithText("Finish",substring=false).performClick();settle{runBlocking{db.dao().workout(workout)!!.isComplete}}
         ui.onNode(hasText("Train") and hasClickAction()).performClick();ui.onNodeWithTag("train-screen").assertExists()
-        assertEquals(0,model.programs.value.single().program.nextIndex)
-        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Complete program day",substring=false));capture("program-results-ready")
-        ui.onNodeWithText("Complete program day",substring=false).performClick();settle{model.programs.value.single().program.nextIndex==1}
+        assertEquals(1,model.programs.value.single().program.nextIndex)
+        ui.onNodeWithTag("train-screen").performScrollToNode(hasTestTag("next-program-workout"));capture("program-results-ready")
         train("My programs");ui.onNodeWithTag("program-list").performScrollToNode(hasTestTag("program:$id"));ui.onNodeWithTag("program:$id").performClick()
         ui.onNodeWithTag("program-list").performScrollToNode(hasText("Pause program",substring=false));ui.onNodeWithText("Pause program",substring=false).performClick();settle{model.programs.value.single().program.status=="paused"}
         ui.onNodeWithTag("program-list").performScrollToNode(hasText("Set active / Resume program",substring=false));ui.onNodeWithText("Set active / Resume program",substring=false).performClick();settle{model.programs.value.single().program.status=="active"}
-        ui.onNodeWithTag("program-list").performScrollToNode(hasText("Skip day",substring=false));ui.onNodeWithText("Skip day",substring=false).performClick();ui.onNode(hasText("Skip day",substring=false) and hasAnyAncestor(isDialog()) and !hasAnyAncestor(hasTestTag("program-list"))).performClick();settle{model.programs.value.single().program.nextIndex==2}
-        assertEquals(listOf("completed","skipped"),runBlocking{db.programDao().steps().map{it.action}});assertEquals(2,runBlocking{db.dao().sets().size});capture("program-progress")
+        val next=model.programs.value.single().nextOccurrence!!.step.id
+        val menu=hasContentDescription("Session actions: $templateTitle") and hasAnyAncestor(hasTestTag("queue-session:$next"))
+        ui.onNodeWithTag("program-list").performScrollToNode(menu);ui.onNode(menu).performClick();ui.onNodeWithText("Skip session",substring=false).performClick();settle{model.programs.value.single().program.nextIndex==2}
+        assertEquals(listOf("completed","skipped"),runBlocking{db.programDao().steps().take(2).map{it.action}});assertEquals(2,runBlocking{db.dao().sets().size});capture("program-progress")
         ui.activityRule.scenario.recreate();assertEquals(2,runBlocking{db.programDao().detail(id)!!.program.nextIndex})
         File(instrument.targetContext.filesDir,"program-restart.json").writeText(runBlocking{BackupCodec.encode(WorkoutRepository(db).backup())})
     }

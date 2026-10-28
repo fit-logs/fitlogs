@@ -52,7 +52,7 @@ class UnifiedMigrationTest {
             assertTrue(context.getDatabasePath(name).renameTo(context.getDatabasePath("fitnotes.db")))
             val migrated = FitDatabase.open(context)
             try {
-                assertEquals(label, 16, migrated.openHelper.readableDatabase.version)
+                assertEquals(label, 17, migrated.openHelper.readableDatabase.version)
                 assertEquals(label, "Keep notes", migrated.dao().workouts().single().notes)
                 assertEquals(label, "Keep actual", migrated.dao().sets().single().comment)
                 assertEquals(42.5, migrated.dao().sets().single().weightKg, 0.0)

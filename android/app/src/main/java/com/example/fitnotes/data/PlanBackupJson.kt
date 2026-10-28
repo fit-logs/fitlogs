@@ -9,6 +9,7 @@ internal object PlanBackupJson {
             array.put(JSONObject().put("id", p.id).put("title", p.title).put("scheduledDate", p.scheduledDate)
                 .put("durationMinutes", p.durationMinutes).put("notes", p.notes).put("createdAt", p.createdAt)
                 .put("sourceFingerprint", p.sourceFingerprint).put("startedWorkoutId", p.startedWorkoutId ?: JSONObject.NULL).also { row ->
+                    if (backup.version >= 15) row.put("activityType", p.activityType).put("runningJson", p.runningJson)
                     if (backup.version >= 11) row.put("archived", p.archived).put("pinned", p.pinned)
                     if (backup.version >= 6) row.put("warmUp", p.warmUp).put("legacyGuidance", p.legacyGuidance)
                 })
@@ -24,9 +25,9 @@ internal object PlanBackupJson {
         } ?: JSONObject.NULL)
     }
     fun plans(root: JSONObject, version: Int): List<PlannedWorkout> = objects(root, "plannedWorkouts", 100000).map { o ->
-        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId") + (if (version >= 6) setOf("warmUp", "legacyGuidance") else emptySet()) + (if(version >= 11) setOf("archived", "pinned") else emptySet()))
+        keys(o, setOf("id", "title", "scheduledDate", "durationMinutes", "notes", "createdAt", "sourceFingerprint", "startedWorkoutId") + (if (version >= 6) setOf("warmUp", "legacyGuidance") else emptySet()) + (if(version >= 11) setOf("archived", "pinned") else emptySet()) + (if(version >= 15) setOf("activityType", "runningJson") else emptySet()))
         PlannedWorkout(text(o, "id"), text(o, "title"), text(o, "scheduledDate"), int(o, "durationMinutes"), text(o, "notes"),
-            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"), version >= 11 && bool(o,"archived"), version >= 11 && bool(o,"pinned"))
+            long(o, "createdAt"), text(o, "sourceFingerprint"), if (o.isNull("startedWorkoutId")) null else long(o, "startedWorkoutId"), if (version < 6) "" else text(o, "warmUp"), if (version < 6) "" else text(o, "legacyGuidance"), version >= 11 && bool(o,"archived"), version >= 11 && bool(o,"pinned"), if(version >= 15) text(o,"activityType") else "strength", if(version >= 15) text(o,"runningJson") else "")
     }
     fun targets(root: JSONObject, version: Int): List<PlannedExercise> = objects(root, "plannedExercises", 1000000).map { o ->
         keys(o, setOf("id", "planId", "exerciseId", "position", "sourceName", "sets", "repsMin", "repsMax", "weightValue", "weightUnit", "note") + if (version >= 7) setOf("supersetGroup") else emptySet())
@@ -65,6 +66,15 @@ fun validatePlanBackup(backup: Backup) {
     require(targets.map { it.planId to it.position }.distinct().size == targets.size) { "Duplicate plan positions." }
     targets.forEach { require(it.planId in planIds && it.exerciseId in exerciseIds && it.position >= 0) { "Invalid planned exercise reference." } }
     plans.forEach { plan ->
+        require(plan.activityType in setOf("strength", "running")) { "Unsupported planned activity." }
+        if (backup.version < 15) require(plan.activityType == "strength" && plan.runningJson.isEmpty()) { "Running prescriptions need backup version 15." }
+        if (plan.activityType == "running") {
+            require(targets.none { it.planId == plan.id } && plan.startedWorkoutId == null) { "Running targets must not contain performed strength data." }
+            RunningPrescription.parse(org.json.JSONObject(plan.runningJson))
+            WorkoutPlanParser.validate(PlanSpec(plan.title, plan.scheduledDate, plan.durationMinutes, plan.notes, emptyList(), plan.sourceFingerprint, legacyGuidance = "Running prescription"))
+            return@forEach
+        }
+        require(plan.runningJson.isEmpty()) { "Strength plans cannot contain running targets." }
         require(plan.startedWorkoutId == null || workouts[plan.startedWorkoutId]?.activityType == "strength") { "Invalid started-plan workout reference." }
         val exercises = targets.filter { it.planId == plan.id }.sortedBy { it.position }
         require(exercises.map { it.position } == exercises.indices.toList()) { "Plan exercise positions must be contiguous." }

@@ -22,7 +22,7 @@ class PrivateArchiveRepairTest {
         assumeTrue(path!=null)
         val context=ApplicationProvider.getApplicationContext<Context>()
         val name="private-repair-${System.nanoTime()}.db"
-        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(File(path!!)).addMigrations(EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16).build()
+        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(File(path!!)).addMigrations(EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16, COACH_MIGRATION_16_17).build()
         try {
             val repo=WorkoutRepository(db);val original=repo.backup()
             var recovery:Backup?=null
@@ -50,7 +50,7 @@ class PrivateArchiveRepairTest {
         val before=tables.associateWith{table->original.rawQuery("SELECT * FROM $table ORDER BY rowid",null).use{cursor->buildList{while(cursor.moveToNext())add((0 until cursor.columnCount).map{if(cursor.isNull(it))null else cursor.getString(it)})}}}
         original.close()
         val name="private-migration-${System.nanoTime()}.db"
-        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(File(path)).addMigrations(EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16).build()
+        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(File(path)).addMigrations(EXERCISE_MERGE_MIGRATION_9_10, BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16, COACH_MIGRATION_16_17).build()
         try {
             val connection=db.openHelper.writableDatabase
             assertEquals(10,connection.version)

@@ -103,10 +103,4 @@ object ChatGptHandoff {
     }
 }
 
-fun nextWorkoutInstructions(date: String): String = """
-    Return exactly one fenced code block containing WORKOUT_PLAN_V2 through END_WORKOUT_PLAN, with strict JSON between those markers. Put a brief explanation outside the block. Strength plans only; no running/climbing prescriptions, and no exercise identifiers.
-    Use familiar exercise names from the recorded history verbatim when appropriate. New names will be resolved on import. Every exercise has its own note and individual sets. Each set requires repsMin/repsMax: integers (equal for a fixed count), or both null for unspecified reps, optional decimal weight and unit (kg/lb, or unit bodyweight with no numeric weight), and optional restSeconds. Omitted weight is unspecified, never zero. Suggested targets are not performed results.
-    Optional loadMode is external, bodyweight (plus added load), assistance, reps_only, or unknown. A bodyweight unit requires bodyweight mode; reps_only omits weight/unit. Optional isWarmUp marks an individual warm-up set, which does not qualify for progression. Keep these flags explicit when appropriate.
-    Put general warm-up instructions in warmUp and other session guidance in note. Keep exercise-specific guidance in that exercise's note. Do not add unknown fields. Date is optional: omit it for an unscheduled plan, or use ${date.ifBlank { "an explicit YYYY-MM-DD date" }}. durationMinutes is an optional time budget, not recorded activity.
-    Example structure (replace example names and suggestions using my context):
-""".trimIndent()+"\n```text\n"+WorkoutPlanFormat.example(date)+"\n```"
+fun nextWorkoutInstructions(date: String): String = CoachResponse.CONTRACT + "\nOptional target date: $date."

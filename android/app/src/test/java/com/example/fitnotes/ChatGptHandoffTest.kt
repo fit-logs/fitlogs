@@ -40,7 +40,7 @@ class ChatGptHandoffTest {
         assertTrue(text.contains("$from through $through, inclusive"))
         assertTrue(text.contains("50 kg × 8 reps")); assertTrue(text.contains("Climbing / bouldering")); assertTrue(text.contains("Effort: Okay"))
         assertTrue(text.contains("Synthetic actual-session note")); assertTrue(text.contains("Synthetic equipment"))
-        assertTrue(text.contains("WORKOUT_PLAN_V2")); assertTrue(text.contains("no exercise identifiers"))
+        assertFalse(text.contains("WORKOUT_PLAN_V2")); assertTrue(text.contains("\"sessions\""))
         assertTrue(text.contains("Activity preference: not specified"))
         assertFalse(text.contains("Synthetic body weight")); assertFalse(text.contains("timestamp_local,epoch_millis,bpm"))
     }

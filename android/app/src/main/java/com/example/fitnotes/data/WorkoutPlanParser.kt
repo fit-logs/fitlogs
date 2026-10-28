@@ -48,7 +48,16 @@ object WorkoutPlanParser {
         val starts = lines.indices.filter { marker.matches(lines[it].trim()) }
         val ends = lines.indices.filter { lines[it].trim() == "END_WORKOUT_PLAN" }
         require(starts.size <= 1 && ends.size <= 1) { "Multiple plan blocks found. Paste exactly one workout plan." }
-        require(starts.size == 1) { "Missing WORKOUT_PLAN_V2 start marker." }
+        if(starts.isEmpty() && raw.contains('{')) {
+            require(ends.isEmpty()) { "Incomplete saved plan file. Paste a fresh JSON response through Coach." }
+            val response=CoachResponse.parse(raw)
+            require(response is CoachResponse.Plan) { "This response contains advice. View it in Coach." }
+            val draft=PortableProgramParser.draft(response.definition,emptyList(),emptyList(),emptySet())
+            require(draft.days.size==1 && draft.days.single().running==null) { "Use Coach to import a running or multi-session program." }
+            val spec=draft.days.single().plan.validated().spec
+            return spec.copy(date=spec.date.ifBlank{fallbackDate})
+        }
+        require(starts.size == 1) { "Paste a JSON workout response, or open Coach to import advice and programs." }
         val start = starts.single()
         val version = lines[start].trim()
         require(version == "WORKOUT_PLAN_V2") { "Unsupported workout plan version. Use WORKOUT_PLAN_V2." }

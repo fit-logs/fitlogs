@@ -15,7 +15,7 @@ data class PortableProgram(val json: String) {
     val weeks get() = document.getInt("weeks")
     val fingerprint get() = planFingerprint(json)
 }
-data class ProgramImportDay(val key: String, val plan: EditablePlan, val metadata: String)
+data class ProgramImportDay(val key: String, val plan: EditablePlan, val metadata: String, val running: RunningPrescription? = null)
 data class ProgramImportDraft(val source: PortableProgram, val name: String, val description: String, val weeks: String,
     val days: List<ProgramImportDay>, val exerciseMetadata: Map<String,String>, val setMetadata: Map<String,String>) {
     fun validated(): Pair<PortableProgram,List<PlanPreview>> {
@@ -24,6 +24,9 @@ data class ProgramImportDraft(val source: PortableProgram, val name: String, val
         root.put("daysPerWeek",days.size)
         root.put("days",JSONArray(days.mapIndexed { index,day ->
             val d=JSONObject(day.metadata).put("id",day.key).put("name",previews[index].spec.title).put("durationMinutes",previews[index].spec.durationMinutes).put("notes",previews[index].spec.note)
+            if(day.plan.date.isNotBlank()) d.put("date",day.plan.date) else d.remove("date")
+            d.put("warmUp",day.plan.warmUp)
+            if(day.running != null) d.put("type","running").put("running",day.running.json())
             d.put("exercises",JSONArray(day.plan.exercises.mapIndexed { eIndex,e ->
                 val row=JSONObject(exerciseMetadata[e.key] ?: "{}").put("name",e.sourceName).put("notes",e.note)
                 row.put("sets",JSONArray(e.targets.mapIndexed { position,set ->
@@ -101,6 +104,14 @@ object PortableProgramParser {
             if(!d.has("id"))d.put("id","day-${i+1}");val id=text(d,"id",128,true);identifier(id,"Day");d.put("id",id);require(dayIds.add(id)) { "Duplicate day ID $id." }
             if(d.has("date"))require(validHistoryDate(text(d,"date",10))) { "date must be YYYY-MM-DD." }
             d.put("name",text(d,"name",200,true));d.put("notes",text(d,"notes",2000));d.put("durationMinutes",integer(d,"durationMinutes",0,0..720))
+            val type = if(d.has("type")) text(d,"type",20,true) else "strength"
+            require(type in setOf("strength","running")) { "type must be strength or running." }
+            if(d.has("warmUp")) d.put("warmUp",text(d,"warmUp",2000))
+            if(type == "running") {
+                val run=RunningPrescription.parse(d.getJSONObject("running"))
+                require(!d.has("exercises") || d.getJSONArray("exercises").length()==0) { "Running sessions cannot contain strength exercises." }
+                d.put("exercises",JSONArray()).put("running",run.json());continue
+            }
             val exercises=d.optJSONArray("exercises") ?: throw IllegalArgumentException("exercises must be an ordered list.")
             require(exercises.length() in 1..50) { "Include 1–50 explicit exercises." }
             for(j in 0 until exercises.length())try {
@@ -168,8 +179,9 @@ object PortableProgramParser {
                 val match=matchPlanExercise(e.getString("name"),catalogue,incompatible,aliasMap(aliases))
                 EditablePlanExercise(key,e.getString("name"),targets,e.getString("notes"),match.candidates.singleOrNull()?.id?.takeIf{match.kind in setOf(ExerciseMatchKind.EXACT,ExerciseMatchKind.ALIAS)})
             }
-            val edit=EditablePlan(day.getString("name"),"",day.getInt("durationMinutes").takeIf{it>0}?.toString().orEmpty(),day.getString("notes"),planFingerprint(p.json+index),exercises)
-            ProgramImportDay(day.getString("id"),edit,day.toString())
+            val running=if(day.optString("type")=="running")RunningPrescription.parse(day.getJSONObject("running")) else null
+            val edit=EditablePlan(day.getString("name"),day.optString("date"),day.getInt("durationMinutes").takeIf{it>0}?.toString().orEmpty(),day.getString("notes"),planFingerprint(p.json+index),exercises,warmUp=day.optString("warmUp"),legacyGuidance=if(running!=null)"Running prescription" else "")
+            ProgramImportDay(day.getString("id"),edit,day.toString(),running)
         }
         return ProgramImportDraft(p,p.name,root.getString("description"),p.weeks.toString(),drafts,eMetadata,sMetadata)
     }

@@ -50,7 +50,7 @@ class CatalogInteractionTest {
         ui.onNodeWithTag("save-imported-program").performClick();settle{model.programs.value.size==1 && model.programImportDraft.value==null}
         val id=model.programs.value.single().program.id;assertEquals(3,model.programs.value.single().days.size);assertEquals(original,runBlocking{db.dao().sets()})
         ui.onNodeWithTag("program-list").performScrollToNode(hasTestTag("program:$id"));ui.onNodeWithTag("program:$id").performClick();scroll("program-list","Set active / Resume program");ui.onNodeWithText("Set active / Resume program",substring=false).performClick();settle{model.programs.value.single().program.status=="active"};capture("catalog-installed-copy")
-        ui.onNodeWithText("Close",substring=false).performClick();ui.mainClock.advanceTimeBy(10000);scroll("train-screen","Start next workout");ui.onNodeWithText("Start next workout",substring=false).performClick();settle{model.data.value.active!=null}
+        ui.onNodeWithText("Close",substring=false).performClick();ui.mainClock.advanceTimeBy(10000);scroll("train-screen","Start workout");ui.onNodeWithText("Start workout",substring=false).performClick();settle{model.data.value.active!=null}
         assertEquals(original,runBlocking{db.dao().sets()});assertTrue(model.data.value.active!!.entries.all{it.sets.isEmpty()});assertTrue(runBlocking{db.planDao().runTargets().all{it.weightValue==null && it.rir==3.0}});capture("catalog-started-empty-targets")
         File(instrument.targetContext.filesDir,"catalog-restart.json").writeText(runBlocking{BackupCodec.encode(WorkoutRepository(db).backup())})
     }

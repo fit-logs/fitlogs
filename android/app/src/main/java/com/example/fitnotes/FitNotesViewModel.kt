@@ -65,6 +65,34 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     private val planRepository = WorkoutPlanRepository(database)
     private val programRepository = TrainingProgramRepository(database)
     private val programImporter = ProgramImportRepository(database)
+    val coachPrompt = MutableStateFlow<String?>(null)
+    val coachError = MutableStateFlow<String?>(null)
+    val coachAdvice = MutableStateFlow<String?>(null)
+    val coachImportMode = MutableStateFlow(false)
+    val acceptCoachWeights = MutableStateFlow(false)
+    fun prepareCoach(request: CoachRequest, ready: (String) -> Unit) = change(null, failure = { coachError.value = it }) {
+        coachError.value = null
+        val text = withContext(Dispatchers.Default) { CoachPrompt.prepare(data.value, request) }
+        planRepository.savePreferences(request.preferences)
+        coachPrompt.value = text
+        ready(text)
+    }
+    fun previewCoach(text: String, ready: () -> Unit) = change(null, failure = { coachError.value = it }) {
+        coachError.value = null; coachAdvice.value = null
+        when(val response = withContext(Dispatchers.Default) { CoachResponse.parse(text) }) {
+            is CoachResponse.Advice -> coachAdvice.value = response.text
+            is CoachResponse.Plan -> {
+                val current = data.value
+                require(!current.loading && !current.imported.loading) { "Wait for training history to finish loading." }
+                programImportDraft.value = withContext(Dispatchers.Default) {
+                    PortableProgramParser.draft(response.definition, current.exercises, current.exerciseAliases,
+                        incompatiblePlanExercises(current.exercises,current.workouts.flatMap{it.entries.map{e->e.entry}},current.workouts.flatMap{it.entries.flatMap{e->e.sets}},current.imported.workouts.flatMap{it.sets},canonicalImportedSetIds(current)))
+                }
+                programImportText.value = text; coachImportMode.value = true; acceptCoachWeights.value = false
+                ready()
+            }
+        }
+    }
     val programImportText = MutableStateFlow("")
     val programImportDraft = MutableStateFlow<ProgramImportDraft?>(null)
     val programImportError = MutableStateFlow<String?>(null)
@@ -294,6 +322,10 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun reviewPlanWeights(id:String) { if(busy.value)return;loadAdvicePlan=id;loadAdviceEntry=null;loadAdviceRows.value=emptyList();loadAdviceOpen.value=true;refreshLoadAdvice() }
+    fun reviewProgramWeights(programId:String,stepId:String)=change(null,failure={programError.value=it}) {
+        loadAdvicePlan=programRepository.editableOccurrence(programId,stepId);loadAdviceEntry=null
+        loadAdviceRows.value=emptyList();loadAdviceOpen.value=true;readLoadAdvice()
+    }
     fun reviewEntryWeights(id:Long) { if(busy.value)return;loadAdviceEntry=id;loadAdvicePlan=null;loadAdviceRows.value=emptyList();loadAdviceOpen.value=true;refreshLoadAdvice() }
     private suspend fun readLoadAdvice(){loadAdviceRows.value=withContext(Dispatchers.Default){loadAdvicePlan?.let{loadAdviceRepository.plan(it)} ?: loadAdviceEntry?.let{listOf(loadAdviceRepository.entry(it))}.orEmpty()}}
     fun refreshLoadAdvice()=change(null,failure={loadAdviceError.value=it}) {loadAdviceError.value=null;readLoadAdvice()}
@@ -465,12 +497,14 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     }
     fun saveImportedProgram(allowDuplicate:Boolean=false,done:(String)->Unit)=change(null,failure={programImportError.value=it}) {
         programImportError.value=null
-        when(val result=programImporter.save(requireNotNull(programImportDraft.value),allowDuplicate)) {
+        val original=requireNotNull(programImportDraft.value)
+        val draft=if(coachImportMode.value && !acceptCoachWeights.value) original.copy(days=original.days.map { day -> day.copy(plan=day.plan.copy(exercises=day.plan.exercises.map { e -> e.copy(targets=e.targets.map { t -> t.copy(weight=if(t.weight=="bodyweight")t.weight else "") }) })) }) else original
+        when(val result=withContext(Dispatchers.Default) { programImporter.save(draft,allowDuplicate,flexible=true,activate=coachImportMode.value) }) {
             is ProgramImportResult.Duplicate->duplicateProgramId.value=result.id
-            is ProgramImportResult.Saved->{cancelProgramImportState();done(result.id);notices.send("Program saved. Targets are separate from performed training.")}
+            is ProgramImportResult.Saved->{done(result.id);cancelProgramImportState();notices.send("Program saved. Targets are separate from performed training.")}
         }
     }
-    private fun cancelProgramImportState() { programImportText.value="";programImportDraft.value=null;programImportError.value=null;programImportHelp.value=null;duplicateProgramId.value=null;programImportSourceUrl.value="" }
+    private fun cancelProgramImportState() { coachImportMode.value=false;acceptCoachWeights.value=false; programImportText.value="";programImportDraft.value=null;programImportError.value=null;programImportHelp.value=null;duplicateProgramId.value=null;programImportSourceUrl.value="" }
     fun cancelProgramImport() { if(!busy.value)cancelProgramImportState() }
     fun editProgramIdentity(id:String,title:String,description:String,done:()->Unit)=change(null,done,failure={programError.value=it}) { programError.value=null;programImporter.editIdentity(id,title,description) }
     fun deleteTemplate(id: String, done: () -> Unit) = change("Template deleted.", done, failure = { programError.value = it }) { programError.value = null; planRepository.delete(id) }
@@ -478,14 +512,45 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun archiveTemplate(id: String, archived: Boolean) = change(null, failure = { programError.value = it }) { programError.value = null; planRepository.archive(id, archived) }
     fun pinTemplate(id: String, pinned: Boolean) = change(null, failure = { programError.value = it }) { programError.value = null; planRepository.pin(id, pinned) }
     fun duplicateTemplate(id: String) = change("Template copied.", failure = { programError.value = it }) { programError.value = null; planRepository.duplicate(id) }
-    fun createProgram(title: String, weeks: Int, days: List<String>, done: () -> Unit) = change("Program saved.", done, failure = { programError.value = it }) { programError.value = null; programRepository.create(title, weeks, days) }
+    fun createProgram(title: String, weeks: Int, days: List<String>, done: () -> Unit) = change("Program saved.", done, failure = { programError.value = it }) { programError.value = null; programRepository.create(title, weeks, days, flexible=true) }
     fun activateProgram(id: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.activate(id) }
     fun pauseProgram(id: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.pause(id) }
     fun postponeProgram(id: String, date: String) = change(null, failure = { programError.value = it }) { programError.value = null; programRepository.postpone(id, date) }
     fun skipProgramDay(id: String) = change("Day skipped; no workout marked completed.", failure = { programError.value = it }) { programError.value = null; programRepository.skip(id) }
+    fun enableProgramQueue(id:String)=change("Flexible queue enabled. Future sessions complete when you finish their linked workout.",failure={programError.value=it}) { programRepository.enableQueue(id) }
+    fun moveProgramSession(programId:String,id:String,destination:Int)=change("Queue updated. Assigned dates kept.",failure={programError.value=it}) { programError.value=null;programRepository.move(programId,id,destination) }
+    fun doProgramLater(programId:String,id:String)=change(null,failure={programError.value=it}) {
+        programError.value=null
+        val date=database.programDao().step(id)?.scheduledDate.orEmpty()
+        programRepository.doLater(programId,id)
+        notices.send(if(date.isBlank())"Moved to end." else "Moved to end. Date stays $date.")
+    }
+    fun skipProgramSession(programId:String,id:String)=change("Session skipped. Restore is available in My Program.",failure={programError.value=it}) { programError.value=null;programRepository.skipOccurrence(programId,id) }
+    fun restoreProgramSession(programId:String,id:String)=change("Session restored at its queue position. Resume the program if it was completed.",failure={programError.value=it}) { programError.value=null;programRepository.restoreOccurrence(programId,id) }
+    fun scheduleProgramSession(programId:String,id:String,date:String,done:()->Unit)=change("Scheduled date saved. Queue order is unchanged.",done,failure={programError.value=it}) { programError.value=null;programRepository.schedule(programId,id,date) }
+    fun startProgramSession(programId:String,id:String,done:(Long)->Unit)=change(null,failure={programError.value=it}) { programError.value=null;done(programRepository.startOccurrence(programId,id)) }
+    fun editProgramSession(programId:String,id:String,future:Boolean=false,done:(String)->Unit)=change(null,failure={programError.value=it}) { programError.value=null
+        val planId=programRepository.editableOccurrence(programId,id,future)
+        val detail=requireNotNull(database.planDao().detail(planId))
+        if(detail.plan.activityType=="strength")planEdit.value=detail.spec.editable(detail.ordered.map{ResolvedPlanExercise(it.prescription,it.exercise.id,supersetGroup=it.target.supersetGroup)},editingId=planId)
+        done(planId) }
+    fun linkProgramRun(programId:String,id:String,workoutId:Long,done:()->Unit)=change("Recorded run linked; session completed.",done,failure={programError.value=it}) { programError.value=null;programRepository.linkRun(programId,id,workoutId) }
+    fun saveRunningPlan(id:String,title:String,notes:String,date:String,run:RunningPrescription,done:()->Unit)=change("Running prescription saved.",done,failure={programError.value=it}) {
+        programError.value=null
+        withContext(Dispatchers.Default) {
+            database.withTransaction {
+                RunningPrescription.parse(run.json())
+                WorkoutPlanParser.validate(PlanSpec(title,date,run.durationMinutes ?: 0,notes,emptyList(),planFingerprint(id),legacyGuidance="Running prescription"))
+                val old=requireNotNull(database.planDao().detail(id)).plan
+                require(old.activityType=="running")
+                database.planDao().updatePlan(old.copy(title=title.trim(),notes=notes,scheduledDate=date,durationMinutes=run.durationMinutes ?: 0,runningJson=run.json().toString()))
+            }
+        }
+    }
     fun completeProgramDay(id: String, workoutId: Long) = change("Program day completed.", failure = { programError.value = it }) { programError.value = null; programRepository.complete(id, workoutId) }
     fun startProgramDay(id: String, done: (Long) -> Unit) = change(null, failure = { programError.value = it }) { programError.value = null; done(programRepository.start(id)) }
-    fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; val workout = planRepository.start(id); planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null; onReady(workout) }
+    fun startPlan(id: String, onReady: (Long) -> Unit) = change("Workout started.", failure = { planImportError.value = it }) { planImportError.value = null; val occurrence=programs.value.filter{it.program.flexibleQueue && it.program.status=="active"}.flatMap{it.queue}.firstOrNull{it.step.planId==id && it.step.action in setOf("pending","in_progress")}
+        val workout = if(occurrence!=null)programRepository.startOccurrence(occurrence.step.programId,occurrence.step.id) else planRepository.start(id); planEdit.value = null; planImportText.value = ""; duplicatePlanId.value = null; onReady(workout) }
     fun duplicatePlan(id: String, done: (String) -> Unit) = change(null,failure={planImportError.value=it}) {
         val plan=requireNotNull(database.planDao().detail(id))
         val spec=plan.spec.copy(title=plan.plan.title+" copy",fingerprint=planFingerprint(java.util.UUID.randomUUID().toString()))

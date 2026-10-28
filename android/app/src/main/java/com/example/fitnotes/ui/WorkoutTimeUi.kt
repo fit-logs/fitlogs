@@ -32,7 +32,7 @@ fun WorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolean, o
     var picker by remember { mutableStateOf(false) }
     var completedToday by rememberSaveable { mutableStateOf(false) }
     val allPlans by model.plans.collectAsState(); val programs by model.programs.collectAsState()
-    val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
+    val owned = programs.flatMap { it.days.map { day -> day.day.planId } + it.steps.mapNotNull { step -> step.planId } }.toSet()
     val plans = allPlans.filter { !it.plan.archived && it.plan.id !in owned }; val error by model.workoutTimeError.collectAsState()
     val recent = notebookSessions(data).filter { it.completed && it.activity == "strength" && it.exercises.isNotEmpty() }.take(12)
     val today = todayDate()

@@ -36,9 +36,9 @@ class RunningMigrationTest {
             old.execSQL("INSERT INTO progress_photos VALUES('photo','2026-10-05','Other','Keep photo','progress-photos/photo/image')")
             old.version=11
         }
-        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16).build()
+        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).addMigrations(RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16, COACH_MIGRATION_16_17).build()
         try {
-            assertEquals(16,db.openHelper.readableDatabase.version);assertEquals("Keep notes",db.dao().workouts().single().notes)
+            assertEquals(17,db.openHelper.readableDatabase.version);assertEquals("Keep notes",db.dao().workouts().single().notes)
             assertEquals("original-id",db.importedDao().sets().single().sourceRecordId);assertEquals("Keep photo",db.photoDao().all().single().note)
             assertEquals(180.0,db.bodyProfileDao().get()!!.heightCm!!,0.0)
             db.runDao().put(RunLink("deleted-source","local:1",ignored=true))

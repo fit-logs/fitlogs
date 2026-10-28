@@ -67,7 +67,7 @@ class SystemBackupTest {
             SystemBackupSnapshot.write(empty, file)
             val bytes = file.readBytes(); bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte(); file.writeBytes(bytes)
             assertThrows(Exception::class.java) { SystemBackupSnapshot.read(file) }
-            GZIPOutputStream(file.outputStream()).use { it.write(BackupCodec.encode(empty).replace("\"version\": 14", "\"version\": 1499").toByteArray()) }
+            GZIPOutputStream(file.outputStream()).use { it.write(BackupCodec.encode(empty).replace("\"version\": 15", "\"version\": 1599").toByteArray()) }
             assertThrows(IllegalArgumentException::class.java) { SystemBackupSnapshot.read(file) }
             GZIPOutputStream(file.outputStream()).use { output ->
                 val block = ByteArray(1024 * 1024) { 32 }

@@ -53,9 +53,19 @@ class BodyPersistenceTest {
             old.execSQL("INSERT INTO body_measurements ($columns) SELECT $columns FROM staged_body")
             old.execSQL("DROP TABLE staged_body")
             old.execSQL("CREATE INDEX index_body_measurements_importId ON body_measurements(importId)")
+            // Recreate scheduling/planning tables as they existed before Coach.
+            val released=JSONObject(File("schemas/com.example.fitnotes.data.FitDatabase/16.json").readText()).getJSONObject("database").getJSONArray("entities")
+            for(table in listOf("program_steps","planned_workouts","training_programs")) {
+                val e=(0 until released.length()).map{released.getJSONObject(it)}.single{it.getString("tableName")==table}
+                val fields=e.getJSONArray("fields");val cols=(0 until fields.length()).joinToString(","){fields.getJSONObject(it).getString("columnName")}
+                old.execSQL(e.getString("createSql").replace("\${TABLE_NAME}",table+"_old"))
+                old.execSQL("INSERT INTO ${table}_old ($cols) SELECT $cols FROM $table")
+                old.execSQL("DROP TABLE $table");old.execSQL("ALTER TABLE ${table}_old RENAME TO $table")
+                val indices=e.optJSONArray("indices") ?: org.json.JSONArray();for(i in 0 until indices.length())old.execSQL(indices.getJSONObject(i).getString("createSql").replace("\${TABLE_NAME}",table))
+            }
             old.version = 10 }
-        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16).build()
-        assertEquals(16, db.openHelper.readableDatabase.version)
+        db = Room.databaseBuilder(context, FitDatabase::class.java, name).addMigrations(BODY_PROFILE_MIGRATION_10_11, RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16, COACH_MIGRATION_16_17).build()
+        assertEquals(17, db.openHelper.readableDatabase.version)
         assertEquals(before, WorkoutRepository(db).backup().copy(exportedAt = before.exportedAt))
         assertEquals(listOf(photo), db.photoDao().all()); assertArrayEquals(byteArrayOf(1, 2, 3), image.readBytes())
         val profile = BodyProfile(heightCm = 180.0, birthDate = "2000-10-15", weightUnit = "lb", heightUnit = "ft-in", chartRange = "All")

@@ -16,7 +16,7 @@ val PROGRAM_IMPORT_MIGRATION_13_14 = object : Migration(13,14) {
 sealed interface ProgramImportResult { data class Saved(val id:String):ProgramImportResult;data class Duplicate(val id:String):ProgramImportResult }
 
 class ProgramImportRepository(private val db:FitDatabase) {
-    suspend fun save(draft:ProgramImportDraft,allowDuplicate:Boolean=false):ProgramImportResult=db.withTransaction {
+    suspend fun save(draft:ProgramImportDraft,allowDuplicate:Boolean=false,flexible:Boolean=false,activate:Boolean=flexible):ProgramImportResult=db.withTransaction {
         val (definition,previews)=draft.validated();val dao=db.programDao()
         if(!allowDuplicate)dao.programs().firstOrNull{it.sourceFingerprint==definition.fingerprint || it.definitionId==definition.id && it.definitionVersion==definition.version}?.let{return@withTransaction ProgramImportResult.Duplicate(it.id)}
         // Resolve all explicit creations once, across days, inside the same
@@ -41,9 +41,16 @@ class ProgramImportRepository(private val db:FitDatabase) {
                 resolution.copy(prescription=prescription,exerciseId=resolution.exerciseId ?: createdId,createName=null)
             }
             val spec=preview.spec.copy(exercises=resolved.map{it.prescription},fingerprint=planFingerprint(definition.json+":$index"))
-            val plan=(plans.save(PlanPreview(spec,resolved),allowDuplicate=true) as PlanSaveResult.Saved).id
+            val plan=if(draft.days[index].running!=null) {
+                val planId=UUID.randomUUID().toString()
+                db.planDao().insert(PlannedWorkout(planId,spec.title,spec.date,spec.durationMinutes,spec.note,System.currentTimeMillis(),spec.fingerprint,
+                    activityType="running",runningJson=draft.days[index].running!!.json().toString()))
+                planId
+            } else (plans.save(PlanPreview(spec,resolved),allowDuplicate=true) as PlanSaveResult.Saved).id
             dao.insertDays(listOf(ProgramDay(UUID.randomUUID().toString(),id,index,plan)))
         }
+        if(flexible) TrainingProgramRepository(db).enableQueue(id)
+        if(activate) TrainingProgramRepository(db).activate(id)
         ProgramImportResult.Saved(id)
     }
     suspend fun editIdentity(id:String,title:String,description:String)=db.withTransaction {
