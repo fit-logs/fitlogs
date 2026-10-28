@@ -64,11 +64,12 @@ class ProgramInteractionTest {
         ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Start next workout",substring=false));ui.onNodeWithText("Start next workout",substring=false).performClick();settle{model.data.value.active!=null}
         val workout=model.data.value.active!!.workout.id
         ui.onNodeWithTag("workout-overview").performScrollToNode(hasText("Synthetic press",substring=false));ui.onNodeWithText("Synthetic press",substring=false).performClick()
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("field:Weight (kg)"));ui.onNodeWithTag("field:Weight (kg)").performTextReplacement("27.5")
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("field:Reps"));ui.onNodeWithTag("field:Reps").performTextReplacement("9");Espresso.closeSoftKeyboard()
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasText("Save set",substring=false));ui.onNodeWithText("Save set",substring=false).performClick();settle{runBlocking{db.dao().sets().size}==2}
-        ui.onNodeWithContentDescription("Back to workout").performClick();ui.onNodeWithText("Finish workout",substring=false).performClick();ui.onNodeWithText("Finish",substring=false).performClick();settle{runBlocking{db.dao().workout(workout)!!.isComplete}}
-        ui.onNodeWithText("Done",substring=false).performClick();ui.mainClock.advanceTimeBy(10000)
+        val target=runBlocking{db.planDao().runTargets().single()}
+        ui.onNodeWithTag("weight:${target.id}").performTextReplacement("27.5")
+        ui.onNodeWithTag("reps:${target.id}").performTextReplacement("9");Espresso.closeSoftKeyboard()
+        ui.onNodeWithTag("complete-target:${target.id}").performClick();settle{runBlocking{db.dao().sets().size}==2}
+        ui.onNodeWithContentDescription("Back to workout").performClick()
+        ui.onNodeWithText("Finish",substring=false).performClick();settle{runBlocking{db.dao().workout(workout)!!.isComplete}}
         ui.onNode(hasText("Train") and hasClickAction()).performClick();ui.onNodeWithTag("train-screen").assertExists()
         assertEquals(0,model.programs.value.single().program.nextIndex)
         ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Complete program day",substring=false));capture("program-results-ready")

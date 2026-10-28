@@ -51,6 +51,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
             if(session!=null) OverflowMenu { close ->
                 if(session.completed && !editable) MenuAction("Edit workout"){close();onEdit()}
                 if(session.local != null) MenuAction("Edit time / duration"){close();onEditTime()}
+                if(session.local!=null && !session.completed && !session.local.workout.historicalDraft) MenuAction("Keep running for 6 hours"){close();model.allowLongWorkout(session.local.workout.id)}
                 if(editable) MenuAction("Edit details"){close();details=true}
                 if(editable && session.local!=null && session.exercises.size>1) MenuAction("Reorder exercises"){close();reorder=true}
                 MenuAction("Share"){close();onShare(sessionContext(session,data))}

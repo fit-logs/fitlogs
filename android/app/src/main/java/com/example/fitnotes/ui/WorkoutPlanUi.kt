@@ -201,28 +201,29 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
     val selected = allPlans.firstOrNull { it.plan.id == selectedId }
     val programDay = selectedId in owned
     val error by model.planImportError.collectAsState()
-    var startReady by remember(selected?.plan?.id) { mutableStateOf(false) }
-    LaunchedEffect(selected?.plan?.id) {
-        selected?.let { kotlinx.coroutines.delay(1500); startReady = true }
-    }
     var deleting by remember { mutableStateOf(false) }
     HandoffScreen(if (selectedId == null) "My templates" else if(programDay) "Program day" else "Saved template", busy, { if (selectedId == null) onClose() else onSelect(null) }, "saved-plans-list", attention = error, footer = {
         if (selected != null) {
             val started = selected.plan.startedWorkoutId
-            if(!programDay) Button(onClick = { onStart(selected.plan.id) }, enabled = startReady && selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
-            TextButton(onClick = { model.applyPlanProgression(selected.plan.id) },enabled=!busy) { Text("Review suggested weights") }
+            if(!programDay) Button(onClick = { onStart(selected.plan.id) }, enabled = selected.exercises.isNotEmpty() && !busy, modifier = Modifier.heightIn(min = 48.dp).testTag("start-plan")) { Text(if (started != null && data.active?.workout?.id == started) "Resume workout" else "Start workout") }
             TextButton(onClick = { onEdit(selected.plan.id) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Edit plan") }
-            TextButton(onClick = { exportingId = selected.plan.id; exportPlan.launch("FitLogs plan.fitnotesplan") }, enabled = !busy) { Text("Export plan") }
-            TextButton(onClick = { model.duplicatePlan(selected.plan.id) { onSelect(it) } }, enabled = !busy) { Text("Duplicate") }
-            if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
-            if(!programDay) TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete template") }
+            Box {
+                var actionsOpen by remember { mutableStateOf(false) }
+                TextButton(onClick={actionsOpen=true},enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Plan actions ▾")}
+                DropdownMenu(actionsOpen,{actionsOpen=false}) {
+                    MenuAction("Export plan"){actionsOpen=false;exportingId=selected.plan.id;exportPlan.launch("FitLogs plan.fitnotesplan")}
+                    MenuAction("Duplicate"){actionsOpen=false;model.duplicatePlan(selected.plan.id){onSelect(it)}}
+                    if(started!=null) MenuAction("Open logged workout"){actionsOpen=false;onOpenWorkout(started)}
+                    MenuAction("Paste plan"){actionsOpen=false;onPaste()}
+                    if(!programDay) MenuAction("Delete template"){actionsOpen=false;deleting=true}
+                }
+            }
         }
-        TextButton(onClick = onPaste, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
+        if(selected==null) TextButton(onClick = onPaste, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
         TextButton(onClick = onClose, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Close") }
     }) {
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         if (selectedId == null) {
-            item { Text("Plans hold suggested targets. Completed training stays in History.", style = MaterialTheme.typography.bodyMedium) }
             if (plans.isEmpty()) item { Text("No planned workouts yet. Ask ChatGPT, then paste and review a WORKOUT_PLAN_V2 reply.") }
             items(plans, key = { it.plan.id }) { plan ->
                 Surface(onClick = { onSelect(plan.plan.id) }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
@@ -242,6 +243,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
                 Text("Targets only · no completed sets", color = MaterialTheme.colorScheme.primary)
                 if (selected.plan.notes.isNotBlank()) Text(selected.plan.notes)
             }
+            item { TextButton(onClick={model.applyPlanProgression(selected.plan.id)},enabled=!busy){Text("Review suggested weights")} }
             if (selected.plan.warmUp.isNotBlank()) item { CollapsedGuidance("Warm-up", selected.plan.warmUp) }
             if (selected.plan.legacyGuidance.isNotBlank()) item { CollapsedGuidance("Additional instructions · edit to clarify", selected.plan.legacyGuidance) }
             items(selected.ordered, key = { it.target.id }) { exercise -> if(exercise.target.supersetGroup.isNotBlank())Text("Superset ${exercise.target.supersetGroup}");TargetReference(exercise.prescription) }
