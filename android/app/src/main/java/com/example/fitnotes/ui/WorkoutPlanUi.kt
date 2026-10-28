@@ -196,7 +196,7 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
     }
     val allPlans by model.plans.collectAsState()
     val programs by model.programs.collectAsState()
-    val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
+    val owned = programs.flatMap { it.days.map { d -> d.day.planId } + it.steps.mapNotNull { step -> step.planId } }.toSet()
     val plans = allPlans.filter { it.plan.id !in owned && !it.plan.archived }
     val selected = allPlans.firstOrNull { it.plan.id == selectedId }
     val programDay = selectedId in owned
@@ -217,13 +217,13 @@ fun PlannedWorkoutsDialog(model: FitNotesViewModel, data: AppData, busy: Boolean
             if (started != null) TextButton(onClick = { onOpenWorkout(started) }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Open logged workout") }
             if(!programDay) TextButton(onClick = { deleting = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Delete template") }
         }
-        TextButton(onClick = onPaste, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
+        TextButton(onClick = onPaste, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coach · Import response") }
         TextButton(onClick = onClose, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text("Close") }
     }) {
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         if (selectedId == null) {
             item { Text("Plans hold suggested targets. Completed training stays in History.", style = MaterialTheme.typography.bodyMedium) }
-            if (plans.isEmpty()) item { Text("No planned workouts yet. Ask ChatGPT, then paste and review a WORKOUT_PLAN_V2 reply.") }
+            if (plans.isEmpty()) item { Text("No planned workouts yet. Open Coach to copy a prompt and import a response.") }
             items(plans, key = { it.plan.id }) { plan ->
                 Surface(onClick = { onSelect(plan.plan.id) }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

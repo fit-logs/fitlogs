@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -171,10 +172,11 @@ fun FitNotesApp(model: FitNotesViewModel) {
         Column() {
         data.active?.let { RestControls(model,it.workout.id,busy) }
         if (loggerKey == null && addingTo == null) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
-            NavigationBarItem(selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { ProgressSymbol() }, label = { Text("Progress", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
-            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 3, onClick = { tab = 3; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body", Modifier.wrapContentWidth(unbounded = true), maxLines = 1, softWrap = false) })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 0, onClick = { tab = 0; workoutKey = null; historyDay = null; editableKey = null }, icon = { ExerciseSymbol() }, label = { Text("Train", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 1, onClick = { tab = 1; historyDay = null; historyKey = null; editableKey = null }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("History", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) })
+            NavigationBarItem(selected = tab == 2, onClick = { tab = 2; historyDay = null; editableKey = null }, icon = { ProgressSymbol() }, label = { Text("Progress", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) })
+            NavigationBarItem(colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primaryContainer), selected = tab == 3, onClick = { tab = 3; historyDay = null; editableKey = null }, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Body", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) })
+            NavigationBarItem(selected = tab == 4, onClick = { tab=4;workoutKey=null;historyDay=null;editableKey=null }, icon = { Text("✦") }, label = { Text("Coach", maxLines=1) })
         }
         }
     }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
@@ -204,7 +206,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
                     ExerciseLogger(logSession, logExercise, sessions, data, model, busy, !logSession.completed || editableKey == logSession.key,
                         onBack = { loggerKey = null; exerciseKey = null }, onSwitch = { exerciseKey = it }, onAdd = { addingTo = logSession.key },
                         onEditWorkout = { editableKey = logSession.key }, onHistory = ::openHistory, onSavePast = { logSession.local?.let { savePast(it.workout.id) } })
-                } else if (tab == 3) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
+                } else if (tab == 4) CoachScreen(data,model,busy,import={programImport=true})
+                else if (tab == 3) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
                 else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
                     onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={tab=2},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onRun={selectedRunKey=it})
                 else if (tab == 2) holder.SaveableStateProvider("progress:$restoreRevision") {
@@ -213,8 +216,8 @@ fun FitNotesApp(model: FitNotesViewModel) {
                 else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) TrainScreen(data,model,busy,
                     onResume={data.active?.let{workoutKey="local:${it.workout.id}";workoutDay=com.example.fitnotes.data.localWorkoutDate(it.workout)}},onStart=::startWorkout,
                     onFinish={finishActiveId=data.active?.workout?.id},onDiscard={discardActiveId=data.active?.workout?.id;discardForStart=false},
-                    onPast=::openPast,onDraft={enterWorkout(it)},onEditTime=::editTime,onResumeFinished={id->model.resumeFinishedWorkout(id){enterWorkout(id)}},onDiscardDraft={discardPastId=it},onProgramStart={id->model.startProgramDay(id){enterWorkout(it)}},onImportProgram={programImport=true},
-                    onPlan={selectedPlan=it;plansMenu=true},onNew={model.newPlan();pastePlan=true},onAsk={askChatGpt=true},onImport={model.cancelPlanImport();pastePlan=true})
+                    onPast=::openPast,onDraft={enterWorkout(it)},onEditTime=::editTime,onResumeFinished={id->model.resumeFinishedWorkout(id){enterWorkout(id)}},onDiscardDraft={discardPastId=it},onProgramStart={id->model.startProgramDay(id){enterWorkout(it)}},onImportProgram={programImport=true},onProgramSession={program,id->model.startProgramSession(program,id){enterWorkout(it)}},onSessionEditor={pastePlan=true},
+                    onPlan={selectedPlan=it;plansMenu=true},onNew={model.newPlan();pastePlan=true},onAsk={askChatGpt=true})
                 else {
                     val key = if (tab == 0) workoutKey else historyKey
                     val day = if (tab == 0) workoutDay else historyDay ?: todayDate()
@@ -300,15 +303,15 @@ fun FitNotesApp(model: FitNotesViewModel) {
     if (stravaExport) StravaExportDialog(model, data) { stravaExport = false }
     selectedRunKey?.let { key -> runs.firstOrNull { it.key == key }?.let { RunDetailsDialog(it,data,model,busy){selectedRunKey=null} } }
     if (healthImport) HealthImportDialog(model, data, busy) { healthImport = false }
-    if (askChatGpt) AskChatGptDialog(model, data, busy) { askChatGpt = false }
+    LaunchedEffect(askChatGpt) { if(askChatGpt) { tab=4;workoutKey=null;loggerKey=null;askChatGpt=false } }
     if(loadAdviceOpen) LoadAdviceDialog(model,data,busy)
-    if(programImport) ProgramImportDialog(model,data,busy,{programImport=false}) { programImport=false;programsMenu=true }
-    if(programsMenu) ProgramsDialog(model,data,busy,{programsMenu=false},{id->programsMenu=false;model.startProgramDay(id){enterWorkout(it)}},{id->programsMenu=false;selectedPlan=id;plansMenu=true},importProgram={programsMenu=false;programImport=true})
+    if(programImport) ProgramImportDialog(model,data,busy,{programImport=false}) { programImport=false;if(model.coachImportMode.value){tab=0;workoutKey=null;programsMenu=false}else programsMenu=true }
+    if(programsMenu) ProgramsDialog(model,data,busy,{programsMenu=false},{id->programsMenu=false;model.startProgramDay(id){enterWorkout(it)}},{id->programsMenu=false;selectedPlan=id;plansMenu=true},importProgram={programsMenu=false;programImport=true},startSession={program,id->programsMenu=false;model.startProgramSession(program,id){enterWorkout(it)}},openEditor={pastePlan=true})
     if (pastePlan) PastePlanDialog(model, data, busy, { pastePlan = false }, onStart = { requestStart(it) }) { id ->
         pastePlan = false; selectedPlan = id; plansMenu = true
     }
     if (plansMenu) PlannedWorkoutsDialog(model, data, busy, selectedPlan, { selectedPlan = it }, { plansMenu = false; selectedPlan = null },
-        onPaste = { model.cancelPlanImport(); plansMenu = false; pastePlan = true },
+        onPaste = { model.cancelPlanImport(); plansMenu = false; tab=4;workoutKey=null },
         onEdit = { id -> model.editSavedPlan(id) { plansMenu = false; pastePlan = true } },
         onStart = { requestStart(it) }, onOpenWorkout = { id ->
             plansMenu = false; selectedPlan = null
@@ -320,7 +323,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Choose an export, review the preview, then confirm.")
             TextButton(onClick = { importMenu = false; stravaExport = true }) { Text("Strava activity files") }
-            TextButton(onClick = { importMenu = false; pastePlan = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Paste plan") }
+            TextButton(onClick = { importMenu = false; tab=4;workoutKey=null;loggerKey=null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coach · Import AI response") }
             TextButton(onClick = { importMenu = false; healthImport = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Import activities (Health Connect)") }
             TextButton(onClick = { native = true; importMenu = false; importPicker.launch(arrayOf("*/*")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Original FitNotes backup") }
             TextButton(onClick = { native = false; importMenu = false; importPicker.launch(arrayOf("text/*", "application/octet-stream", "application/vnd.ms-excel")) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Workout CSV") }

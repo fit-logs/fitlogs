@@ -1,3 +1,8 @@
+> Current AI planning and clipboard verification is recorded in
+> [Coach and queue verification](program-workflow-verification.md).
+> The earlier material below remains a record of legacy file-format and logger
+> foundations, rather than current Coach entry-point instructions.
+
 # Handoff verification — 13 October 2026
 
 ## Build and local checks

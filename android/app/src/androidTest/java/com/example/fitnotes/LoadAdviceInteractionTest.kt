@@ -47,22 +47,23 @@ class LoadAdviceInteractionTest {
         ui.onNodeWithTag("use-load:1").assertIsNotEnabled();capture("load-advice-calibration")
         advice("Load setup")
         ui.onNodeWithTag("load-setup-list").performScrollToNode(hasTestTag("load-gym"));ui.onNodeWithTag("load-gym").performTextReplacement("Gym A");ui.onNodeWithTag("load-equipment").performTextReplacement("Barbell");Espresso.closeSoftKeyboard()
-        scroll("load-setup-list","Load mode unknown ▾");ui.onNodeWithText("Load mode unknown ▾",substring=false).performClick();ui.onNodeWithText("External load",substring=false).performClick()
+        scroll("load-setup-list","Load type ▾");ui.onNodeWithText("Load type ▾",substring=false).performClick();ui.onNodeWithText("External load",substring=false).performClick()
         scroll("load-setup-list","Weight basis: Confirm basis ▾");ui.onNodeWithText("Weight basis: Confirm basis ▾",substring=false).performClick();ui.onNodeWithText("Total barbell / implement load",substring=false).performClick()
         ui.onNodeWithText("Save setup",substring=false).performClick();settle{model.loadAdviceRows.value.single().advice.loads.isNotEmpty()}
         assertEquals("75",model.loadAdviceRows.value.single().advice.loads.first().value);capture("load-advice-comparable")
         ui.onNodeWithTag("load-advice-list").performScrollToNode(hasTestTag("use-load:1"));ui.onNodeWithTag("use-load:1").performClick();settle{runBlocking{db.planDao().sets().all{it.weightValue=="75"}}};assertEquals(original,runBlocking{db.dao().sets()})
         ui.onNodeWithText("Close",substring=false).performClick();scroll("train-screen","Start next workout");ui.onNodeWithText("Start next workout",substring=false).performClick();settle{model.data.value.active!=null}
         ui.onNodeWithTag("workout-overview").performScrollToNode(hasText("Bench Press",substring=false));ui.onNodeWithText("Bench Press",substring=false).performClick()
-        scroll("logger-list","Suggested weight · Use / Change");ui.onNodeWithText("Suggested weight · Use / Change",substring=false).performClick();settle{model.loadAdviceRows.value.singleOrNull()?.subject?.kind=="entry"}
+        ui.onNodeWithText("Suggested weights",substring=false).performClick();settle{model.loadAdviceRows.value.singleOrNull()?.subject?.kind=="entry"}
         ui.onNodeWithTag("load-advice-list").performScrollToNode(hasTestTag("use-load:1"));ui.onNodeWithTag("use-load:1").performClick();settle{model.loadAdviceRows.value.single().locked};capture("load-advice-locked")
-        ui.onNodeWithText("Close",substring=false).performClick();scroll("logger-list","Record RIR / RPE");ui.onNodeWithText("Record RIR / RPE",substring=false).performClick()
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("actual-rir"));ui.onNodeWithTag("actual-rir").assertTextEquals("Actual RIR (optional)","");ui.onNodeWithTag("actual-rir").performTextReplacement("1");Espresso.closeSoftKeyboard()
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("field:Weight (kg)"));ui.onNodeWithTag("field:Weight (kg)").performTextReplacement("72.5");Espresso.closeSoftKeyboard()
-        scroll("logger-list","Save set");ui.onNodeWithText("Save set",substring=false).performClick();settle{runBlocking{db.dao().sets().size==7}}
-        val saved=runBlocking{db.dao().sets().single{it.id !in original.map{row->row.id}}};assertEquals(72.5,saved.weightKg,0.0);assertEquals(1.0,runBlocking{db.loadDao().context(saved.id)!!.rir!!},0.0);assertTrue(runBlocking{db.planDao().runTargets().all{it.weightValue=="75" && it.rir==2.0}})
-        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("actual-rir"));ui.onNodeWithTag("actual-rir").assertTextEquals("Actual RIR (optional)","");capture("load-advice-actual-override")
-        scroll("logger-list","Suggested weight · Use / Change");ui.onNodeWithText("Suggested weight · Use / Change",substring=false).performClick();settle{model.loadAdviceRows.value.single().hasActual}
+        ui.onNodeWithText("Close",substring=false).performClick()
+        val target=runBlocking{db.planDao().runTargets().first()}
+        ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("weight:${target.id}"));ui.onNodeWithTag("weight:${target.id}").performTextReplacement("72.5");Espresso.closeSoftKeyboard()
+        ui.onNodeWithTag("complete-target:${target.id}").performClick();settle{runBlocking{db.dao().sets().size==7}}
+        val saved=runBlocking{db.dao().sets().single{it.id !in original.map{row->row.id}}};assertEquals(72.5,saved.weightKg,0.0);assertNull(runBlocking{db.loadDao().context(saved.id)!!.rir});assertTrue(runBlocking{db.planDao().runTargets().all{it.weightValue=="75" && it.rir==2.0}})
+        // A target RIR must never become reported effort without user input.
+        capture("load-advice-actual-override")
+        ui.onNodeWithText("Suggested weights",substring=false).performClick();settle{model.loadAdviceRows.value.single().hasActual}
         ui.onNodeWithTag("load-advice-list").performScrollToNode(hasTestTag("use-load:1"));ui.onNodeWithTag("use-load:1").assertIsNotEnabled();capture("load-advice-after-logging")
         ui.onNodeWithText("Close",substring=false).performClick()
         File(instrument.targetContext.filesDir,"load-advice-restart.json").writeText(runBlocking{BackupCodec.encode(WorkoutRepository(db).backup())})

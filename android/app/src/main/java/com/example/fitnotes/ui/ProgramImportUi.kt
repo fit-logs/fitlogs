@@ -32,6 +32,8 @@ Return all workout days in one days array. Omit unknown weights and timing. Do n
 
 @Composable
 fun ProgramImportDialog(model:FitNotesViewModel,data:AppData,busy:Boolean,close:()->Unit,saved:(String)->Unit) {
+    val coach by model.coachImportMode.collectAsState()
+    val useWeights by model.acceptCoachWeights.collectAsState()
     val raw by model.programImportText.collectAsState();val draft by model.programImportDraft.collectAsState();val error by model.programImportError.collectAsState();val help by model.programImportHelp.collectAsState();val duplicate by model.duplicateProgramId.collectAsState();val sourceUrl by model.programImportSourceUrl.collectAsState()
     val context=LocalContext.current;val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager;val focus=LocalFocusManager.current;val keyboard=LocalSoftwareKeyboardController.current
     var urlDialog by rememberSaveable{mutableStateOf(false)};var url by rememberSaveable{mutableStateOf("")};var urlError by remember{mutableStateOf<String?>(null)};var copied by remember{mutableStateOf(false)}
@@ -42,10 +44,10 @@ fun ProgramImportDialog(model:FitNotesViewModel,data:AppData,busy:Boolean,close:
     fun day(key:String,change:(ProgramImportDay)->ProgramImportDay)=edit{d->d.copy(days=d.days.map{if(it.key==key)change(it) else it})}
     fun exercise(dayKey:String,key:String,change:(EditablePlanExercise)->EditablePlanExercise)=day(dayKey){d->d.copy(plan=d.plan.copy(exercises=d.plan.exercises.map{if(it.key==key)change(it) else it}))}
     fun dismiss(){model.cancelProgramImport();close()}
-    val ready=draft?.let{it.days.isNotEmpty() && it.days.all{d->d.plan.exercises.isNotEmpty() && d.plan.exercises.all{e->(e.exerciseId?.let{id->id !in incompatible && data.exercises.any{it.id==id}}==true) xor (e.createName!=null)}}}==true
+    val ready=draft?.let{it.days.isNotEmpty() && it.days.all{d->(d.running!=null || d.plan.exercises.isNotEmpty()) && d.plan.exercises.all{e->(e.exerciseId?.let{id->id !in incompatible && data.exercises.any{it.id==id}}==true) xor (e.createName!=null)}}}==true
     HandoffScreen(if(draft==null)"Import program" else "Preview program",busy,::dismiss,"program-import-list",attention=error,footer={
-        if(draft==null)Button(onClick={model.previewProgram();focus.clearFocus();keyboard?.hide()},enabled=!busy && raw.isNotBlank() && !data.loading && !data.imported.loading){Text("Preview program")}
-        else {Button(onClick={model.saveImportedProgram(done=saved)},enabled=!busy && ready,modifier=Modifier.testTag("save-imported-program")){Text("Save one program")};TextButton(onClick={model.programImportDraft.value=null;model.programImportError.value=null},enabled=!busy){Text("Edit pasted text")}}
+        if(draft==null)Button(onClick={if(coach)model.previewCoach(raw){} else model.previewProgram();focus.clearFocus();keyboard?.hide()},enabled=!busy && raw.isNotBlank() && !data.loading && !data.imported.loading){Text("Preview program")}
+        else {Button(onClick={model.saveImportedProgram(done=saved)},enabled=!busy && ready,modifier=Modifier.testTag("save-imported-program")){Text(if(coach)"Import program" else "Save one program")};TextButton(onClick={model.programImportDraft.value=null;model.programImportError.value=null},enabled=!busy){Text("Edit pasted text")}}
         TextButton(onClick=::dismiss,enabled=!busy){Text("Cancel")}
     }) {
         error?.let{item{Text(it,color=MaterialTheme.colorScheme.error)}}
@@ -64,21 +66,30 @@ fun ProgramImportDialog(model:FitNotesViewModel,data:AppData,busy:Boolean,close:
             item{Text("Text format: Program: Name\nWeeks: 4\nDay 1: Upper\nBench Press | 3 x 8-12 | rest 90s | RIR 2\n\nPDF/webpage extraction falls back to conversion and Paste. No remote parser, background download or AI subscription is used.",style=MaterialTheme.typography.bodySmall)}
         } else {
             item{Text("Prescriptions only · ${p.days.size} ordered days",style=MaterialTheme.typography.titleMedium);OutlinedTextField(p.name,{v->edit{it.copy(name=v)}},label={Text("Program name")},modifier=Modifier.fillMaxWidth().testTag("import-program-name"));OutlinedTextField(p.description,{v->edit{it.copy(description=v)}},label={Text("Description")},modifier=Modifier.fillMaxWidth());OutlinedTextField(p.weeks,{v->edit{it.copy(weeks=v)}},label={Text("Weeks (1–52)")},singleLine=true,modifier=Modifier.fillMaxWidth())}
-            item{val root=p.source.document;val source=root.getJSONObject("source");Text("Identity: ${p.source.id} · version ${p.source.version}");for(key in listOf("goals","level","equipment","progression","schedule"))if(root.has(key) && programGuidanceText(root.get(key)).isNotBlank())Text("${key.replaceFirstChar{it.uppercase()}}: ${programGuidanceText(root.get(key))}");for(key in listOf("title","url","author","attribution"))source.optString(key).takeIf{it.isNotBlank()}?.let{Text("Source $key: $it")}}
+            if(coach)item{Text("AI weights are omitted by default. Review / Change suggested weights on Train to use the local history engine.");HandoffCheck("Keep AI weights after my review",useWeights){model.acceptCoachWeights.value=it}}
+            if(!coach)item{val root=p.source.document;val source=root.getJSONObject("source");for(key in listOf("goals","level","equipment","progression","schedule"))if(root.has(key) && programGuidanceText(root.get(key)).isNotBlank())Text("${key.replaceFirstChar{it.uppercase()}}: ${programGuidanceText(root.get(key))}");for(key in listOf("title","url","author","attribution"))source.optString(key).takeIf{it.isNotBlank()}?.let{Text("Source $key: $it")}}
             items(p.days,key={it.key}){d->
                 val index=p.days.indexOf(d)
                 OutlinedCard(Modifier.fillMaxWidth().testTag("import-day:${d.key}")){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Text("Day ${index+1}",style=MaterialTheme.typography.titleLarge)
                     OutlinedTextField(d.plan.title,{v->day(d.key){it.copy(plan=it.plan.copy(title=v))}},label={Text("Day name")},modifier=Modifier.fillMaxWidth())
                     OutlinedTextField(d.plan.note,{v->day(d.key){it.copy(plan=it.plan.copy(note=v))}},label={Text("Day notes")},modifier=Modifier.fillMaxWidth())
+                    OutlinedTextField(d.plan.date,{v->day(d.key){it.copy(plan=it.plan.copy(date=v))}},label={Text("Scheduled date (YYYY-MM-DD, optional)")},modifier=Modifier.fillMaxWidth(),singleLine=true)
+                    if(d.running!=null) {
+                        var editingRun by rememberSaveable(d.key){mutableStateOf(false)}
+                        Text(d.running.summary.ifBlank{"Running guidance"})
+                        TextButton(onClick={editingRun=!editingRun}){Text(if(editingRun)"Hide running targets" else "Edit running targets")}
+                        if(editingRun)RunningTargetFields(d.running){v->day(d.key){it.copy(running=v,plan=it.plan.copy(minutes=v.durationMinutes?.toString().orEmpty()))}}
+                    } else OutlinedTextField(d.plan.minutes,{v->day(d.key){it.copy(plan=it.plan.copy(minutes=v))}},label={Text("Duration estimate (minutes, optional)")},modifier=Modifier.fillMaxWidth(),singleLine=true)
                     FlowRow{TextButton(onClick={edit{it.copy(days=it.days.toMutableList().apply{add(index-1,removeAt(index))})}},enabled=!busy && index>0){Text("Move day up")};TextButton(onClick={edit{it.copy(days=it.days.toMutableList().apply{add(index+1,removeAt(index))})}},enabled=!busy && index<p.days.lastIndex){Text("Move day down")};TextButton(onClick={edit{it.copy(days=it.days.filter{row->row.key!=d.key})}},enabled=!busy){Text("Remove day")}}
+                    if(d.running==null)TextButton(onClick={resolvingDay=d.key;resolvingExercise="new"},enabled=!busy){Text("Add exercise")}
                     d.plan.exercises.forEachIndexed { eIndex,e ->
                         var expanded by rememberSaveable(e.key){mutableStateOf(false)}
                         val selected=data.exercises.firstOrNull{it.id==e.exerciseId};val match=matchPlanExercise(e.sourceName,data.exercises,incompatible,aliasMap(data.exerciseAliases))
                         val metadata=JSONObject(p.exerciseMetadata[e.key] ?: "{}")
                         Text("${eIndex+1}. ${e.sourceName}",style=MaterialTheme.typography.titleMedium)
                         Text(when{e.createName!=null->"Create on Save: ${e.createName}";selected!=null->"Matched: ${selected.name}";match.kind==ExerciseMatchKind.AMBIGUOUS->"Ambiguous · choose the intended exercise";else->"Unmatched · select or explicitly create an exercise"},color=if(e.exerciseId!=null || e.createName!=null)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                        metadata.optString("canonicalId").takeIf{it.isNotBlank()}?.let{Text("Source exercise ID: $it",style=MaterialTheme.typography.bodySmall)}
+
                         Text(e.targets.joinToString("\n"){runCatching{it.validated(e.sourceName).text}.getOrDefault("Edited target · check values")}.ifBlank{"Target sets unspecified"})
                         ProgramImportRepository.guidance(JSONObject(metadata.toString()).put("sets",JSONArray(e.targets.map{JSONObject(p.setMetadata[it.key] ?: "{}")}))).takeIf{it.isNotBlank()}?.let{Text(it,style=MaterialTheme.typography.bodySmall)}
                         TextButton(onClick={resolvingDay=d.key;resolvingExercise=e.key},enabled=!busy,modifier=Modifier.testTag("resolve-program-exercise:${d.key}:$eIndex")){Text("Resolve exercise")}
@@ -93,13 +104,13 @@ fun ProgramImportDialog(model:FitNotesViewModel,data:AppData,busy:Boolean,close:
                     }
                 }}
             }
-            if(!ready)item{Text("Resolve every exercise and keep at least one exercise per day before saving.",color=MaterialTheme.colorScheme.error)}
+            if(!ready)item{Text("Resolve every strength exercise before saving.",color=MaterialTheme.colorScheme.error)}
         }
     }
     if(urlDialog)AlertDialog(onDismissRequest={urlDialog=false},title={Text("From URL")},text={Column(Modifier.verticalScroll(rememberScrollState())){Text("Direct webpage fetching is not supported. Keep the source link, convert the routine with your chosen tool, then Paste JSON/text. No page is fetched or uploaded.");OutlinedTextField(url,{url=it;urlError=null},label={Text("Source URL")},modifier=Modifier.testTag("program-source-url"));urlError?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={if(url.isBlank() || !PortableProgramParser.validUrl(url.trim()))urlError="Enter an http/https URL without embedded credentials." else {model.programImportSourceUrl.value=url.trim();model.programImportHelp.value="Source link retained. Convert the routine, then Paste its complete program JSON. No webpage was fetched.";urlDialog=false}},enabled=!busy){Text("Use link / Paste")}},dismissButton={TextButton(onClick={urlDialog=false}){Text("Cancel")}})
     val d=draft?.days?.firstOrNull{it.key==resolvingDay};val e=d?.plan?.exercises?.firstOrNull{it.key==resolvingExercise}
-    if(d!=null && e!=null)Dialog(onDismissRequest={if(!busy){resolvingDay=null;resolvingExercise=null}},properties=DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.fillMaxSize().systemBarsPadding().imePadding(),color=MaterialTheme.colorScheme.background){ExercisePicker(data.exercises.filter{it.id !in incompatible},d.plan.exercises.filter{it.key!=e.key}.mapNotNull{it.exerciseId}.toSet(),emptyList(),emptyMap(),busy,{resolvingDay=null;resolvingExercise=null},{ids->ids.singleOrNull()?.let{id->exercise(d.key,e.key){it.copy(exerciseId=id,createName=null)}};resolvingDay=null;resolvingExercise=null},{name->runCatching{InputRules.exerciseName(name)}.onSuccess{valid->exercise(d.key,e.key){it.copy(exerciseId=null,createName=valid)}}.onFailure{model.programImportError.value=it.message};resolvingDay=null;resolvingExercise=null},singleSelection=true,aliases=data.exerciseAliases)}
+    if(d!=null && (e!=null || resolvingExercise=="new"))Dialog(onDismissRequest={if(!busy){resolvingDay=null;resolvingExercise=null}},properties=DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(Modifier.fillMaxSize().systemBarsPadding().imePadding(),color=MaterialTheme.colorScheme.background){ExercisePicker(data.exercises.filter{it.id !in incompatible},d.plan.exercises.filter{it.key!=e?.key}.mapNotNull{it.exerciseId}.toSet(),emptyList(),emptyMap(),busy,{resolvingDay=null;resolvingExercise=null},{ids->ids.singleOrNull()?.let{id->if(e!=null)exercise(d.key,e.key){it.copy(exerciseId=id,createName=null)} else day(d.key){it.copy(plan=it.plan.copy(exercises=it.plan.exercises+EditablePlanExercise(java.util.UUID.randomUUID().toString(),data.exercises.first{row->row.id==id}.name,listOf(EditableTarget()),"",id)))}};resolvingDay=null;resolvingExercise=null},{name->runCatching{InputRules.exerciseName(name)}.onSuccess{valid->if(e!=null)exercise(d.key,e.key){it.copy(exerciseId=null,createName=valid)} else day(d.key){it.copy(plan=it.plan.copy(exercises=it.plan.exercises+EditablePlanExercise(java.util.UUID.randomUUID().toString(),valid,listOf(EditableTarget()),"",null,valid)))}}.onFailure{model.programImportError.value=it.message};resolvingDay=null;resolvingExercise=null},singleSelection=true,aliases=data.exerciseAliases)}
     }
     duplicate?.let{id->HandoffScreen("Program already installed",busy,{model.duplicateProgramId.value=null},"program-duplicate-list",footer={
         Button(onClick={model.cancelProgramImport();saved(id)},enabled=!busy,shape=MaterialTheme.shapes.small){Text("Open installed program")}

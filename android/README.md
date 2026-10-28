@@ -9,7 +9,7 @@ The following development notes include historical commands and verification rec
 Small offline workout logger. Package: `com.example.fitnotes`. Android 7.0
 (API 24) or later. One app module, Compose Material UI, Room database.
 
-Current formats: Room 15, training backup v13, analysis JSON v6.
+Current formats: Room 17, training backup v15, analysis JSON v6.
 
 ## Use
 
@@ -61,30 +61,22 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
 - History's **Share** offers 14 days, 30 days or a custom date range. Workout
   share buttons and menus share one session. Review readable text before copying or opening Android's
   share sheet. Empty ranges explain that no activity was found; nothing is sent.
-- **Ask ChatGPT** in Workout or History prepares a question with 7 days, 30 days
-  (default), or a custom history range. Review the complete prompt, then **Copy
-  prompt** or **Share** through Android. Choose Next workout, Review progress, or
-  Custom question. Goals, equipment, constraints, time and activity preferences
-  are remembered locally. Body measurement types, photos and raw heart-rate
-  samples are optional and start unselected each time.
-- **Paste plan** reads the clipboard only when **Paste** is tapped; manual text
-  entry also works. Review and edit the strength plan, resolve exercise names,
-  then **Save plan**. This saves targets without recorded sets.
-  **My templates** lists reusable single-session recipes. Starting one creates an actual
-  session with empty exercise entries and keeps its targets visible separately.
-  Targets appear in editable per-set rows, including rest and original units.
-  The logger compares Previous / Target / Actual and links completion to a target.
-  Skip, undo, extra sets and free exercise switching remain available. The next
-  pending set fills after saving. Rest can pause/resume, add 30 seconds or skip;
-  alerts are optional in **More actions → Training settings**.
-  **Edit plan** changes the reusable plan; **Start workout** copies suggestions
-  into the logger. Enter the weights/reps actually performed. Scheduled dates
-  are optional. **Convert empty import to plan** repairs empty older suggestions
-  after review, while preserving uncertain legacy text and actual training.
-- ChatGPT handoff is manual, using your existing app/account. Nothing is submitted
-  or answered automatically. There is no OpenAI API, backend or cloud upload.
-  Copy is the fallback if a receiving app rejects Android sharing.
-  [Exact plan format, limits and matching behaviour](docs/chatgpt-handoff.md).
+- **Coach:** choose a workout, week, review or custom question; Gym / Running /
+  Both; and 7/30/90 days or custom dates. **Copy coach prompt** shares completed
+  training without private notes, body data, photos or raw heart-rate samples.
+  **View shared data** previews the exact text. Ask your preferred AI app, then
+  **Paste AI response** to review ordinary advice or editable strength/running
+  sessions. No embedded chatbot or API/network request is used.
+- **Flexible programs:** Train shows one **Up Next** session. **Do later** moves it
+  to the end; **Choose another** opens **My Program** for reorder, edit, date,
+  skip/restore and out-of-order starts. Finishing the explicitly linked strength
+  workout completes its occurrence. Running prescriptions link to recorded runs
+  without fabricating metrics. Existing programs retain manual completion until
+  explicitly switched to the queue. [Details](docs/coach-and-flexible-queue.md).
+- Saved strength templates, individual target sets, the existing workout logger,
+  target/actual separation, local load advice, exercise aliases, rest controls
+  and existing program/file imports remain available. Coach needs ordinary JSON;
+  users do not need an import marker. [AI handoff](docs/chatgpt-handoff.md).
 - **Body:** select an actual available name/unit pair. See the latest value and
   dated list; tap a measurement for Edit/Delete, or use **+** to add one.
   You can enter a new measurement name/unit explicitly. Blank time means date-only;
@@ -107,7 +99,7 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
 ## Backup and restore
 
 Use **⋮ → Backup and restore → Export JSON backup** and choose a destination in Android's
-file picker. The version 10 file contains the entire exercise library, local session
+file picker. The version 15 file contains the entire exercise library, local session
 titles/notes and sets, any unfinished workout, imported history, body measurements,
 original fields, import fingerprints, planned workouts/targets and saved handoff
 preferences, individual target sets and workout suggestion snapshots, target/result
