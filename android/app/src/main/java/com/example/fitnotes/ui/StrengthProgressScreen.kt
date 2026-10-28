@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
@@ -46,8 +48,8 @@ fun StrengthProgressScreen(data: AppData, model: FitNotesViewModel, busy: Boolea
         NotebookBar("Progress",onClose){SettingsButton()}
         LazyColumn(Modifier.fillMaxSize().testTag("strength-progress"),state=scroll,contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             if (modeSwitch != null) item { modeSwitch() }
-            item { OutlinedButton(onClick={choosing=true},enabled=exercises.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text((selected?.exerciseName?:"Select exercise")+" ▾") } }
-            item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("1M","3M","1Y","All").forEach{value->FilterChip(range==value,{range=value},label={Text(value)},modifier=Modifier.heightIn(min=48.dp))}} }
+            if(exercises.isNotEmpty()) item { OutlinedButton(onClick={choosing=true},enabled=exercises.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text((selected?.exerciseName?:"Select exercise")+" ▾") } }
+            if(exercises.isNotEmpty()) item { FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("1M","3M","1Y","All").forEach{value->FilterChip(range==value,{range=value},label={Text(value)},modifier=Modifier.heightIn(min=48.dp))}} }
             if(selected!=null) {
                 item {
                     var open by remember{mutableStateOf(false)}
@@ -56,7 +58,7 @@ fun StrengthProgressScreen(data: AppData, model: FitNotesViewModel, busy: Boolea
                             TextButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp)){Text(metric.label+" ▾")}
                             DropdownMenu(open,{open=false}){metrics.forEach{value->MenuAction(value.label){metricKey=value.name;open=false}}}
                         }
-                        TextButton(onClick={info=true},modifier=Modifier.sizeIn(minWidth=48.dp,minHeight=48.dp)){Text("ⓘ")}
+                        TextButton(onClick={info=true},modifier=Modifier.sizeIn(minWidth=48.dp,minHeight=48.dp).semantics { contentDescription="Metric information" }){Text("ⓘ")}
                     }
                 }
                 if(points.isEmpty()) item { Column(Modifier.padding(vertical=24.dp)) { Text("No records in this period");TextButton(onClick={range="All"}){Text("All time")} } }

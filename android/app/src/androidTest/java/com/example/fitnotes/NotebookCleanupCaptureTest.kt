@@ -69,19 +69,19 @@ class NotebookCleanupCaptureTest {
         ui.waitUntil(10000) { ui.onAllNodesWithText("Backup restored.").fetchSemanticsNodes().isEmpty() }
     }
     @Test fun freeformCompletesRepeatedSetsWithoutPlanAndKeepsEdits() {
-        runBlocking { db.dao().active()?.let{WorkoutRepository(db).deleteWorkout(it.id)} }
-        ui.waitUntil(15000){model.data.value.active==null}
-        ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
-        ui.waitUntil(15000){model.data.value.active!=null}
-        val id=model.data.value.active!!.workout.id
-        runBlocking{WorkoutRepository(db).addExercise(id,1)}
-        ui.waitUntil(15000){model.data.value.active?.entries?.size==1}
+        val id=runBlocking {
+            val repo=WorkoutRepository(db)
+            db.dao().active()?.let{repo.deleteWorkout(it.id)}
+            val started=repo.start();repo.addExercise(started,1);started
+        }
+        ui.waitUntil(15000){model.data.value.active?.workout?.id==id && model.data.value.active?.entries?.size==1}
+        ui.onNodeWithTag("resume-workout").performClick()
         ui.onNodeWithText(longName).performClick()
         repeat(2) {
-            ui.onNodeWithText("Add set").performClick()
-            ui.onNodeWithTag("edit-weight").performTextReplacement("25.5")
-            ui.onNodeWithTag("edit-reps").performTextReplacement("8")
-            Espresso.closeSoftKeyboard();ui.onNodeWithText("Complete set").performClick()
+            ui.onNodeWithTag("logger-list").performScrollToNode(hasTestTag("quick-weight"))
+            ui.onNodeWithTag("quick-weight").performTextReplacement("25.5")
+            ui.onNodeWithTag("quick-reps").performTextReplacement("8")
+            Espresso.closeSoftKeyboard();ui.onNodeWithTag("quick-complete").performClick()
             ui.waitUntil(15000){model.data.value.active!!.entries.single().sets.size==it+1&&!model.busy.value}
         }
         capture("freeform")

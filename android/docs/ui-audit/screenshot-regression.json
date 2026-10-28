@@ -1,0 +1,32 @@
+[
+  {
+    "scene": "train-empty",
+    "changed_fraction": 0.0,
+    "passed": true
+  },
+  {
+    "scene": "plans-empty",
+    "changed_fraction": 0.0,
+    "passed": true
+  },
+  {
+    "scene": "plans-list",
+    "changed_fraction": 0.0,
+    "passed": true
+  },
+  {
+    "scene": "plan-detail",
+    "changed_fraction": 0.0,
+    "passed": true
+  },
+  {
+    "scene": "history-empty",
+    "changed_fraction": 0.0,
+    "passed": true
+  },
+  {
+    "scene": "progress-empty",
+    "changed_fraction": 0.0,
+    "passed": true
+  }
+]

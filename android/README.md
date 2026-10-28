@@ -215,6 +215,10 @@ FITNOTES_EXAMPLE_BACKUP=/absolute/private/path/history.fitnotes \
   ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain
 ```
 
+## UI usability review
+
+[Audit and before/after screenshots](docs/ui-audit/audit.md) · [Journey tests and screenshot regression](docs/ui-audit/verification.md).
+
 ## Build and checks
 
 Open this directory in Android Studio and sync Gradle. Preserve the generated
