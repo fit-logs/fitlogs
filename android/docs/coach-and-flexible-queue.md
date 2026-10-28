@@ -49,7 +49,8 @@ Actual workout target snapshots and performed sets retain their existing roles.
   that operation retains old completion/skip records and workout associations.
 - **Train** shows one Up Next session. **Do later** moves it to the end and keeps
   it pending. **Choose another** and **View / Edit Program** open the ordered queue.
-  An active workout takes priority. Empty starts and past logging remain available.
+  An active workout takes priority. **Start workout** (or **Start another workout**
+  beside a program) opens the shared date chooser for empty starts and past logging.
 - **My Program:** session overflow offers Start now, Move earlier/later/to end,
   Edit session, Change scheduled date and Skip session. Skipped occurrences have
   Restore. Dates are explicit guidance; moving retains them and explains that

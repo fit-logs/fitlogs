@@ -71,7 +71,7 @@ class HealthSyncInteractionTest {
             ui.onNodeWithText("Garmin Connect", substring = false).assertIsDisplayed()
             capture("health-sync-filters")
             ui.onNodeWithContentDescription("Back", substring = false).performClick()
-            ui.onNodeWithText("Start empty workout").performClick()
+            ui.onNodeWithTag("start-workout").performClick(); ui.onNodeWithTag("confirm-workout-setup").performClick()
             ui.onNodeWithTag("exercise-search").performTextReplacement("Synthetic press")
             Espresso.closeSoftKeyboard()
             ui.onNode(hasText("Synthetic press", substring = false) and !hasSetTextAction()).performClick()

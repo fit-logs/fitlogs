@@ -19,7 +19,7 @@ val LocalSettingsAction = staticCompositionLocalOf<() -> Unit> { {} }
 @Composable fun SettingsButton() { val open=LocalSettingsAction.current;IconButton(onClick=open){Icon(Icons.Filled.Settings,"Settings")} }
 
 @Composable
-fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onPast:()->Unit={},onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={},onProgramStart:(String)->Unit={},onImportProgram:()->Unit={},onProgramSession:(String,String)->Unit={_,_->},onSessionEditor:()->Unit={}) {
+fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->Unit,onStart:()->Unit,onFinish:()->Unit,onDiscard:()->Unit,onPlan:(String)->Unit,onNew:()->Unit,onAsk:()->Unit,onDraft:(Long)->Unit={},onEditTime:(Long)->Unit={},onResumeFinished:(Long)->Unit={},onDiscardDraft:(Long)->Unit={},onProgramStart:(String)->Unit={},onImportProgram:()->Unit={},onProgramSession:(String,String)->Unit={_,_->},onSessionEditor:()->Unit={}) {
     var section by rememberSaveable { mutableStateOf("") }
     val programs by model.programs.collectAsState()
     val programSessions by model.programSessions.collectAsState()
@@ -41,25 +41,23 @@ fun TrainScreen(data:AppData,model:FitNotesViewModel,busy:Boolean,onResume:()->U
                     }
                 } }
             }
-            item {
+            if(primary!=null && data.active==null) item {
                 ProgramNextCard(primary, data, programSessions, busy, { primary?.let { onProgramStart(it.program.id) } }, { section = "queue" }, { id -> primary?.let { model.completeProgramDay(it.program.id,id) } },later={primary?.nextOccurrence?.let{model.doProgramLater(it.step.programId,it.step.id)}},resume=onResume)
                 primary?.next?.takeIf{it.plan.plan.activityType=="strength" && data.active==null}?.let{next->TextButton(onClick={if(primary?.program?.flexibleQueue==true)primary.nextOccurrence?.let{model.reviewProgramWeights(primary.program.id,it.step.id)} else model.reviewPlanWeights(next.day.planId)},enabled=!busy){Text("Suggested weights · Review / Change")}}
-                programError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
             item { Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 data.active?.let { Text(it.workout.title.ifBlank{"Workout in progress"},style=MaterialTheme.typography.titleMedium);Text("${it.entries.size} exercises · ${it.entries.sumOf{e->e.sets.size}} sets",style=MaterialTheme.typography.bodyMedium) }
-                if(data.active==null || primary==null)Button(onClick=if(data.active!=null)onResume else onStart,enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(if(data.active!=null)"Resume workout" else "Start empty workout")}
-                OutlinedButton(onClick=onPast,enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Log past workout")}
+                if(data.active==null && primary!=null) OutlinedButton(onClick=onStart,enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("start-workout")){Text("Start another workout")}
+                else Button(onClick=if(data.active!=null)onResume else onStart,enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag(if(data.active!=null)"resume-workout" else "start-workout")){Text(if(data.active!=null)"Resume workout" else "Start workout")}
                 data.active?.let { active ->
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick=onFinish,enabled=!busy && (active.workout.activityType!="strength" || active.entries.any{it.sets.isNotEmpty()}),modifier=Modifier.heightIn(min=48.dp)){Text("Finish workout")}
                         TextButton(onClick=onDiscard,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Discard workout")}
-                        TextButton(onClick=onStart,enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Start empty workout")}
+                        TextButton(onClick=onStart,enabled=!busy,modifier=Modifier.heightIn(min=48.dp).testTag("start-workout")){Text("Start workout")}
                     }
-                    TextButton(onClick={model.allowLongWorkout(active.workout.id)},enabled=!busy){Text("Keep running for 6 hours")}
-                    RestControls(model,active.workout.id,busy)
                 }
             } }
+            programError?.let { message -> item { Text(message,color=MaterialTheme.colorScheme.error) } }
             if(drafts.isNotEmpty())item{Text("Past workout drafts",style=MaterialTheme.typography.titleMedium)}
             items(drafts,key={"draft:${it.workout.id}"}){ draft ->
                 OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){

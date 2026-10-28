@@ -13,9 +13,11 @@ Current formats: Room 17, training backup v15, analysis JSON v6.
 
 ## Use
 
-**Log past workout** on Train/History starts a retrospective draft, defaulting to
-yesterday. Copy a recent workout/routine or start empty, log performed sets, then
-**Save completed**. Forgotten strength sessions are reconciled with editable
+**Train → Start workout** asks for the date, defaulting to today. Choose **Now**
+and **Start now** for a live session, or **Done** for a completed session from
+earlier today. Choosing an earlier date also opens completed-workout entry.
+Copy a recent workout/routine or start empty, choose **Continue**, log performed sets, then
+**Save past workout**. Forgotten strength sessions are reconciled with editable
 estimated/unknown timing. [Lifecycle details and verification](docs/workout-lifecycle.md).
 
 When browsing a previous date in a workout's overview, **Log workout for this
@@ -23,12 +25,11 @@ day** starts entry on the selected date. This also supports another session on
 a day with existing workouts. Empty dates stay open while browsing from Train.
 
 
-**Train → Start empty workout** opens exercise selection immediately. Resume,
-Finish and Discard manage the active session; reusable templates stay separate.
+Resume, Finish and Discard manage the active session; reusable templates stay separate.
 See [unplanned workout flow and verification](docs/empty-workouts.md).
 
-- **Train:** the active program shows its next workout. **Start empty workout**,
-  **Resume workout** and **Log past workout** keep ad-hoc logging quick.
+- **Train:** the active program shows its next workout. **Start workout** offers
+  today's live session or entry for an earlier date. **Resume workout** opens the active session directly.
   **My programs** and **My templates** have separate lists and management controls.
   Other activities are under Settings. In the workout
   overview, date arrows and the date picker browse dates; **Log workout for this
@@ -54,7 +55,8 @@ See [unplanned workout flow and verification](docs/empty-workouts.md).
   are kept separately for each exercise while navigating within the app.
 - Edit session title/notes through the overview menu. Notes appear only when
   present, as a collapsed preview. **Finish workout** completes an active workout.
-- **History:** compact sessions grouped by month. Completed workouts open in
+- **History:** browse and filter completed sessions. Rows render as they enter
+  view; summaries are prepared in the background. Completed workouts open in
   viewing mode; choose **Edit workout** explicitly to enable logging/editing.
   **Repeat exercises** starts a new workout with no sets or notes copied.
   Finish/delete the active workout before repeating another. Deletion is confirmed.
@@ -204,6 +206,10 @@ FITNOTES_EXAMPLE_BACKUP=/absolute/private/path/history.fitnotes \
   JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
   ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain
 ```
+
+## UI usability review
+
+[Audit and before/after screenshots](docs/ui-audit/audit.md) · [Journey tests and screenshot regression](docs/ui-audit/verification.md).
 
 ## Build and checks
 

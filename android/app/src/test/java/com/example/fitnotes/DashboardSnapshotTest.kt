@@ -34,17 +34,15 @@ class DashboardSnapshotTest {
         assertEquals(0.0, strength[6]) // Unspecified load contributes no invented volume.
     }
 
-    @Test fun notesAndBodyAreOptInAndRawPayloadsAndProfilesNeverAppear() {
-        val backup = fixture()
-        val ordinary = DashboardSnapshot.project(backup)
-        assertTrue(ordinary.table("_measurements").rows.isEmpty())
-        assertFalse(ordinary.toString().contains("private"))
-        assertFalse(ordinary.toString().contains("1990-01-01"))
-        val opted = DashboardSnapshot.project(backup, DashboardOptions(includeNotes = true, includeBody = true))
-        assertEquals(1, opted.table("_measurements").rows.size)
-        assertTrue(opted.toString().contains("private workout note"))
-        assertFalse(opted.toString().contains("RAW BODY SECRET"))
-        assertEquals(80.0 * (1 + 8 / 30.0), opted.table("Strength progress").rows.single()[8])
+    @Test fun notesAndBodyAreAlwaysIncludedWhileRawPayloadsAndProfilesStayOut() {
+        val snapshot = DashboardSnapshot.project(fixture())
+        assertEquals(1, snapshot.table("_measurements").rows.size)
+        assertTrue(snapshot.toString().contains("private workout note"))
+        assertTrue(snapshot.toString().contains("private set note"))
+        assertTrue(snapshot.toString().contains("private body note"))
+        assertFalse(snapshot.toString().contains("1990-01-01"))
+        assertFalse(snapshot.toString().contains("RAW BODY SECRET"))
+        assertEquals(80.0 * (1 + 8 / 30.0), snapshot.table("Strength progress").rows.single()[8])
     }
 
     @Test fun projectionIsStableAndDoesNotInventDateOnlyTimesOrUnknownLoads() {

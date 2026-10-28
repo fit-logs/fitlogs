@@ -9,7 +9,8 @@ their own spreadsheet and FitLogs folder; no shared developer Drive is used.
 - `DashboardSnapshot.project` consumes one transactional `Backup` snapshot.
 - Schema version 1 exports stable session, set, activity and measurement IDs.
 - In-progress workouts, historical drafts and prescriptions are excluded.
-- Notes and body measurements are separately opt-in, both off by default.
+- Notes and body measurements are always included when Google is connected.
+  There are no inclusion switches or saved inclusion preferences.
 - Photos, body profiles, birth dates, source payloads, heart-rate samples and
   credentials never enter the dashboard projection.
 - Existing exercise identities, explicit running associations and strength
@@ -18,7 +19,7 @@ their own spreadsheet and FitLogs folder; no shared developer Drive is used.
 - Source dates/offsets are retained; timed local sessions use the captured
   calendar time zone. UTC timestamp columns are labelled explicitly.
 - Native tabs: Dashboard, Strength progress, Workout history, Running and
-  activities, and optional Body measurements. Hidden tables and `_meta` hold
+  activities, and Body measurements. Hidden tables and `_meta` hold
   the schema, chart inputs and managed range sizes.
 - Fixed sheet/chart IDs prevent duplicate tabs and charts. Four charts maximum:
   weekly sessions, recorded running distance, one exercise's strength, and one
@@ -62,11 +63,11 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
 - Settings → Google training dashboard → Connect and create dashboard.
 - Google chooses the account and asks for permission. There is no client
   secret, service account, developer data server or custom password form.
-- Notes and body measurements are separately opt-in. Automatic sync starts
-  disabled and can be enabled after the first successful manual sync.
+- The dashboard always includes notes and body measurements. Automatic sync
+  starts disabled and can be enabled after the first successful manual sync.
 - Open dashboard/Drive folder use the selected account's private files.
-- Account switches require an explicit action, create a new private dashboard
-  and reset sensitive inclusion options. Existing files are kept.
+- Account switches require an explicit action and create a new private dashboard.
+  Existing files are kept, and automatic sync starts disabled on the new connection.
 - Disconnect revokes Google access when online and always clears local linkage
   and queued sync. Offline users can also revoke it in Google account settings.
 - Connection metadata is device-local, excluded from training exports and the
@@ -103,8 +104,9 @@ The Sheets API accepts this scope; full Drive or full Sheets access is not neede
   stale rows, recovery, cancellation, managed layout and bounded Unicode batches.
 - WorkManager tests cover disabled behavior, coalescing/network constraints,
   cancellation and safe HTTP error classification.
-- A fresh synthetic emulator verified privacy defaults, persisted options after
-  rotation and unchanged local training records. No personal app was cleared.
+- A fresh synthetic emulator verified the inclusion disclosure, absence of
+  inclusion switches, behavior after rotation and unchanged local training
+  records. No personal app was cleared.
 - A separate native Google Sheets preview accepted the template and charts and
   was inspected in the browser using synthetic data only.
 

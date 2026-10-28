@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.*
@@ -23,8 +24,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.AppData
 import com.example.fitnotes.FitNotesViewModel
@@ -38,6 +44,8 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     var remove by remember { mutableStateOf(false) }
     var selectedSet by remember { mutableStateOf<NotebookSet?>(null) }
     var extra by remember { mutableStateOf(false) }
+    var extraWeight by rememberSaveable { mutableStateOf("") }
+    var extraReps by rememberSaveable { mutableStateOf("") }
     var showNote by rememberSaveable { mutableStateOf(false) }
     var manualRest by remember { mutableStateOf(false) }
     val previous=remember(all,session,exercise){previousExerciseSessions(all,session,exercise)}
@@ -55,8 +63,6 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     val loadLabel=when(loadModes.singleOrNull()){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assist kg";LoadMode.REPS_ONLY->"Load";else->"kg"}
     Column(Modifier.fillMaxSize()) {
         NotebookBar(exercise.name,onBack,"Back to workout") {
-            if(session.local?.workout?.historicalDraft == true) TextButton(onClick=onSavePast,enabled=!busy){Text("Save past workout")}
-            if(exercise.entryId != null) TextButton(onClick={model.reviewEntryWeights(exercise.entryId)},enabled=!busy){Text("Suggested weights")}
             if(editable && exercise.entryId!=null)IconButton(onClick={showNote=!showNote}){Icon(Icons.Filled.Edit,"Exercise note")}
             IconButton(onClick={switcher=true}){Icon(Icons.AutoMirrored.Filled.List,"Switch exercise")}
             OverflowMenu { close ->
@@ -64,6 +70,13 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                 if(session.local!=null&&!session.completed)MenuAction("Rest timer"){close();manualRest=true}
                 if(editable && exercise.entryId!=null)MenuAction("Exercise settings"){close();showNote=true}
                 if(editable && exercise.entryId!=null)MenuAction("Remove exercise"){close();remove=true}
+            }
+        }
+        if(session.local?.workout?.historicalDraft == true || exercise.entryId != null) {
+            // Text actions wrap independently without squeezing the exercise title.
+            FlowRow(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(session.local?.workout?.historicalDraft == true) TextButton(onClick=onSavePast,enabled=!busy){Text("Save past workout")}
+                if(exercise.entryId != null) TextButton(onClick={model.reviewEntryWeights(exercise.entryId)},enabled=!busy){Text("Suggested weights")}
             }
         }
         if(entryNote.isNotBlank() || showNote) {
@@ -94,7 +107,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
             val tableWidth=maxWidth
             Box(Modifier.width(tableWidth)) {
                 LazyColumn(Modifier.fillMaxSize().testTag("logger-list"),state=listState,contentPadding=PaddingValues(16.dp)) {
-                    item { Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                    if(targets!=null || exercise.sets.isNotEmpty()) item { Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
                         Text("Set",Modifier.width(48.dp),style=MaterialTheme.typography.labelMedium)
                         Text(loadLabel,Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
                         Text("Reps",Modifier.weight(1f),style=MaterialTheme.typography.labelMedium);Spacer(Modifier.width(48.dp))
@@ -115,19 +128,53 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                     } }
                     val recorded=if(targets==null)exercise.sets else exercise.sets.filter{it.local?.targetId==null}
                     items(recorded,key={it.key}) { set -> LoggerResultRow(set,(targets?.ordered?.size ?: 0)+recorded.indexOf(set)+1,editable){selectedSet=set};HorizontalDivider() }
-                    if(editable)item{TextButton(onClick={extra=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),enabled=!busy){Text("Add set")}}
+                    if(editable)item(key="set-entry") {
+                        if(targets==null && exercise.entryId!=null && session.activity=="strength" && exercise.sets.none{it.cardio}) {
+                            QuickSetEntry(exercise,session.key,model,busy,options={weight,reps->extraWeight=weight;extraReps=reps;extra=true})
+                        } else TextButton(onClick={extra=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),enabled=!busy){Text("Add set")}
+                    }
                 }
             }
         }
 
     }
-    if(selectedSet!=null || extra)SetEditDialog(selectedSet,exercise,session,model,busy,targets!=null,targets?.ordered?.lastOrNull()?.loadMode ?: exercise.sets.lastOrNull()?.local?.loadMode ?: if(session.local!=null)LoadMode.EXTERNAL else LoadMode.UNKNOWN,{selectedSet=null;extra=false})
+    if(selectedSet!=null || extra)SetEditDialog(selectedSet,exercise,session,model,busy,targets!=null,targets?.ordered?.lastOrNull()?.loadMode ?: exercise.sets.lastOrNull()?.local?.loadMode ?: if(session.local!=null)LoadMode.EXTERNAL else LoadMode.UNKNOWN,extraWeight,extraReps,{selectedSet=null;extra=false})
     if(manualRest && session.local!=null) {
         var seconds by rememberSaveable{mutableStateOf("90")}
         AlertDialog(onDismissRequest={manualRest=false},title={Text("Rest timer")},text={OutlinedTextField(seconds,{seconds=it},label={Text("Seconds")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))},confirmButton={TextButton(onClick={model.startRest(session.local.workout.id,seconds.toInt());manualRest=false},enabled=seconds.toIntOrNull() in 1..7200){Text("Start")}},dismissButton={TextButton(onClick={manualRest=false}){Text("Cancel")}})
     }
     if(switcher)AlertDialog(onDismissRequest={switcher=false},title={Text("Exercises")},text={LazyColumn(Modifier.heightIn(max=400.dp)){items(session.exercises,key={it.key}){e->TextButton(onClick={switcher=false;onSwitch(e.key)},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text(e.name)}}}},confirmButton={if(editable)TextButton(onClick={switcher=false;onAdd()}){Text("Add exercise")}},dismissButton={TextButton(onClick={switcher=false}){Text("Close")}})
     if(remove && exercise.entryId!=null)NotebookConfirm("Remove exercise?","This also deletes its saved sets.","Remove",busy,{remove=false}){model.removeExercise(exercise.entryId){remove=false;onBack()}}
+}
+
+/** Draft values stay in the logger's existing per-exercise SaveableStateProvider. */
+@Composable
+private fun QuickSetEntry(exercise:NotebookExercise,sessionKey:String,model:FitNotesViewModel,busy:Boolean,options:(String,String)->Unit) {
+    var weight by rememberSaveable(sessionKey,exercise.key){mutableStateOf("")}
+    var reps by rememberSaveable(sessionKey,exercise.key){mutableStateOf("")}
+    val mode=exercise.sets.lastOrNull()?.local?.loadMode ?: LoadMode.EXTERNAL
+    val focus=LocalFocusManager.current
+    val keyboard=LocalSoftwareKeyboardController.current
+    val actualWeight=if(mode==LoadMode.REPS_ONLY)"" else weight
+    val valid=runCatching { InputRules.parseSet(if(actualWeight.isBlank())"0" else actualWeight,reps) }.isSuccess
+    fun complete() {
+        if(!busy && valid) model.logStrength(exercise.entryId!!,actualWeight,reps,null,"",{
+            focus.clearFocus();keyboard?.hide()
+        },loadMode=mode)
+    }
+    Column(Modifier.fillMaxWidth().padding(top=12.dp).testTag("quick-set-entry"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            if(mode!=LoadMode.REPS_ONLY) OutlinedTextField(weight,{weight=it},singleLine=true,enabled=!busy,
+                label={Text(when(mode){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assistance kg";else->"kg"})},
+                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal,imeAction=ImeAction.Next),
+                modifier=Modifier.weight(1f).testTag("quick-weight"))
+            OutlinedTextField(reps,{reps=it},singleLine=true,enabled=!busy,label={Text("Reps")},
+                keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Done),
+                keyboardActions=KeyboardActions(onDone={complete()}),modifier=Modifier.weight(1f).testTag("quick-reps"))
+        }
+        Button(onClick={complete()},enabled=!busy&&valid,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("quick-complete")){Text("Complete set")}
+        TextButton(onClick={options(weight,reps)},enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Set options")}
+    }
 }
 
 @Composable
@@ -152,18 +199,18 @@ private fun PendingSetRow(target:WorkoutSetTarget,number:Int,selected:Boolean,fo
     Column(Modifier.fillMaxWidth().testTag("run-target:${target.id}").background(if(selected)MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f) else MaterialTheme.colorScheme.surface)) {
         Row(Modifier.heightIn(min=56.dp),verticalAlignment=Alignment.CenterVertically) {
             Box(Modifier.width(48.dp)) {
-                TextButton(onClick={menu=true},contentPadding=PaddingValues(0.dp),modifier=Modifier.sizeIn(minWidth=48.dp,minHeight=48.dp)){Text(number.toString())}
+                TextButton(onClick={menu=true},contentPadding=PaddingValues(0.dp),modifier=Modifier.sizeIn(minWidth=48.dp,minHeight=48.dp).semantics { contentDescription="Set $number options" }){Text(number.toString())}
                 DropdownMenu(menu,{menu=false}) { MenuAction(if(target.skipped)"Unskip" else "Skip"){menu=false;onSkip()};MenuAction("Edit weight"){menu=false;weightEditor=true} }
             }
             if(target.skipped)Text("Skipped",Modifier.weight(2f),color=MaterialTheme.colorScheme.onSurfaceVariant)
             else {
                 if(target.loadMode==LoadMode.REPS_ONLY)Text("—",Modifier.weight(1f)) else OutlinedTextField(weight,{weight=it},singleLine=true,enabled=!busy&&!readOnly,
                     placeholder={if(target.weightUnit=="bodyweight")Text("Bodyweight",style=MaterialTheme.typography.bodySmall)},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),
-                    modifier=Modifier.weight(1f).padding(end=4.dp).onFocusChanged{if(it.isFocused)onSelect()}.testTag("weight:${target.id}"))
+                    modifier=Modifier.weight(1f).padding(end=4.dp).onFocusChanged{if(it.isFocused)onSelect()}.testTag("weight:${target.id}").semantics { contentDescription="Set $number weight in kilograms" })
                 OutlinedTextField(reps,{reps=it},singleLine=true,enabled=!busy&&!readOnly,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),
-                    modifier=Modifier.weight(1f).padding(end=4.dp).focusRequester(requester).onFocusChanged{if(it.isFocused)onSelect()}.testTag("reps:${target.id}"))
+                    modifier=Modifier.weight(1f).padding(end=4.dp).focusRequester(requester).onFocusChanged{if(it.isFocused)onSelect()}.testTag("reps:${target.id}").semantics { contentDescription="Set $number reps" })
             }
-            Checkbox(false,{if(valid)onComplete(weight,reps)},enabled=!target.skipped&&valid&&!busy&&!readOnly,modifier=Modifier.width(48.dp).testTag("complete-target:${target.id}"))
+            Checkbox(false,{if(valid)onComplete(weight,reps)},enabled=!target.skipped&&valid&&!busy&&!readOnly,modifier=Modifier.size(48.dp).testTag("complete-target:${target.id}").semantics { contentDescription="Complete set $number" })
         }
         if(selected && target.repsMin!=target.repsMax && target.repsMin!=null)Text("Target: ${target.repsMin}–${target.repsMax} reps",Modifier.padding(start=48.dp,bottom=8.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -174,9 +221,9 @@ private fun PendingSetRow(target:WorkoutSetTarget,number:Int,selected:Boolean,fo
 }
 
 @Composable
-private fun SetEditDialog(set:NotebookSet?,exercise:NotebookExercise,session:NotebookSession,model:FitNotesViewModel,busy:Boolean,hasPlan:Boolean,defaultMode:String,onClose:()->Unit) {
-    var weight by rememberSaveable(set?.key){mutableStateOf(set?.weight?.let(::weightText).orEmpty())}
-    var reps by rememberSaveable(set?.key){mutableStateOf(set?.reps?.toString().orEmpty())}
+private fun SetEditDialog(set:NotebookSet?,exercise:NotebookExercise,session:NotebookSession,model:FitNotesViewModel,busy:Boolean,hasPlan:Boolean,defaultMode:String,initialWeight:String,initialReps:String,onClose:()->Unit) {
+    var weight by rememberSaveable(set?.key){mutableStateOf(if(set==null)initialWeight else set.weight?.let(::weightText).orEmpty())}
+    var reps by rememberSaveable(set?.key){mutableStateOf(if(set==null)initialReps else set.reps?.toString().orEmpty())}
     var mode by rememberSaveable(set?.key){mutableStateOf(set?.local?.loadMode ?: defaultMode)}
     var note by rememberSaveable(set?.key){mutableStateOf(set?.comment.orEmpty())}
     var cardio by rememberSaveable(set?.key){mutableStateOf(set?.cardio==true)}
@@ -184,12 +231,14 @@ private fun SetEditDialog(set:NotebookSet?,exercise:NotebookExercise,session:Not
     var seconds by rememberSaveable(set?.key){mutableStateOf(set?.seconds?.let(::weightText).orEmpty())}
     var unit by rememberSaveable(set?.key){mutableStateOf(set?.unit ?: "km")}
     var settings by remember { mutableStateOf(false) }
+    var showSetNote by rememberSaveable(set?.key){mutableStateOf(set?.comment?.isNotBlank()==true)}
     var delete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest=onClose,title={Text(if(set==null)"Add set" else "Edit set")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         if(!cardio) { OutlinedTextField(weight,{weight=it},label={Text(when(mode){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assistance kg";else->"kg"})},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.fillMaxWidth().testTag("edit-weight"));OutlinedTextField(reps,{reps=it},label={Text("Reps")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth().testTag("edit-reps")) }
         else { OutlinedTextField(distance,{distance=it},label={Text("Distance")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal));UnitPicker(unit,{unit=it});OutlinedTextField(seconds,{seconds=it},label={Text("Seconds")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal)) }
-        OutlinedTextField(note,{note=it.take(10000)},label={Text("Set note")},modifier=Modifier.fillMaxWidth(),maxLines=3)
+        if(showSetNote) OutlinedTextField(note,{note=it.take(10000)},label={Text("Set note")},modifier=Modifier.fillMaxWidth(),maxLines=3)
+        else TextButton(onClick={showSetNote=true}){Text("Add note")}
         TextButton(onClick={settings=!settings}){Text("Set options")}
         if(settings) { if(session.local!=null)LoadModePicker(mode,{mode=it},!busy);if(set==null)TextButton(onClick={cardio=!cardio}){Text(if(cardio)"Strength" else "Distance / time")};if(hasPlan&&exercise.entryId!=null&&!cardio)TextButton(onClick={model.applyRemainingWeight(exercise.entryId,if(weight.isBlank())"" else "$weight kg")},enabled=!busy){Text("Apply weight to remaining sets")};if(set!=null)TextButton(onClick={delete=true}){Text("Delete set")} }
         error?.let{Text(it,color=MaterialTheme.colorScheme.error)}

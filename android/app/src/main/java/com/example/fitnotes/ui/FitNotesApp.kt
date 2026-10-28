@@ -49,8 +49,9 @@ fun FitNotesApp(model: FitNotesViewModel) {
     val sessions = notebook.sessions
     val pastDrafts = notebook.pastDrafts
     val editingSessions = notebook.editingSessions
-    var pastSetup by rememberSaveable { mutableStateOf(false) }
-    var pastSetupDate by rememberSaveable { mutableStateOf(moveDay(todayDate(), -1)) }
+    var workoutSetup by rememberSaveable { mutableStateOf(false) }
+    var workoutSetupDate by rememberSaveable { mutableStateOf(moveDay(todayDate(), -1)) }
+    var workoutSetupStartsLive by rememberSaveable { mutableStateOf(false) }
     var timingWorkoutId by rememberSaveable { mutableStateOf<Long?>(null) }
     var discardPastId by rememberSaveable { mutableStateOf<Long?>(null) }
     var library by rememberSaveable { mutableStateOf(false) }
@@ -122,8 +123,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         model.savePastWorkout(id) { tab = 1; historyKey = "local:$id"; historyDay = date; workoutKey = null; loggerKey = null; exerciseKey = null; addingTo = null; editableKey = "local:$id" }
     }
     fun editTime(id: Long) { model.workoutTimeError.value = null; timingWorkoutId = id }
-    fun openPastOn(date: String) { model.workoutTimeError.value = null; pastSetupDate = date; pastSetup = true }
-    fun openPast() { openPastOn(moveDay(todayDate(), -1)) }
+    fun openPastOn(date: String) { model.workoutTimeError.value = null; workoutSetupDate = date; workoutSetupStartsLive = false; workoutSetup = true }
     fun requestStart(planId: String? = null) {
         if (busy) return
         val active = data.active
@@ -136,7 +136,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
         } else if (planId == null) model.startEmpty { enterWorkout(it, true) }
         else model.startPlan(planId) { enterWorkout(it) }
     }
-    fun startWorkout() { requestStart() }
+    fun startWorkout() { model.workoutTimeError.value = null; workoutSetupDate = todayDate(); workoutSetupStartsLive = true; workoutSetup = true }
     fun chooseSession(key: String?) {
         val session = editingSessions.firstOrNull { it.key == key }
         if (tab == 0) { workoutKey = key; session?.let { workoutDay = it.date } }
@@ -208,7 +208,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                         onEditWorkout = { editableKey = logSession.key }, onHistory = ::openHistory, onSavePast = { logSession.local?.let { savePast(it.workout.id) } })
                 } else if (tab == 4) CoachScreen(data,model,busy,import={programImport=true})
                 else if (tab == 3) BodyScreen(data, model, busy, bodyState, { importMenu = true }, { backupMenu = true }, { shareText = it })
-                else if (tab == 1 && historyDay == null) NotebookHistory(sessions, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
+                else if (tab == 1 && historyDay == null) NotebookHistory(notebook.historyRows, data, historyState, ::openHistory, { rangeMenu = true }, { importMenu = true }, { backupMenu = true },
                     onAsk = { askChatGpt = true }, onPastePlan = { pastePlan = true }, onPlans = { selectedPlan = null; plansMenu = true },onProgress={tab=2},onLibrary={library=true},onTrainingSettings={trainingSettings=true},onRun={selectedRunKey=it})
                 else if (tab == 2) holder.SaveableStateProvider("progress:$restoreRevision") {
                     ProgressScreen(data,model,busy,{library=true},onWorkout={key->returnToProgress=true;openHistory(key)},onRun={selectedRunKey=it},runs=runs)
@@ -216,7 +216,7 @@ fun FitNotesApp(model: FitNotesViewModel) {
                 else if (tab == 0 && workoutKey == null && !browsingWorkoutDay) TrainScreen(data,model,busy,
                     onResume={data.active?.let{workoutKey="local:${it.workout.id}";workoutDay=com.example.fitnotes.data.localWorkoutDate(it.workout)}},onStart=::startWorkout,
                     onFinish={finishActiveId=data.active?.workout?.id},onDiscard={discardActiveId=data.active?.workout?.id;discardForStart=false},
-                    onPast=::openPast,onDraft={enterWorkout(it)},onEditTime=::editTime,onResumeFinished={id->model.resumeFinishedWorkout(id){enterWorkout(id)}},onDiscardDraft={discardPastId=it},onProgramStart={id->model.startProgramDay(id){enterWorkout(it)}},onImportProgram={programImport=true},onProgramSession={program,id->model.startProgramSession(program,id){enterWorkout(it)}},onSessionEditor={pastePlan=true},
+                    onDraft={enterWorkout(it)},onEditTime=::editTime,onResumeFinished={id->model.resumeFinishedWorkout(id){enterWorkout(id)}},onDiscardDraft={discardPastId=it},onProgramStart={id->model.startProgramDay(id){enterWorkout(it)}},onImportProgram={programImport=true},onProgramSession={program,id->model.startProgramSession(program,id){enterWorkout(it)}},onSessionEditor={pastePlan=true},
                     onPlan={selectedPlan=it;plansMenu=true},onNew={model.newPlan();pastePlan=true},onAsk={askChatGpt=true})
                 else {
                     val key = if (tab == 0) workoutKey else historyKey
@@ -295,7 +295,9 @@ fun FitNotesApp(model: FitNotesViewModel) {
     }
     LaunchedEffect(data.workouts, pastDrafts, workoutKey) { (data.workouts + pastDrafts).firstOrNull { "local:" + it.workout.id == workoutKey }?.let { workoutDay = com.example.fitnotes.data.activitySummary(it).date } }
     LaunchedEffect(sessions, historyKey) { sessions.firstOrNull { it.key == historyKey }?.let { historyDay = it.date } }
-    if (pastSetup) PastWorkoutSetupDialog(data, model, busy, { pastSetup = false }, initialDate = pastSetupDate) { id, date, picker -> pastSetup = false; enterWorkout(id, picker, date) }
+    if (workoutSetup) WorkoutSetupDialog(data, model, busy, { workoutSetup = false }, initialDate = workoutSetupDate,
+        onStartToday = if(workoutSetupStartsLive) ({ workoutSetup = false; requestStart() }) else null
+    ) { id, date, picker -> workoutSetup = false; enterWorkout(id, picker, date) }
     timingWorkoutId?.let { id -> (data.workouts + pastDrafts).firstOrNull { it.workout.id == id }?.let { detail -> WorkoutTimeDialog(detail.workout, model, busy) { timingWorkoutId = null } } }
     discardPastId?.let { id -> NotebookConfirm("Discard past workout draft?", "This removes the unsaved draft and its draft sets.", "Discard", busy, { discardPastId = null }) {
         model.deleteWorkout(id) { discardPastId = null; if(workoutKey == "local:$id"){workoutKey = null;browsingWorkoutDay = false;loggerKey = null;exerciseKey = null} }

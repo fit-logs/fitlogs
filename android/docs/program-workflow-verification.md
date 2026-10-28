@@ -10,6 +10,27 @@ status and prescription references extend `program_steps`; running targets exten
 
 [Product behavior, initial audit, contract and scope](coach-and-flexible-queue.md).
 
+### Main integration — 2026-10-28
+
+Merged main through `8195d2b` (workout logging simplification and version 1.1.5)
+into the Coach branch. The shared date chooser remains the entry for empty and
+past workouts; program starts still use the selected occurrence directly. Train
+prioritizes the active workout, and reusable-template pickers exclude both program
+day recipes and occurrence copies. The compact plan-actions menu and cached
+history projection from main are retained.
+
+After resolving the overlapping UI changes, `testDebugUnitTest`, `assembleDebug`
+and `lintDebug` pass: **385 tests, zero failures/errors, five optional skips;
+zero lint errors and 44 warnings**. The isolated preview and instrumentation
+packages also build successfully.
+
+All **13 selected emulator UI tests pass** across `CoachInteractionTest`,
+`ProgramInteractionTest`, `WorkoutEntryInteractionTest` and
+`PlanLifecycleInteractionTest`, covering the combined queue, logging, date chooser,
+template and history behavior. An initial run was interrupted by an emulator
+System UI ANR; after dismissing that system dialog, the complete selection passed
+without app changes. Both retained APK artifacts were refreshed from the merge.
+
 ### Verified results
 
 - Full `testDebugUnitTest`: **385 tests, zero failures/errors, five existing

@@ -83,13 +83,17 @@ class WorkoutLifecycleInteractionTest {
             entries = listOf(WorkoutExercise(1, 10, 1, 0), WorkoutExercise(2, 20, 1, 0)),
             sets = listOf(WorkoutSet(1, 1, 30.0, 6, 0), WorkoutSet(2, 2, 40.0, 8, 0)))
         restore(backup) { model.data.value.active?.workout?.id == 20L && model.data.value.workouts.size == 2 }
-        ui.onNodeWithTag("train-screen").performScrollToNode(hasText("Log past workout", substring = false))
-        ui.onNodeWithText("Log past workout", substring = false).assertIsDisplayed()
-        ui.onNode(hasText("History") and hasClickAction()).performClick()
-        ui.onNodeWithText("Log past workout", substring = false).performClick()
+        ui.onNodeWithTag("train-screen").performScrollToNode(hasTestTag("start-workout"))
+        ui.onNodeWithText("Log past workout", substring = false).assertDoesNotExist()
+        ui.onNodeWithTag("start-workout").performClick()
+        ui.onNodeWithTag("past-workout-date").performClick()
+        val yesterday = moveDay(todayDate(), -1)
+        if(yesterday.take(7) != todayDate().take(7)) ui.onNodeWithContentDescription("Change to previous month").performClick()
+        ui.onNode(hasText(com.example.fitnotes.ui.prettyDay(yesterday,"EEEE, MMMM d, yyyy"),substring=true) and hasClickAction()).performClick()
+        ui.onNodeWithText("Choose",substring=false).performClick()
         ui.onNode(hasText("Previous routine", substring = true) and hasClickAction() and hasAnyAncestor(isDialog())).performScrollTo().performClick()
         capture("past-workout-copy")
-        ui.onNodeWithText("Enter performed sets", substring = false).performClick()
+        ui.onNodeWithTag("confirm-workout-setup").performClick()
         ui.waitUntil(15000) { !model.busy.value && model.pastDrafts.value.size == 1 }
         val draft = model.pastDrafts.value.single(); val id = draft.workout.id
         assertEquals(moveDay(todayDate(), -1), draft.workout.sessionDate); assertNull(draft.workout.knownStart)

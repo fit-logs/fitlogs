@@ -34,7 +34,7 @@ class GoogleDashboardWorker(context: Context, parameters: WorkerParameters) : Co
             val snapshot = try {
                 // Automatic exports must not compete with active set logging.
                 if (database.dao().active() != null) return Result.retry()
-                DashboardSnapshot.project(dashboardBackup(database), store.options())
+                DashboardSnapshot.project(dashboardBackup(database))
             } finally { database.close() }
             val authorization = Identity.getAuthorizationClient(applicationContext).authorize(dashboardAuthorization(connection.email)).dashboardAwait()
             if (authorization.hasResolution()) { store.status("Reconnect Google to resume automatic sync."); return Result.failure() }

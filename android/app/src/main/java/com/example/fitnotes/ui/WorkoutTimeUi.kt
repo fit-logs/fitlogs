@@ -20,39 +20,51 @@ fun WorkoutTimeFields(input: WorkoutTimeInput, enabled: Boolean, change: (Workou
     OutlinedTextField(input.endDate, { change(input.copy(endDate = it)) }, label = { Text("End date (YYYY-MM-DD)") }, enabled = enabled, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("workout-end-date"))
     OutlinedTextField(input.end, { change(input.copy(end = it)) }, label = { Text("End time (HH:mm, optional)") }, enabled = enabled, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("workout-end-time"))
     OutlinedTextField(input.minutes, { change(input.copy(minutes = it)) }, label = { Text("Duration (minutes, optional)") }, enabled = enabled, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("workout-duration"))
-    Text("Leave unknown times/duration blank. End-only or duration-only is valid. Start and duration can determine an end; no midnight start is invented.", style = MaterialTheme.typography.bodySmall)
+    Text("Leave unknown times blank.", style = MaterialTheme.typography.bodySmall)
 }
 @Composable
-fun PastWorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolean, onClose: () -> Unit, initialDate: String = moveDay(todayDate(), -1), onReady: (Long, String, Boolean) -> Unit) {
+fun WorkoutSetupDialog(data: AppData, model: FitNotesViewModel, busy: Boolean, onClose: () -> Unit, initialDate: String = moveDay(todayDate(), -1), onStartToday: (() -> Unit)? = null, onReady: (Long, String, Boolean) -> Unit) {
     var date by rememberSaveable { mutableStateOf(initialDate) }
     var source by rememberSaveable { mutableStateOf("") }
     var times by rememberSaveable { mutableStateOf(false) }
     var start by rememberSaveable { mutableStateOf("") }; var end by rememberSaveable { mutableStateOf("") }
     var endDate by rememberSaveable { mutableStateOf(date) }; var minutes by rememberSaveable { mutableStateOf("") }
     var picker by remember { mutableStateOf(false) }
+    var completedToday by rememberSaveable { mutableStateOf(false) }
     val allPlans by model.plans.collectAsState(); val programs by model.programs.collectAsState()
-    val owned = programs.flatMap { it.days }.map { it.day.planId }.toSet()
+    val owned = programs.flatMap { it.days.map { day -> day.day.planId } + it.steps.mapNotNull { step -> step.planId } }.toSet()
     val plans = allPlans.filter { !it.plan.archived && it.plan.id !in owned }; val error by model.workoutTimeError.collectAsState()
     val recent = notebookSessions(data).filter { it.completed && it.activity == "strength" && it.exercises.isNotEmpty() }.take(12)
-    AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text("Log past workout") }, text = {
+    val today = todayDate()
+    val todayEntry = onStartToday != null && date == today
+    val startLive = todayEntry && !completedToday
+    AlertDialog(onDismissRequest = { if (!busy) onClose() }, title = { Text(if(onStartToday != null) "Start workout" else "Log workout") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Enter what you actually did. This creates a draft for a completed past session and leaves the live workout alone.")
             TextButton(onClick = { picker = true }, enabled = !busy, modifier = Modifier.testTag("past-workout-date")) { Text("Date · " + prettyDay(date, "EEE d MMM yyyy")) }
-            RadioChoice("Start empty", source.isBlank(), !busy) { source = "" }
-            if (recent.isNotEmpty()) Text("Copy a recent workout", style = MaterialTheme.typography.titleSmall)
-            recent.forEach { session -> RadioChoice("${session.date} · ${session.title.ifBlank { session.exercises.take(3).joinToString(", ") { it.name } }} · ${session.timeLabel}", source == session.key, !busy) { source = session.key } }
-            if (plans.isNotEmpty()) Text("Copy a saved routine", style = MaterialTheme.typography.titleSmall)
-            plans.take(20).forEach { plan -> RadioChoice(plan.plan.title, source == "plan:${plan.plan.id}", !busy) { source = "plan:${plan.plan.id}" } }
-            TextButton(onClick = { times = !times }) { Text(if (times) "Hide optional timing" else "Add optional timing") }
-            if (times) WorkoutTimeFields(WorkoutTimeInput(date, start, endDate, end, minutes), !busy) { start = it.start; endDate = it.endDate; end = it.end; minutes = it.minutes }
-            Text("Copied exercises and values are suggestions. No performed sets are copied.", style = MaterialTheme.typography.bodySmall)
+            if(todayEntry) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SegmentedButton(selected=!completedToday,onClick={completedToday=false},enabled=!busy,shape=SegmentedButtonDefaults.itemShape(0,2),modifier=Modifier.testTag("workout-entry-now")){Text("Now")}
+                SegmentedButton(selected=completedToday,onClick={completedToday=true},enabled=!busy,shape=SegmentedButtonDefaults.itemShape(1,2),modifier=Modifier.testTag("workout-entry-completed")){Text("Done")}
+            }
+            if(!startLive) {
+                RadioChoice("Start empty", source.isBlank(), !busy) { source = "" }
+                if (recent.isNotEmpty()) Text("Recent workouts", style = MaterialTheme.typography.titleSmall)
+                recent.forEach { session -> RadioChoice("${session.date} · ${session.title.ifBlank { session.exercises.take(3).joinToString(", ") { it.name } }} · ${session.timeLabel}", source == session.key, !busy) { source = session.key } }
+                if (plans.isNotEmpty()) Text("Saved routines", style = MaterialTheme.typography.titleSmall)
+                plans.take(20).forEach { plan -> RadioChoice(plan.plan.title, source == "plan:${plan.plan.id}", !busy) { source = "plan:${plan.plan.id}" } }
+                TextButton(onClick = { times = !times }) { Text(if (times) "Hide time" else "Add time") }
+                if (times) WorkoutTimeFields(WorkoutTimeInput(date, start, endDate, end, minutes), !busy) { start = it.start; endDate = it.endDate; end = it.end; minutes = it.minutes }
+                if(source.isNotBlank()) Text("Logged sets aren't copied.", style = MaterialTheme.typography.bodySmall)
+            }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(onClick = {
-        val input = WorkoutTimeInput(date, if (times) start else "", if (times) endDate else date, if (times) end else "", if (times) minutes else "")
-        model.beginPastWorkout(input, source) { id -> onReady(id, date, source.isBlank()) }
-    }, enabled = !busy) { Text("Enter performed sets") } }, dismissButton = { TextButton(onClick = onClose, enabled = !busy) { Text("Cancel") } })
-    if (picker) DayDialog(date, { picker = false }) { chosen -> date = chosen; endDate = chosen; picker = false }
+        if(startLive) onStartToday?.invoke()
+        else {
+            val input = WorkoutTimeInput(date, if (times) start else "", if (times) endDate else date, if (times) minutes else "")
+            model.beginPastWorkout(input, source) { id -> onReady(id, date, source.isBlank()) }
+        }
+    }, enabled = !busy && date <= today,modifier=Modifier.testTag("confirm-workout-setup")) { Text(if(startLive) "Start now" else "Continue") } }, dismissButton = { TextButton(onClick = onClose, enabled = !busy) { Text("Cancel") } })
+    if (picker) DayDialog(date, { picker = false }, latestDay=today) { chosen -> date = chosen; endDate = chosen; picker = false }
 }
 @Composable
 private fun RadioChoice(label: String, selected: Boolean, enabled: Boolean, choose: () -> Unit) {

@@ -25,7 +25,7 @@ class GoogleDashboardScheduleTest {
     @After fun close() { GoogleDashboardStore(context).disconnect(); WorkManagerTestInitHelper.closeWorkDatabase() }
     @Test fun automaticSyncRequiresOptInAndConnectionAndCoalescesPendingEdits() {
         val store = GoogleDashboardStore(context); val wm = WorkManager.getInstance(context)
-        assertFalse(store.options().includeNotes); assertFalse(store.options().includeBody); assertFalse(store.automatic())
+        assertFalse(store.automatic())
         GoogleDashboardWork.request(context); assertTrue(wm.getWorkInfosForUniqueWork(GoogleDashboardWork.NAME).get().isEmpty())
         store.automatic(true); GoogleDashboardWork.request(context); assertTrue(wm.getWorkInfosForUniqueWork(GoogleDashboardWork.NAME).get().isEmpty())
         store.write(store.read().copy(accountId = "synthetic-owner", email = "synthetic@example.invalid", fileId = "sheetABCDEFGHIJK", folderId = "folderABCDEFGHIJ"))

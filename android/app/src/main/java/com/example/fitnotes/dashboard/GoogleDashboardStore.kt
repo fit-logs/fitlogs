@@ -24,8 +24,6 @@ class GoogleDashboardStore(context: Context) : DashboardConnectionStore {
             "Unable to save the Google connection on this device."
         }
     }
-    fun options() = DashboardOptions(preferences.getBoolean("include_notes", false), preferences.getBoolean("include_body", false))
-    fun options(value: DashboardOptions) { preferences.edit(commit = true) { putBoolean("include_notes", value.includeNotes); putBoolean("include_body", value.includeBody) } }
     fun automatic() = preferences.getBoolean("automatic", false)
     fun automatic(value: Boolean) { preferences.edit(commit = true) { putBoolean("automatic", value) } }
     fun status() = preferences.getString("status", "").orEmpty()

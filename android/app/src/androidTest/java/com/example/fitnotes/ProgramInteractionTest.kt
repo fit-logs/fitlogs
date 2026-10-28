@@ -69,7 +69,6 @@ class ProgramInteractionTest {
         ui.onNodeWithTag("reps:${target.id}").performTextReplacement("9");Espresso.closeSoftKeyboard()
         ui.onNodeWithTag("complete-target:${target.id}").performClick();settle{runBlocking{db.dao().sets().size}==2}
         ui.onNodeWithContentDescription("Back to workout").performClick();ui.onNodeWithText("Finish",substring=false).performClick();settle{runBlocking{db.dao().workout(workout)!!.isComplete}}
-        ui.onNodeWithText("Done",substring=false).performClick();ui.mainClock.advanceTimeBy(10000)
         ui.onNode(hasText("Train") and hasClickAction()).performClick();ui.onNodeWithTag("train-screen").assertExists()
         assertEquals(1,model.programs.value.single().program.nextIndex)
         ui.onNodeWithTag("train-screen").performScrollToNode(hasTestTag("next-program-workout"));capture("program-results-ready")

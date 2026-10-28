@@ -32,8 +32,8 @@ object DashboardWorkbook {
             listOf("Actual sets", sets.rows.size), listOf("Running activities", snapshot.table("_weekly").rows.sumOf { (it[3] as Number).toInt() }),
             listOf("Recorded run distance (km)", distances.takeIf { it.isNotEmpty() }?.sumOf { it.toDouble() }?.div(1000)),
             listOf("Strength chart", selected?.get(1) ?: "No actual strength records"),
-            listOf("Body measurements", if (snapshot.options.includeBody) "Included" else "Excluded"),
-            listOf("Notes", if (snapshot.options.includeNotes) "Included" else "Excluded"),
+            listOf("Body measurements", "Included"),
+            listOf("Notes", "Included"),
             listOf("About the data", "Completed actual records only. Blank means unknown. Room remains the source of truth."),
             listOf("Strength estimates", "Epley: external working sets, 1–10 reps. Body mass is never inferred."),
             listOf("Editing this workbook", "FitLogs replaces its managed tabs when syncing. Put your own work in new tabs."),
@@ -41,14 +41,14 @@ object DashboardWorkbook {
         val visible = listOf(DashboardSheet(100, dashboard), DashboardSheet(101, strength.copy(columns = listOf("Exercise ID", "Exercise", "Sets", "Reps", "External volume (kg·reps)", "Added-bodyweight volume (kg·reps)", "Unknown-mode volume (kg·reps)", "Max external (kg)", "Estimated 1RM (kg)"))),
             DashboardSheet(102, sessions.copy(name = "Workout history", columns = listOf("Session ID", "Date", "Activity", "Title", "Start (UTC)", "End (UTC)", "Duration (seconds)", "Actual sets", "Source", "Notes"))),
             DashboardSheet(103, activities.copy(name = "Running and activities", columns = listOf("Activity ID", "Session ID", "Date", "Sport", "Title", "Start (UTC)", "End (UTC)", "UTC offset (seconds)", "Distance (metres)", "Duration (seconds)", "Duration meaning", "Pace (seconds/km)", "Source", "Notes"))),
-            DashboardSheet(104, body.copy(name = "Body measurements", columns = listOf("Reading ID", "Date", "Time", "Measurement", "Value", "Unit", "Notes")), hidden = !snapshot.options.includeBody))
+            DashboardSheet(104, body.copy(name = "Body measurements", columns = listOf("Reading ID", "Date", "Time", "Measurement", "Value", "Unit", "Notes"))))
         val raw = listOf("_sessions", "_sets", "_activities", "_measurements", "_strength_trend", "_weekly")
             .mapIndexed { index, name -> DashboardSheet(200 + index, snapshot.table(name), true) }
         val managed = visible + raw + listOf(DashboardSheet(206, strengthChart, true), DashboardSheet(207, bodyChart, true))
         val metadata = DashboardTable("_meta", listOf("key", "value"), listOf(
             listOf("format", FORMAT), listOf("schema_version", snapshot.schemaVersion),
             listOf("captured_at", snapshot.capturedAt.toString()), listOf("time_zone", snapshot.timeZone),
-            listOf("include_notes", snapshot.options.includeNotes.toString()), listOf("include_body", snapshot.options.includeBody.toString()),
+            listOf("include_notes", "true"), listOf("include_body", "true"),
             listOf("managed_charts", chartIds.sorted().joinToString(",")),
         ) + managed.map { listOf("sheet:${it.id}", "${it.table.name}|${it.table.values.size}|${it.table.columns.size}") })
         return managed + DashboardSheet(META_ID, metadata, true)
@@ -86,6 +86,8 @@ object DashboardWorkbook {
             JSONObject().put("bold", true).put("fontFamily", "Arial").put("fontSize", 10).put("foregroundColor", color(1.0, 1.0, 1.0)))
             .put("wrapStrategy", "WRAP").put("verticalAlignment", "MIDDLE")
         buildList {
+            if (sheet.id == 104) add(JSONObject().put("updateSheetProperties", JSONObject()
+                .put("properties", JSONObject().put("sheetId", 104).put("hidden", false)).put("fields", "hidden")))
             add(JSONObject().put("repeatCell", JSONObject().put("range", JSONObject().put("sheetId", sheet.id)
                 .put("startRowIndex", 0).put("endRowIndex", sheet.table.values.size).put("startColumnIndex", 0).put("endColumnIndex", sheet.table.columns.size))
                 .put("cell", JSONObject().put("userEnteredFormat", JSONObject().put("textFormat", JSONObject().put("fontFamily", "Arial").put("fontSize", 10))))

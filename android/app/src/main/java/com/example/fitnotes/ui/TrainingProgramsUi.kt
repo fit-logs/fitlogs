@@ -72,24 +72,21 @@ fun TemplatesDialog(model: FitNotesViewModel,busy: Boolean,close: ()->Unit,open:
     var rename by rememberSaveable{mutableStateOf<String?>(null)};var title by rememberSaveable{mutableStateOf("")};var deleting by rememberSaveable{mutableStateOf<String?>(null)}
     val templates=all.filter{it.plan.id !in owned && it.plan.archived==archived && it.plan.title.contains(query,true)}.let { list -> if(alphabetical)list.sortedWith(compareByDescending<PlannedWorkoutDetail>{it.plan.pinned}.thenBy{it.plan.title.lowercase()}) else list.sortedWith(compareByDescending<PlannedWorkoutDetail>{it.plan.pinned}.thenByDescending{it.plan.createdAt}.thenBy{it.plan.id}) }
     HandoffScreen("My templates",busy,close,"template-list",attention=error,footer={
-        TextButton(onClick={close();new()},enabled=!busy){Text("New template")}
+        Button(onClick={close();new()},enabled=!busy){Text("New template")}
         TextButton(onClick={close();ask()},enabled=!busy){Text("Coach")}
-        TextButton(onClick=close,enabled=!busy){Text("Close")}
     }) {
-        item { Text("Reusable recipes. Starting a template creates a new session; targets never count as performed sets.");OutlinedTextField(query,{query=it},label={Text("Search templates")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("template-search")) }
+        item { OutlinedTextField(query,{query=it},label={Text("Search templates")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("template-search")) }
         item { FlowRow { FilterChip(archived,{archived=!archived},label={Text(if(archived)"Archived" else "Available")});TextButton(onClick={alphabetical=!alphabetical}){Text(if(alphabetical)"Sort: A–Z" else "Sort: recent")}} }
         error?.let{item{Text(it,color=MaterialTheme.colorScheme.error)}}
         if(templates.isEmpty())item{Text(if(archived)"No archived templates match." else "No templates match. Create or import a template.")}
         items(templates,key={it.plan.id}){ p ->
             var menu by remember{mutableStateOf(false)}
-            OutlinedCard(Modifier.fillMaxWidth().testTag("template:${p.plan.id}")){Row(Modifier.padding(12.dp)){
-                Column(Modifier.weight(1f)) {
-                    // A multiline title needs a rectangular touch surface: the
-                    // default capsule button clips its corners at large text sizes.
-                    Surface(onClick={close();open(p.plan.id)},enabled=!busy,shape=MaterialTheme.shapes.small,color=MaterialTheme.colorScheme.surfaceContainer,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
-                        Text((if(p.plan.pinned)"★ " else "")+p.plan.title,Modifier.padding(8.dp),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary)
-                    }
-                    Text(planSubtitle(p.exercises.size,p.plan.durationMinutes),style=MaterialTheme.typography.bodySmall)
+            Surface(onClick={close();open(p.plan.id)},enabled=!busy,shape=MaterialTheme.shapes.medium,
+                color=MaterialTheme.colorScheme.surface,modifier=Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("template:${p.plan.id}")) {
+                Row(Modifier.padding(12.dp)) {
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text((if(p.plan.pinned)"★ " else "")+p.plan.title,style=MaterialTheme.typography.titleMedium)
+                    Text(planSubtitle(p.exercises.size,p.plan.durationMinutes),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box { IconButton(onClick={menu=true},enabled=!busy){Icon(Icons.Default.MoreVert,"Template actions: ${p.plan.title}")}
                     DropdownMenu(menu,{menu=false}) {
