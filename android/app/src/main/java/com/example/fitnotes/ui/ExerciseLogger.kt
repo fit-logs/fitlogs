@@ -55,8 +55,6 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     val loadLabel=when(loadModes.singleOrNull()){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assist kg";LoadMode.REPS_ONLY->"Load";else->"kg"}
     Column(Modifier.fillMaxSize()) {
         NotebookBar(exercise.name,onBack,"Back to workout") {
-            if(session.local?.workout?.historicalDraft == true) TextButton(onClick=onSavePast,enabled=!busy){Text("Save past workout")}
-            if(exercise.entryId != null) TextButton(onClick={model.reviewEntryWeights(exercise.entryId)},enabled=!busy){Text("Suggested weights")}
             if(editable && exercise.entryId!=null)IconButton(onClick={showNote=!showNote}){Icon(Icons.Filled.Edit,"Exercise note")}
             IconButton(onClick={switcher=true}){Icon(Icons.AutoMirrored.Filled.List,"Switch exercise")}
             OverflowMenu { close ->
@@ -64,6 +62,13 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                 if(session.local!=null&&!session.completed)MenuAction("Rest timer"){close();manualRest=true}
                 if(editable && exercise.entryId!=null)MenuAction("Exercise settings"){close();showNote=true}
                 if(editable && exercise.entryId!=null)MenuAction("Remove exercise"){close();remove=true}
+            }
+        }
+        if(session.local?.workout?.historicalDraft == true || exercise.entryId != null) {
+            // Text actions wrap independently without squeezing the exercise title.
+            FlowRow(Modifier.fillMaxWidth().padding(horizontal=12.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(session.local?.workout?.historicalDraft == true) TextButton(onClick=onSavePast,enabled=!busy){Text("Save past workout")}
+                if(exercise.entryId != null) TextButton(onClick={model.reviewEntryWeights(exercise.entryId)},enabled=!busy){Text("Suggested weights")}
             }
         }
         if(entryNote.isNotBlank() || showNote) {

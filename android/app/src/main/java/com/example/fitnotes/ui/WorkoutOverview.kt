@@ -45,8 +45,7 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
     LaunchedEffect(session?.key,session?.completed) { while(session!=null && !session.completed) { now=System.currentTimeMillis();kotlinx.coroutines.delay(1000) } }
     Column(Modifier.fillMaxSize()) {
         NotebookBar(session?.title?.ifBlank { "Workout" } ?: "Train",onBack) {
-            if(session?.local?.workout?.historicalDraft == true) TextButton(onClick=onSavePast,enabled=!busy){Text("Save past workout")}
-            else if(session?.local!=null && !session.completed) TextButton(onClick={
+            if(session?.local!=null && !session.completed && !session.local.workout.historicalDraft) TextButton(onClick={
                 if(pending.isNotEmpty())finish=true else model.finish(session.local.workout.id){onFinished()}
             },enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text("Finish")}
             if(session!=null) OverflowMenu { close ->
@@ -59,6 +58,9 @@ fun WorkoutOverview(session: NotebookSession?, day: String, sessions: List<Noteb
                 if(session.local?.let{eligibleEmptySuggestion(it,run!=null)}==true)MenuAction("Convert empty import to plan"){close();onRecoverPlan(session.local.workout.id)}
                 MenuAction("Delete"){close();delete=true}
             }
+        }
+        if(session?.local?.workout?.historicalDraft == true) {
+            TextButton(onClick=onSavePast,enabled=!busy,modifier=Modifier.padding(horizontal=12.dp)){Text("Save past workout")}
         }
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             TextButton(onClick={onDay(moveDay(day,-1))}){Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft,"Previous day")}

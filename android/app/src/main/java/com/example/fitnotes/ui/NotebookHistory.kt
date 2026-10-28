@@ -22,14 +22,14 @@ import com.example.fitnotes.AppData
 import com.example.fitnotes.data.*
 
 @Composable
-fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit,
+fun NotebookHistory(rows: List<NotebookHistoryRow>, data: AppData, state: LazyListState, onOpen: (String) -> Unit, onShare: () -> Unit, onImport: () -> Unit, onBackup: () -> Unit,
     onAsk: () -> Unit, onPastePlan: () -> Unit, onPlans: () -> Unit, onProgress: () -> Unit = {}, onLibrary: () -> Unit = {}, onTrainingSettings: () -> Unit = {}, onRun: (String) -> Unit = {}) {
     val preferences = LocalContext.current.getSharedPreferences("history-filter", 0)
     var activity by rememberSaveable { mutableStateOf(preferences.getString("activity", "all") ?: "all") }
     var filterOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val rows = remember(sessions, data) { historyRows(sessions, runningRecords(data)) }
     val filtered = remember(rows, activity) { filterHistoryRows(rows, activity) }
+    val months = remember(filtered) { filtered.groupBy { it.date.take(7) } }
     val filters = remember(rows) {
         listOf("all", "strength", "climbing", "running") +
             ActivityType.entries.map { it.key }.filter { key -> key !in listOf("strength", "climbing", "running") && rows.any { row -> row.activities.any { it.key == key } } }
@@ -40,7 +40,7 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
             SettingsButton()
             OverflowMenu { close -> MenuAction("Share history"){close();onShare()} }
         }
-        Box(Modifier.padding(horizontal = 16.dp)) {
+        Box(Modifier.padding(horizontal=16.dp)) {
             FilterChip(activity != "all", { filterOpen = true }, label = { Text(historyFilterLabel(activity)) },
                 trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("history-filter"))
@@ -55,7 +55,7 @@ fun NotebookHistory(sessions: List<NotebookSession>, data: AppData, state: LazyL
         LazyColumn(state = state, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), modifier = Modifier.testTag("history-list")) {
             if (data.imported.loading) item { Text("Loading imported history…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (filtered.isEmpty() && !data.imported.loading) item { Text(if (activity == "all") "No completed workouts yet." else "No recorded activities of this type yet.", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            filtered.groupBy { it.date.take(7) }.forEach { (month, rows) ->
+            months.forEach { (month, rows) ->
                 item(key = "month:$month") { Text(prettyDay(month + "-01", "MMMM yyyy"), Modifier.padding(vertical = 10.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(rows, key = { it.key }) { row ->
                     Surface(onClick = { row.runKey?.let(onRun) ?: onOpen(row.sessionKey) }, modifier = Modifier.testTag("history-session:${row.key}")) {
