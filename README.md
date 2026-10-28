@@ -1,8 +1,6 @@
-# FitLogs Android
+# FitLogs 
 
 Offline workout, running and body-measurement tracking for Android 7.0 or later.
-The active project is [fit-logs/fitlogs](https://github.com/fit-logs/fitlogs).
-The former [fitnotes repository](https://github.com/fit-logs/fitnotes) retains the legacy application and web experiment.
 
 ## Install and update
 
@@ -10,7 +8,6 @@ Download **fitnotes.apk** from the [latest stable release](https://github.com/fi
 Keep the installed app and its data; do not uninstall or clear storage to update.
 The package remains `com.example.fitnotes`, with the original signing certificate.
 
-The old local build showing **1.1 (2)** checks the previous repository and only accepts stable releases with an update manifest. The legacy beta releases do not meet that format. Install the first migrated release manually once. This release switches **Settings → Update app** to this repository for future updates. Android still requires installation permission and confirmation.
 
 ## Source layout
 
