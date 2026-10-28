@@ -1,0 +1,690 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "2026.10.28.1",
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitLogs contributors — JSON definitions and original implementation notes; routine sources are credited in each program."
+  },
+  "exercises": [
+    {
+      "id": "bench-press",
+      "name": "Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "squat",
+      "name": "Squat",
+      "equipment": "barbell"
+    },
+    {
+      "id": "romanian-deadlift",
+      "name": "Romanian Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "lat-pulldown",
+      "name": "Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-overhead-press",
+      "name": "Dumbbell Overhead Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "seated-cable-row",
+      "name": "Seated Cable Row",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-bench-press",
+      "name": "Dumbbell Bench Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-row",
+      "name": "Dumbbell Row",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "leg-press",
+      "name": "Leg Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "leg-curl",
+      "name": "Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-lateral-raise",
+      "name": "Dumbbell Lateral Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "cable-triceps-pressdown",
+      "name": "Cable Triceps Pressdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-curl",
+      "name": "Dumbbell Curl",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "calf-raise",
+      "name": "Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "goblet-squat",
+      "name": "Goblet Squat",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-romanian-deadlift",
+      "name": "Dumbbell Romanian Deadlift",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-reverse-lunge",
+      "name": "Dumbbell Reverse Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "incline-dumbbell-bench-press",
+      "name": "Incline Dumbbell Bench Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-floor-press",
+      "name": "Dumbbell Floor Press",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "incline-barbell-bench-press",
+      "name": "Incline Barbell Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-fly",
+      "name": "Dumbbell Fly",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "weighted-dip",
+      "name": "Weighted Dip",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "pec-deck",
+      "name": "Pec Deck",
+      "equipment": "machine"
+    },
+    {
+      "id": "cable-crossover",
+      "name": "Cable Crossover",
+      "equipment": "cable"
+    },
+    {
+      "id": "push-up",
+      "name": "Push Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "hanging-leg-raise",
+      "name": "Hanging Leg Raise",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "decline-sit-up",
+      "name": "Decline Sit Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "dumbbell-side-bend",
+      "name": "Dumbbell Side Bend",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "plank",
+      "name": "Plank",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "rope-cable-crunch",
+      "name": "Rope Cable Crunch",
+      "equipment": "cable"
+    },
+    {
+      "id": "neutral-grip-pull-up",
+      "name": "Neutral Grip Pull Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "barbell-row",
+      "name": "Barbell Row",
+      "equipment": "barbell"
+    },
+    {
+      "id": "reverse-grip-lat-pulldown",
+      "name": "Reverse Grip Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "straight-arm-pulldown",
+      "name": "Straight Arm Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "wide-grip-seated-cable-row",
+      "name": "Wide Grip Seated Cable Row",
+      "equipment": "cable"
+    },
+    {
+      "id": "rack-deadlift",
+      "name": "Rack Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "barbell-upright-row",
+      "name": "Barbell Upright Row",
+      "equipment": "barbell"
+    },
+    {
+      "id": "seated-dumbbell-lateral-raise",
+      "name": "Seated Dumbbell Lateral Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "seated-smith-shoulder-press",
+      "name": "Seated Smith Machine Shoulder Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "front-plate-raise",
+      "name": "Front Plate Raise",
+      "equipment": "weight plate"
+    },
+    {
+      "id": "rope-face-pull",
+      "name": "Rope Face Pull",
+      "equipment": "cable"
+    },
+    {
+      "id": "ez-bar-preacher-curl",
+      "name": "EZ Bar Preacher Curl",
+      "equipment": "ez bar"
+    },
+    {
+      "id": "close-grip-bench-press",
+      "name": "Close Grip Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-hammer-curl",
+      "name": "Dumbbell Hammer Curl",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "overhead-rope-extension",
+      "name": "Overhead Rope Triceps Extension",
+      "equipment": "cable"
+    },
+    {
+      "id": "standing-cable-curl",
+      "name": "Standing Cable Curl",
+      "equipment": "cable"
+    },
+    {
+      "id": "reverse-grip-pushdown",
+      "name": "Reverse Grip Triceps Pushdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "single-leg-extension",
+      "name": "Single Leg Extension",
+      "equipment": "machine"
+    },
+    {
+      "id": "stiff-legged-deadlift",
+      "name": "Stiff Legged Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "seated-leg-curl",
+      "name": "Seated Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "lying-leg-curl",
+      "name": "Lying Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "rope-triceps-pressdown",
+      "name": "Rope Triceps Pressdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "standing-calf-raise",
+      "name": "Standing Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "seated-calf-raise",
+      "name": "Seated Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "machine-hack-squat",
+      "name": "Machine Hack Squat",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-lunge",
+      "name": "Dumbbell Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "leg-press-calf-raise",
+      "name": "Leg Press Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "hammer-strength-chest-press",
+      "name": "Hammer Strength Chest Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "barbell-curl",
+      "name": "Barbell Curl",
+      "equipment": "barbell"
+    },
+    {
+      "id": "rope-cable-hammer-curl",
+      "name": "Rope Cable Hammer Curl",
+      "equipment": "cable"
+    },
+    {
+      "id": "barbell-preacher-curl",
+      "name": "Barbell Preacher Curl",
+      "equipment": "barbell"
+    },
+    {
+      "id": "deadlift",
+      "name": "Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "pull-up",
+      "name": "Pull Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "hyperextension",
+      "name": "Hyperextension",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "seated-barbell-shoulder-press",
+      "name": "Seated Barbell Shoulder Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-front-raise",
+      "name": "Dumbbell Front Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "reverse-pec-deck",
+      "name": "Reverse Pec Deck",
+      "equipment": "machine"
+    },
+    {
+      "id": "barbell-shrug",
+      "name": "Barbell Shrug",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dip",
+      "name": "Dip",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "seated-french-press",
+      "name": "Seated French Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-pullover",
+      "name": "Dumbbell Pullover",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "wide-grip-lat-pulldown",
+      "name": "Wide Grip Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-rear-delt-fly",
+      "name": "Dumbbell Rear Delt Fly",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-shrug",
+      "name": "Dumbbell Shrug",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "single-arm-cable-lateral-raise",
+      "name": "Single Arm Cable Lateral Raise",
+      "equipment": "cable"
+    },
+    {
+      "id": "lying-leg-raise",
+      "name": "Lying Leg Raise",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "dumbbell-walking-lunge",
+      "name": "Dumbbell Walking Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "front-squat",
+      "name": "Front Squat",
+      "equipment": "barbell"
+    },
+    {
+      "id": "leg-extension",
+      "name": "Leg Extension",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-side-lunge",
+      "name": "Dumbbell Side Lunge",
+      "equipment": "dumbbells"
+    }
+  ],
+  "programs": [
+    {
+      "id": "full-body-beginner-3day",
+      "programVersion": "1",
+      "path": "programs/full-body-beginner-3day-v1.json",
+      "sha256": "1ee28fea118cebd94f133f2beda1157619f75b6597c47e609a72e2dc8c5723b9",
+      "title": "Full Body Beginner",
+      "description": "Practice basic gym movements across three short sessions, with two working sets per exercise.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "full-body-express-2day",
+      "programVersion": "1",
+      "path": "programs/full-body-express-2day-v1.json",
+      "sha256": "3c1a3e0c1094cc978ad453daf904609052677765c11542f8b3fa976259e57669",
+      "title": "Full Body Express",
+      "description": "Two concise sessions combine a squat or leg press, a hinge, a press and a pull.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 2,
+      "minutesPerDay": 35,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "upper-lower-4day",
+      "programVersion": "1",
+      "path": "programs/upper-lower-4day-v1.json",
+      "sha256": "bfa5817161efc1dd11bc7a41404508105720504695b8343297e352ac973b82cc",
+      "title": "Upper / Lower",
+      "description": "Alternate upper and lower sessions using a modest two-set starting volume.",
+      "goal": "strength",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 50,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ppl-3day",
+      "programVersion": "1",
+      "path": "programs/ppl-3day-v1.json",
+      "sha256": "5341751e89eec5fb5874824ee0a1244499430eb1bb4a611a49666a0a107b9798",
+      "title": "Push / Pull / Legs — 3 days",
+      "description": "A low-frequency split for people who prefer separate push, pull and leg sessions.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ppl-6day",
+      "programVersion": "1",
+      "path": "programs/ppl-6day-v1.json",
+      "sha256": "0890b7bfeae560bf691f7b552842ad62606e3d5911045319d0d694df11b07d61",
+      "title": "Push / Pull / Legs — 6 days",
+      "description": "Six brief sessions repeat movement groups with two working sets per exercise.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 6,
+      "minutesPerDay": 45,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "strength-3day",
+      "programVersion": "1",
+      "path": "programs/strength-3day-v1.json",
+      "sha256": "ccf76e22534170f152ff98cd3e3c9090cdc485adc556aa2d95af7191c13e42b7",
+      "title": "Strength Fundamentals",
+      "description": "Three main movements per day with longer rests and a bounded four-to-six rep range.",
+      "goal": "strength",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 55,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "dumbbell-home-3day",
+      "programVersion": "1",
+      "path": "programs/dumbbell-home-3day-v1.json",
+      "sha256": "0ecbd65656eb226bb18e80be043375793d823064db323d0b3448418ed7e522ce",
+      "title": "Dumbbell Home",
+      "description": "Three sessions using dumbbells and a stable bench, without cable stacks or barbells.",
+      "goal": "general fitness",
+      "level": "beginner",
+      "equipment": [
+        "bench",
+        "dumbbells"
+      ],
+      "daysPerWeek": 3,
+      "minutesPerDay": 40,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": true,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "hypertrophy-upper-lower-4day",
+      "programVersion": "1",
+      "path": "programs/hypertrophy-upper-lower-4day-v1.json",
+      "sha256": "08960adaa19b6afad3ce53e5375dfb670006b257ae99573028bd2b9fa726f001",
+      "title": "Hypertrophy Upper / Lower",
+      "description": "Four sessions add selected accessories to a two-working-set foundation.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 60,
+      "tags": [
+        "original",
+        "four-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ms-spring-shred-8week",
+      "programVersion": "1",
+      "path": "programs/ms-spring-shred-8week-v1.json",
+      "sha256": "926e93d396e0505f3a62d4144d6cc99b3d627f8e169191a7e6b03d320d20c124",
+      "title": "Spring Shred: 8 Week Fat Loss Workout Plan",
+      "description": "Five weekly sessions with warm-ups, paired exercises and final-set intensity methods. Rest shortens over eight weeks.",
+      "goal": "fat loss",
+      "level": "advanced",
+      "equipment": [
+        "barbell",
+        "bench",
+        "bodyweight",
+        "cable",
+        "dumbbells",
+        "ez bar",
+        "machine",
+        "rack",
+        "weight plate"
+      ],
+      "daysPerWeek": 5,
+      "minutesPerDay": 60,
+      "tags": [
+        "muscle-and-strength",
+        "8-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ms-lean-mass-6week",
+      "programVersion": "1",
+      "path": "programs/ms-lean-mass-6week-v1.json",
+      "sha256": "c1491c49319bd50e5fdbe6dbf02c37eb06302c84d306d7fc089dd030a3fe3a79",
+      "title": "Lean Mass: 6 Week Workout Program to Build Lean Muscle",
+      "description": "Four weekly sessions for legs, chest and biceps, back, then shoulders and triceps, using a 2/0/2 tempo.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "bodyweight",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 45,
+      "tags": [
+        "muscle-and-strength",
+        "6-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "ms-mass-hypertrophy-8week",
+      "programVersion": "1",
+      "path": "programs/ms-mass-hypertrophy-8week-v1.json",
+      "sha256": "9f5869cce29cce25cf7ae09b06666fe3a145aa4c0af578d3640658e2a53710cc",
+      "title": "8 Week Mass Building Hypertrophy Workout",
+      "description": "Four weekly sessions with changing per-set reps, final-set rest-pause, drop sets and slow negatives.",
+      "goal": "muscle",
+      "level": "intermediate",
+      "equipment": [
+        "barbell",
+        "bench",
+        "bodyweight",
+        "cable",
+        "dumbbells",
+        "machine"
+      ],
+      "daysPerWeek": 4,
+      "minutesPerDay": 0,
+      "tags": [
+        "muscle-and-strength",
+        "8-week"
+      ],
+      "starter": false,
+      "license": "CC-BY-4.0"
+    }
+  ]
+}

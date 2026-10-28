@@ -58,7 +58,9 @@ Each exercise holds a display `name`, optional `sourceName`/`canonicalId`, notes
 substitutions and `sets`. Sets can be a count with common exercise defaults, or an
 ordered array of per-set targets. Supported targets: reps or rep range (1–1000),
 optional explicit weight/unit/load mode, rest (0–3600 seconds), RIR (0–10), RPE
-(1–10), and warm-up flag. At most 100 sets per exercise. Missing targets can remain
+(1–10), and warm-up flag. An optional exercise `supersetGroup` (up to 40 single-line
+characters) carries paired movements through preview, edits, installation and
+workout target snapshots. At most 100 sets per exercise. Missing targets can remain
 unspecified; no weights, timestamps or performed results are synthesized.
 
 Canonical IDs are portable source identities, never local numeric database IDs.

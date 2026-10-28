@@ -1,7 +1,7 @@
 # Workout Library
 
-**Train → Explore programs / Import → Workout Library** browses eight original,
-generic programs independently of local templates. Search and combine goal,
+**Train → Explore programs / Import → Workout Library** browses eight original generic
+programs and three attributed Muscle & Strength routines independently of local templates. Search and combine goal,
 experience, days/week, duration and available-equipment filters. Equipment
 selection requires everything a program lists; no selection means any equipment.
 
@@ -22,13 +22,13 @@ without sending history to the library.
 
 - Full Body Beginner, Full Body Express and Dumbbell Home are bundled as exact
   copies of the public JSON. Their previews/installations work on first launch
-  with Wi-Fi/mobile data off. The manifest lists all eight programs and labels
+  with Wi-Fi/mobile data off. The manifest lists all eleven programs and labels
   which are available offline.
-- **Refresh catalog** fetches only the manifest. Opening an uncached program
+- **Refresh catalog** fetches only `manifest-v2.json`. Opening an uncached program
   downloads its versioned JSON. Closing the library leaves logging usable during
   a slow request; catalog work has its own state/mutex and no database reference.
 - Requests are fixed-host HTTPS GETs to
-  `https://avivajpeyi.github.io/fitnotes/catalog/`, with relative allowlisted paths,
+  `https://raw.githubusercontent.com/fit-logs/fitlogs/main/catalog/`, with relative allowlisted paths,
   no redirects, JSON content-type checks, 8-second connect/read timeouts and
   256-KB response limits. No account, tokens, analytics, upload or personal query
   parameters are used.
@@ -48,9 +48,8 @@ cover its private files.
 
 ## Public content and release rules
 
-The [website](https://avivajpeyi.github.io/fitnotes/library/) and static JSON live
-under `web/public/catalog/`. These are independently authored generic four-week
-prescriptions, with two working sets as the usual starting volume (three for
+The versioned JSON lives under `catalog/`. The original eight entries are
+independently authored generic four-week prescriptions, with two working sets as the usual starting volume (three for
 Strength Fundamentals), no preset personal weights, warm-ups kept separate,
 spare-rep guidance and explicit alternatives. The six-day split is labelled
 intermediate and points people with limited recovery/time to the three-day
@@ -59,8 +58,10 @@ coach endorsement or promised outcomes.
 
 Original definitions/descriptions are **CC BY 4.0**, attributed to FitNotes
 contributors; credit and license links appear in JSON, Android and the website.
-No third-party articles, graphics, screenshots or branded routine packages are
-reproduced. The private ChatGPT conversion path remains separate.
+The three [Muscle & Strength templates](muscle-and-strength-programs.md) retain
+factual routine data, author/source credits and original implementation notes.
+Source articles and media retain their rights and are not included. The private
+ChatGPT conversion path remains separate.
 
 `data/programs/schema-v1.json` is canonical. Web prebuild mirrors it to
 `catalog/schema-v1.json`; Android uses `PortableProgramParser` for both sources.
@@ -70,13 +71,19 @@ update the manifest/hash, and retain previously published files. PR CI rejects
 modified/deleted published program versions and validates old versions against
 the shared schema. Local edits remain independent of either release.
 
+Unknown source durations use 0 and display as unspecified; maximum-duration
+filters exclude them. Source routines need the updated client preview and
+manifest validation. Released clients retain their unchanged `manifest.json`
+endpoint and eight original entries. See the linked notes for weekly-rest and
+intensity limits.
+
 ## Verification
 
 - Python schema/content checks and negative fixtures cover malformed JSON,
   duplicate IDs, missing files/exercises, incompatible schemas, rep ranges,
   personal weights and licensing. Static export checks compare all JSON/schema
   bytes with source. The Pages build runs the same gate before publishing.
-- Android unit/Room tests run all eight through the actual paste parser/resolver,
+- Android unit/Room tests run all eleven through the actual paste parser/resolver,
   test offline starters, cached restart, invalid/interrupted caches, safe updates
   alongside edited/installed programs and actual history, filters and HTTP
   failures/response bounds.

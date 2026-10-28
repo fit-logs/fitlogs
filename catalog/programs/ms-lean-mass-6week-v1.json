@@ -1,0 +1,922 @@
+{
+  "schemaVersion": 1,
+  "id": "ms-lean-mass-6week",
+  "programVersion": "1",
+  "name": "Lean Mass: 6 Week Workout Program to Build Lean Muscle",
+  "weeks": 6,
+  "daysPerWeek": 4,
+  "description": "Four weekly sessions for legs, chest and biceps, back, then shoulders and triceps, using a 2/0/2 tempo.",
+  "goals": [
+    "muscle"
+  ],
+  "level": "intermediate",
+  "equipment": [
+    "barbell",
+    "bench",
+    "bodyweight",
+    "cable",
+    "dumbbells",
+    "machine"
+  ],
+  "schedule": "Repeat the four ordered training days each week for six weeks. The article does not prescribe weekdays or placement of rest days.",
+  "progression": "No fixed weekly load increase or RIR/RPE is prescribed. The author recommends a deload week after the six-week block; it is guidance outside the six training weeks.",
+  "notes": "Source duration: 30–45 minutes. Use a 2/0/2 tempo; rest 30–60s between sets and exercises, with 45s recommended and used as the editable default. Warm-up counts and loads are unspecified. Unilateral rep counts are retained as printed; no extra per-side convention is inferred. Incline press, seated military press and preacher curl variants follow the linked barbell exercise guides.",
+  "source": {
+    "title": "Lean Mass: 6 Week Workout Program to Build Lean Muscle",
+    "url": "https://www.muscleandstrength.com/workouts/6-week-workout-program-to-build-lean-muscle",
+    "author": "Josh England",
+    "attribution": "Josh England / Muscle & Strength — routine source. FitLogs factual transcription with original concise notes; no endorsement."
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitLogs contributors — factual routine transcription and original implementation notes. Routine credit is recorded in source; the source articles and media retain their own rights."
+  },
+  "days": [
+    {
+      "id": "legs",
+      "name": "Legs",
+      "durationMinutes": 45,
+      "notes": "Source duration: 30–45 minutes. Use a 2/0/2 tempo; rest 30–60s between sets and exercises, with 45s recommended and used as the editable default. Warm-up counts and loads are unspecified. Unilateral rep counts are retained as printed; no extra per-side convention is inferred. Incline press, seated military press and preacher curl variants follow the linked barbell exercise guides.",
+      "exercises": [
+        {
+          "canonicalId": "squat",
+          "name": "Squat",
+          "sourceName": "Squat",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "machine-hack-squat",
+          "name": "Machine Hack Squat",
+          "sourceName": "Machine Hack Squat",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "stiff-legged-deadlift",
+          "name": "Stiff Legged Deadlift",
+          "sourceName": "Stiff Legged Deadlift",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lying-leg-curl",
+          "name": "Lying Leg Curl",
+          "sourceName": "Leg Curl",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-lunge",
+          "name": "Dumbbell Lunge",
+          "sourceName": "Dumbbell Lunge",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-press-calf-raise",
+          "name": "Leg Press Calf Raise",
+          "sourceName": "Leg Press Calf Raises",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-calf-raise",
+          "name": "Seated Calf Raise",
+          "sourceName": "Seated Calf Raises",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chest-biceps",
+      "name": "Chest & Biceps",
+      "durationMinutes": 45,
+      "notes": "Source duration: 30–45 minutes. Use a 2/0/2 tempo; rest 30–60s between sets and exercises, with 45s recommended and used as the editable default. Warm-up counts and loads are unspecified. Unilateral rep counts are retained as printed; no extra per-side convention is inferred. Incline press, seated military press and preacher curl variants follow the linked barbell exercise guides.",
+      "exercises": [
+        {
+          "canonicalId": "bench-press",
+          "name": "Bench Press",
+          "sourceName": "Bench Press",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "incline-barbell-bench-press",
+          "name": "Incline Barbell Bench Press",
+          "sourceName": "Incline Bench Press",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "cable-crossover",
+          "name": "Cable Crossover",
+          "sourceName": "Cable Crossover",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "hammer-strength-chest-press",
+          "name": "Hammer Strength Chest Press",
+          "sourceName": "Hammer Strength Chest Press",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-curl",
+          "name": "Barbell Curl",
+          "sourceName": "Barbell Bicep Curl",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-cable-hammer-curl",
+          "name": "Rope Cable Hammer Curl",
+          "sourceName": "Rope Cable Hammer Curl",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-preacher-curl",
+          "name": "Barbell Preacher Curl",
+          "sourceName": "Preacher Curl",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "name": "Back",
+      "durationMinutes": 45,
+      "notes": "Source duration: 30–45 minutes. Use a 2/0/2 tempo; rest 30–60s between sets and exercises, with 45s recommended and used as the editable default. Warm-up counts and loads are unspecified. Unilateral rep counts are retained as printed; no extra per-side convention is inferred. Incline press, seated military press and preacher curl variants follow the linked barbell exercise guides.",
+      "exercises": [
+        {
+          "canonicalId": "deadlift",
+          "name": "Deadlift",
+          "sourceName": "Deadlift",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-row",
+          "name": "Barbell Row",
+          "sourceName": "Barbell Row",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lat-pulldown",
+          "name": "Lat Pulldown",
+          "sourceName": "Lat Pulldown",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 8,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-cable-row",
+          "name": "Seated Cable Row",
+          "sourceName": "Cable Row",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "pull-up",
+          "name": "Pull Up",
+          "sourceName": "Pull up",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "hyperextension",
+          "name": "Hyperextension",
+          "sourceName": "Hyperextension",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shoulders-triceps",
+      "name": "Shoulders & Triceps",
+      "durationMinutes": 45,
+      "notes": "Source duration: 30–45 minutes. Use a 2/0/2 tempo; rest 30–60s between sets and exercises, with 45s recommended and used as the editable default. Warm-up counts and loads are unspecified. Unilateral rep counts are retained as printed; no extra per-side convention is inferred. Incline press, seated military press and preacher curl variants follow the linked barbell exercise guides.",
+      "exercises": [
+        {
+          "canonicalId": "seated-barbell-shoulder-press",
+          "name": "Seated Barbell Shoulder Press",
+          "sourceName": "Seated Military Press",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-lateral-raise",
+          "name": "Dumbbell Lateral Raise",
+          "sourceName": "Lateral Raise",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-front-raise",
+          "name": "Dumbbell Front Raise",
+          "sourceName": "Front Raise",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "reverse-pec-deck",
+          "name": "Reverse Pec Deck",
+          "sourceName": "Reverse Pec Deck",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-shrug",
+          "name": "Barbell Shrug",
+          "sourceName": "Barbell Shrugs",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dip",
+          "name": "Dip",
+          "sourceName": "Dips",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-french-press",
+          "name": "Seated French Press",
+          "sourceName": "Seated French Press",
+          "notes": "Tempo 2/0/2. Source rest range: 30–60s between sets and exercises; the recommended 45s is the editable timer default.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 45,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

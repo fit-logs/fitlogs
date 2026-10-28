@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.example.fitnotes.FitNotesViewModel
 import com.example.fitnotes.data.*
@@ -15,6 +16,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun ProgramCatalogDialog(model:FitNotesViewModel,busy:Boolean,close:()->Unit,import:()->Unit) {
+    val uriHandler=LocalUriHandler.current
     val snapshot by model.catalog.collectAsState();val loading by model.catalogBusy.collectAsState();val error by model.catalogError.collectAsState()
     val entry by model.catalogEntry.collectAsState();val program by model.catalogProgram.collectAsState();val installed by model.programs.collectAsState()
     var query by rememberSaveable{mutableStateOf("")};var goal by rememberSaveable{mutableStateOf("")};var level by rememberSaveable{mutableStateOf("")}
@@ -31,14 +33,14 @@ fun ProgramCatalogDialog(model:FitNotesViewModel,busy:Boolean,close:()->Unit,imp
         }
         TextButton(onClick=close){Text("Close")}
     }) {
-        item {Text("Original generic prescriptions. Personal weights stay on this device; installation creates an editable local copy.")}
+        item {Text("Workout templates with source credits. Installation creates an editable local copy.")}
         if(loading)item{LinearProgressIndicator(Modifier.fillMaxWidth());Text("Loading public program data…")}
         error?.let{item{Text(it,color=MaterialTheme.colorScheme.error);Text("Installed programs and cached starters remain usable.")}}
         if(entry==null) {
             snapshot?.let{s->
                 item{Text(s.status);Text("Catalog ${s.manifest.version}",style=MaterialTheme.typography.bodySmall)
                     s.refreshedAt?.let{Text("Last successful refresh: "+DateTimeFormatter.ofPattern("d MMM yyyy HH:mm").withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(it)),style=MaterialTheme.typography.bodySmall)}
-                    Text("Opening an uncached entry downloads its public JSON from GitHub Pages. Refresh fetches the manifest only; no workout data is sent.",style=MaterialTheme.typography.bodySmall)}
+                    Text("Opening an uncached entry downloads its public JSON from GitHub. Refresh fetches the manifest only; no workout data is sent.",style=MaterialTheme.typography.bodySmall)}
                 item{OutlinedTextField(query,{query=it},label={Text("Search programs")},modifier=Modifier.fillMaxWidth().testTag("catalog-search"));TextButton(onClick={filters=!filters}){Text(if(filters)"Hide filters" else "Filters")}}
                 if(filters) {
                     item{CatalogChoice("Goal",goal,s.manifest.entries.map{it.goal}.distinct().sorted()){goal=it};CatalogChoice("Experience",level,s.manifest.entries.map{it.level}.distinct().sorted()){level=it}}
@@ -50,28 +52,29 @@ fun ProgramCatalogDialog(model:FitNotesViewModel,busy:Boolean,close:()->Unit,imp
                 item{Text("${visible.size} ${if(visible.size==1)"program" else "programs"}",style=MaterialTheme.typography.titleMedium)}
                 if(visible.isEmpty())item{Text("No programs match. Clear or broaden the filters.")}
                 visible.forEach{e->item(key=e.id){OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                    Text(e.title,style=MaterialTheme.typography.titleLarge);Text("${e.days} days/week · about ${e.minutes} min · ${e.level}");Text(e.description)
+                    Text(e.title,style=MaterialTheme.typography.titleLarge);Text("${e.days} days/week · ${catalogDurationText(e.minutes)} · ${e.level}");Text(e.description)
                     Text("${e.goal} · ${e.equipment.joinToString()}",style=MaterialTheme.typography.bodySmall)
                     Text(if(e.id in s.available)"Available offline" else "Download to preview / cache",style=MaterialTheme.typography.labelLarge)
                     if(installed.any{it.program.definitionId==e.id})Text("A local copy is installed; your edits are kept.")
                     Button(onClick={model.openCatalogEntry(e)},enabled=!loading,modifier=Modifier.testTag("catalog-open:${e.id}")){Text("Preview")}
                 }}}}
-                item{Text("Definitions: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) · FitNotes contributors. Original text and generic routines; no third-party articles or images. Versioned JSON: $CATALOG_URL",style=MaterialTheme.typography.bodySmall)}
+                item{Text("JSON and original implementation notes: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) · FitLogs contributors. Routine credits appear in each preview. Source articles and media retain their own rights. Versioned JSON: $CATALOG_URL",style=MaterialTheme.typography.bodySmall)}
             }
         } else {
             val e=entry!!
-            item{Text("${e.days} ordered days/week · about ${e.minutes} min/day · version ${e.version}",style=MaterialTheme.typography.titleMedium);Text(e.description);Text("Equipment: ${e.equipment.joinToString()}")}
+            item{Text("${e.days} ordered days/week · ${catalogDurationText(e.minutes)} · version ${e.version}",style=MaterialTheme.typography.titleMedium);Text(e.description);Text("Equipment: ${e.equipment.joinToString()}")}
             if(installed.any{it.program.definitionId==e.id})item{Text("A local copy is installed. Installation creates a separate editable copy; it never replaces your existing version or history.")}
             if(program==null && !loading)item{Button(onClick={model.openCatalogEntry(e)}){Text("Retry download / preview")}}
             program?.let{p->val root=p.document
                 item{Text("${p.weeks} weeks · ${root.getString("level")}");Text(root.optString("schedule"));Text(root.optString("notes"));Text(root.optString("progression"))}
+                item{val source=root.getJSONObject("source");Text(source.optString("attribution"));TextButton(onClick={uriHandler.openUri(source.getString("url"))}){Text("Open original program")}}
                 val ordered=root.getJSONArray("days")
                 for(i in 0 until ordered.length()){val d=ordered.getJSONObject(i)
                     item(key="day:$i"){OutlinedCard(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                         Text("${i+1}. ${d.getString("name")}",style=MaterialTheme.typography.titleLarge);Text(d.optString("notes"),style=MaterialTheme.typography.bodySmall)
                         val moves=d.getJSONArray("exercises")
                         for(j in 0 until moves.length()){val m=moves.getJSONObject(j);Text(m.getString("name"),style=MaterialTheme.typography.titleMedium);val targets=m.getJSONArray("sets")
-                            for(k in 0 until targets.length()){val t=targets.getJSONObject(k);Text("Set ${k+1}: ${t.getInt("repsMin")}–${t.getInt("repsMax")} reps · ${t.getInt("restSeconds")}s rest · RIR ${t.get("rir")}")}
+                            for(k in 0 until targets.length()){Text(catalogTargetSummary(targets.getJSONObject(k),k+1))}
                             Text(m.optString("notes"),style=MaterialTheme.typography.bodySmall)
                             m.optJSONArray("substitutions")?.let{a->Text("Optional alternative (resolve explicitly): "+(0 until a.length()).joinToString{a.getString(it)},style=MaterialTheme.typography.bodySmall)}
                         }

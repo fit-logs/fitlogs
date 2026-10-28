@@ -1,0 +1,852 @@
+{
+  "schemaVersion": 1,
+  "id": "ms-mass-hypertrophy-8week",
+  "programVersion": "1",
+  "name": "8 Week Mass Building Hypertrophy Workout",
+  "weeks": 8,
+  "daysPerWeek": 4,
+  "description": "Four weekly sessions with changing per-set reps, final-set rest-pause, drop sets and slow negatives.",
+  "goals": [
+    "muscle"
+  ],
+  "level": "intermediate",
+  "equipment": [
+    "barbell",
+    "bench",
+    "bodyweight",
+    "cable",
+    "dumbbells",
+    "machine"
+  ],
+  "schedule": "Suggested week: Monday Chest and Side Delts; Tuesday Upper Back and Rear Delts; Wednesday off; Thursday Arms and Abs; Friday Legs; weekend off. Repeat eight weeks. Other days are allowed; take a day off after at most three consecutive training days, preferably two.",
+  "progression": "Choose loads that allow the printed reps; no fixed increment is supplied. Author reply to Clint Morse (9 Jun 2026): repeat each week, aiming for more reps or weight than the previous week.",
+  "notes": "For intermediate/advanced trainees. Session duration and warm-up counts are not supplied; duration is left unspecified. Rest 90s between sets and exercises. Symbols apply to the final set only: * rest-pause, + drop set, ^ 3–5s negatives. The prose describes five-second negatives; table keys are retained. Extra mini-sets stay in exercise notes, not fabricated extra target sets. Optional moderate cardio: 20 min, 3–4 times/week, morning or after weights; not inserted as strength days. Unilateral rep counts remain as printed. Walking lunge and calf press follow the linked dumbbell-walking and leg-press-calf guides.",
+  "source": {
+    "title": "8 Week Mass Building Hypertrophy Workout",
+    "url": "https://www.muscleandstrength.com/workouts/8-week-hypertrophy-workout",
+    "author": "Roger “Rock” Lockridge",
+    "attribution": "Roger “Rock” Lockridge / Muscle & Strength — routine source. FitLogs factual transcription with original concise notes; no endorsement."
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitLogs contributors — factual routine transcription and original implementation notes. Routine credit is recorded in source; the source articles and media retain their own rights."
+  },
+  "days": [
+    {
+      "id": "chest-side-delts",
+      "name": "Chest and Side Delts",
+      "durationMinutes": 0,
+      "notes": "For intermediate/advanced trainees. Session duration and warm-up counts are not supplied; duration is left unspecified. Rest 90s between sets and exercises. Symbols apply to the final set only: * rest-pause, + drop set, ^ 3–5s negatives. The prose describes five-second negatives; table keys are retained. Extra mini-sets stay in exercise notes, not fabricated extra target sets. Optional moderate cardio: 20 min, 3–4 times/week, morning or after weights; not inserted as strength days. Unilateral rep counts remain as printed. Walking lunge and calf press follow the linked dumbbell-walking and leg-press-calf guides.",
+      "exercises": [
+        {
+          "canonicalId": "incline-barbell-bench-press",
+          "name": "Incline Barbell Bench Press",
+          "sourceName": "Incline Barbell Bench Press",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-bench-press",
+          "name": "Dumbbell Bench Press",
+          "sourceName": "Flat Dumbbell Bench Press",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "cable-crossover",
+          "name": "Cable Crossover",
+          "sourceName": "Cable Crossover",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-dumbbell-lateral-raise",
+          "name": "Seated Dumbbell Lateral Raise",
+          "sourceName": "Seated Lateral Raise",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "single-arm-cable-lateral-raise",
+          "name": "Single Arm Cable Lateral Raise",
+          "sourceName": "Single Arm Cable Lateral Raise",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "upper-back-rear-delts",
+      "name": "Upper Back and Rear Delts",
+      "durationMinutes": 0,
+      "notes": "For intermediate/advanced trainees. Session duration and warm-up counts are not supplied; duration is left unspecified. Rest 90s between sets and exercises. Symbols apply to the final set only: * rest-pause, + drop set, ^ 3–5s negatives. The prose describes five-second negatives; table keys are retained. Extra mini-sets stay in exercise notes, not fabricated extra target sets. Optional moderate cardio: 20 min, 3–4 times/week, morning or after weights; not inserted as strength days. Unilateral rep counts remain as printed. Walking lunge and calf press follow the linked dumbbell-walking and leg-press-calf guides.",
+      "exercises": [
+        {
+          "canonicalId": "barbell-row",
+          "name": "Barbell Row",
+          "sourceName": "Bent-Over Barbell Row",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-pullover",
+          "name": "Dumbbell Pullover",
+          "sourceName": "Dumbbell Pullover",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "wide-grip-lat-pulldown",
+          "name": "Wide Grip Lat Pulldown",
+          "sourceName": "Wide Grip Lat Pulldown",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-rear-delt-fly",
+          "name": "Dumbbell Rear Delt Fly",
+          "sourceName": "Dumbbell Rear Delt Fly",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-face-pull",
+          "name": "Rope Face Pull",
+          "sourceName": "Cable Face Pull",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-shrug",
+          "name": "Dumbbell Shrug",
+          "sourceName": "Dumbbell Shrug",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arms-abs",
+      "name": "Arms and Abs",
+      "durationMinutes": 0,
+      "notes": "For intermediate/advanced trainees. Session duration and warm-up counts are not supplied; duration is left unspecified. Rest 90s between sets and exercises. Symbols apply to the final set only: * rest-pause, + drop set, ^ 3–5s negatives. The prose describes five-second negatives; table keys are retained. Extra mini-sets stay in exercise notes, not fabricated extra target sets. Optional moderate cardio: 20 min, 3–4 times/week, morning or after weights; not inserted as strength days. Unilateral rep counts remain as printed. Walking lunge and calf press follow the linked dumbbell-walking and leg-press-calf guides.",
+      "exercises": [
+        {
+          "canonicalId": "close-grip-bench-press",
+          "name": "Close Grip Bench Press",
+          "sourceName": "Close Grip Bench Press",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "weighted-dip",
+          "name": "Weighted Dip",
+          "sourceName": "Weighted Dip",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-triceps-pressdown",
+          "name": "Rope Triceps Pressdown",
+          "sourceName": "Rope Tricep Extension",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lying-leg-raise",
+          "name": "Lying Leg Raise",
+          "sourceName": "Lying Leg Raise",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-cable-crunch",
+          "name": "Rope Cable Crunch",
+          "sourceName": "Cable Crunch",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-curl",
+          "name": "Barbell Curl",
+          "sourceName": "Barbell Curl",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-hammer-curl",
+          "name": "Dumbbell Hammer Curl",
+          "sourceName": "Hammer Curl",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "standing-cable-curl",
+          "name": "Standing Cable Curl",
+          "sourceName": "Cable Curl",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legs",
+      "name": "Legs",
+      "durationMinutes": 0,
+      "notes": "For intermediate/advanced trainees. Session duration and warm-up counts are not supplied; duration is left unspecified. Rest 90s between sets and exercises. Symbols apply to the final set only: * rest-pause, + drop set, ^ 3–5s negatives. The prose describes five-second negatives; table keys are retained. Extra mini-sets stay in exercise notes, not fabricated extra target sets. Optional moderate cardio: 20 min, 3–4 times/week, morning or after weights; not inserted as strength days. Unilateral rep counts remain as printed. Walking lunge and calf press follow the linked dumbbell-walking and leg-press-calf guides.",
+      "exercises": [
+        {
+          "canonicalId": "deadlift",
+          "name": "Deadlift",
+          "sourceName": "Deadlift",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "lying-leg-curl",
+          "name": "Lying Leg Curl",
+          "sourceName": "Lying Leg Curl",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-walking-lunge",
+          "name": "Dumbbell Walking Lunge",
+          "sourceName": "Walking Lunge",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "front-squat",
+          "name": "Front Squat",
+          "sourceName": "Front Squat",
+          "notes": "Final working set (*): reach failure within the prescribed range, rest 10–15s, then do as many additional reps as possible.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-extension",
+          "name": "Leg Extension",
+          "sourceName": "Leg Extension",
+          "notes": "Final working set (+): reduce load immediately after failure and continue without rest; no reduction percentage or extra-rep count is prescribed.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-side-lunge",
+          "name": "Dumbbell Side Lunge",
+          "sourceName": "Dumbbell Side Lunge",
+          "notes": "",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "seated-calf-raise",
+          "name": "Seated Calf Raise",
+          "sourceName": "Seated Calf Raise",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-press-calf-raise",
+          "name": "Leg Press Calf Raise",
+          "sourceName": "Calf Press",
+          "notes": "Final working set (^): 3–5s lowering per rep, as specified in the table key (the prose describes five seconds).",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 90,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

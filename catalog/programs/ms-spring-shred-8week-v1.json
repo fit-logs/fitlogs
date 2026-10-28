@@ -1,0 +1,1377 @@
+{
+  "schemaVersion": 1,
+  "id": "ms-spring-shred-8week",
+  "programVersion": "1",
+  "name": "Spring Shred: 8 Week Fat Loss Workout Plan",
+  "weeks": 8,
+  "daysPerWeek": 5,
+  "description": "Five weekly sessions with warm-ups, paired exercises and final-set intensity methods. Rest shortens over eight weeks.",
+  "goals": [
+    "fat loss"
+  ],
+  "level": "advanced",
+  "equipment": [
+    "barbell",
+    "bench",
+    "bodyweight",
+    "cable",
+    "dumbbells",
+    "ez bar",
+    "machine",
+    "rack",
+    "weight plate"
+  ],
+  "schedule": "Repeat Chest & Abs, Back, Shoulders, Arms and Legs each week for eight weeks. The article does not assign weekdays or rest days. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+  "progression": "Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. No fixed load-increase rule is supplied.",
+  "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+  "source": {
+    "title": "Spring Shred: 8 Week Fat Loss Workout Plan",
+    "url": "https://www.muscleandstrength.com/workouts/8-week-spring-shred-program",
+    "author": "Roger “Rock” Lockridge",
+    "attribution": "Roger “Rock” Lockridge / Muscle & Strength — routine source. FitLogs factual transcription with original concise notes; no endorsement."
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "FitLogs contributors — factual routine transcription and original implementation notes. Routine credit is recorded in source; the source articles and media retain their own rights."
+  },
+  "days": [
+    {
+      "id": "chest-abs",
+      "name": "Chest & Abs",
+      "durationMinutes": 60,
+      "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+      "exercises": [
+        {
+          "canonicalId": "incline-barbell-bench-press",
+          "name": "Incline Barbell Bench Press",
+          "sourceName": "Incline Barbell Bench Press",
+          "notes": "Final working set: add 2–3 forced reps with a partner/spotter assisting the lift; control the lowering. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-fly",
+          "name": "Dumbbell Fly",
+          "sourceName": "Dumbbell Fly",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "weighted-dip",
+          "name": "Weighted Dip",
+          "sourceName": "Weighted Dip",
+          "notes": "Final working set: on failure, pause 10–15s and continue to failure or the prescribed rep range. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "pec-deck",
+          "name": "Pec Deck",
+          "sourceName": "Pec-Deck",
+          "notes": "Final working set: hold the contracted position on the last rep until failure. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "cable-crossover",
+          "name": "Cable Crossover",
+          "sourceName": "Cable Crossover",
+          "notes": "Superset 5: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "5"
+        },
+        {
+          "canonicalId": "push-up",
+          "name": "Push Up",
+          "sourceName": "Pushup",
+          "notes": "Superset 5: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ],
+          "supersetGroup": "5"
+        },
+        {
+          "canonicalId": "hanging-leg-raise",
+          "name": "Hanging Leg Raise",
+          "sourceName": "Hanging Leg Raise",
+          "notes": "Final working set: hold the contracted position on the last rep until failure. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "decline-sit-up",
+          "name": "Decline Sit Up",
+          "sourceName": "Decline Situp",
+          "notes": "Superset 7: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ],
+          "supersetGroup": "7"
+        },
+        {
+          "canonicalId": "dumbbell-side-bend",
+          "name": "Dumbbell Side Bend",
+          "sourceName": "Side Bends",
+          "notes": "Superset 7: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "7"
+        },
+        {
+          "canonicalId": "plank",
+          "name": "Plank",
+          "sourceName": "Plank",
+          "notes": "Hold each working set until failure; no fixed seconds or rep count are prescribed. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-cable-crunch",
+          "name": "Rope Cable Crunch",
+          "sourceName": "Rope Crunch",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "back",
+      "name": "Back",
+      "durationMinutes": 60,
+      "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+      "exercises": [
+        {
+          "canonicalId": "neutral-grip-pull-up",
+          "name": "Neutral Grip Pull Up",
+          "sourceName": "Neutral Grip Pullups",
+          "notes": "Final working set: on failure, pause 10–15s and continue to failure or the prescribed rep range. Each working set is to failure; no fixed rep count is prescribed. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            },
+            {
+              "repsMin": null,
+              "repsMax": null,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "bodyweight"
+            }
+          ]
+        },
+        {
+          "canonicalId": "barbell-row",
+          "name": "Barbell Row",
+          "sourceName": "Bent Over Barbell Row",
+          "notes": "Final working set: hold the contracted position on the last rep until failure. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "reverse-grip-lat-pulldown",
+          "name": "Reverse Grip Lat Pulldown",
+          "sourceName": "Reverse Grip Pulldown",
+          "notes": "Superset 3: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "3"
+        },
+        {
+          "canonicalId": "straight-arm-pulldown",
+          "name": "Straight Arm Pulldown",
+          "sourceName": "Straight Arm Pulldown",
+          "notes": "Superset 3: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "3"
+        },
+        {
+          "canonicalId": "wide-grip-seated-cable-row",
+          "name": "Wide Grip Seated Cable Row",
+          "sourceName": "Wide Grip Seated Row",
+          "notes": "Final working set: add 2–3 forced reps with a partner/spotter assisting the lift; control the lowering. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rack-deadlift",
+          "name": "Rack Deadlift",
+          "sourceName": "Rack Deadlift",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shoulders",
+      "name": "Shoulders",
+      "durationMinutes": 60,
+      "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+      "exercises": [
+        {
+          "canonicalId": "barbell-upright-row",
+          "name": "Barbell Upright Row",
+          "sourceName": "Upright Row",
+          "notes": "Superset 1: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "1"
+        },
+        {
+          "canonicalId": "seated-dumbbell-lateral-raise",
+          "name": "Seated Dumbbell Lateral Raise",
+          "sourceName": "Seated Lateral Raise",
+          "notes": "Superset 1: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "1"
+        },
+        {
+          "canonicalId": "seated-smith-shoulder-press",
+          "name": "Seated Smith Machine Shoulder Press",
+          "sourceName": "Seated Smith Machine Shoulder Press",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "front-plate-raise",
+          "name": "Front Plate Raise",
+          "sourceName": "Front Plate Raise",
+          "notes": "Final working set: add 2–3 forced reps with a partner/spotter assisting the lift; control the lowering. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "rope-face-pull",
+          "name": "Rope Face Pull",
+          "sourceName": "High Rope Face Pull",
+          "notes": "Final working set: on failure, pause 10–15s and continue to failure or the prescribed rep range. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arms",
+      "name": "Arms",
+      "durationMinutes": 60,
+      "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+      "exercises": [
+        {
+          "canonicalId": "ez-bar-preacher-curl",
+          "name": "EZ Bar Preacher Curl",
+          "sourceName": "EZ Bar Preacher Curl",
+          "notes": "Final working set: add 2–3 forced reps with a partner/spotter assisting the lift; control the lowering. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "close-grip-bench-press",
+          "name": "Close Grip Bench Press",
+          "sourceName": "Close Grip Bench Press",
+          "notes": "Final working set: on failure, pause 10–15s and continue to failure or the prescribed rep range. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 10,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "dumbbell-hammer-curl",
+          "name": "Dumbbell Hammer Curl",
+          "sourceName": "Hammer Curl",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "overhead-rope-extension",
+          "name": "Overhead Rope Triceps Extension",
+          "sourceName": "Overhead Rope Extension",
+          "notes": "Final working set: hold the contracted position on the last rep until failure. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 12,
+              "repsMax": 12,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "standing-cable-curl",
+          "name": "Standing Cable Curl",
+          "sourceName": "Standing Cable Curl",
+          "notes": "Superset 5: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "5"
+        },
+        {
+          "canonicalId": "reverse-grip-pushdown",
+          "name": "Reverse Grip Triceps Pushdown",
+          "sourceName": "Reverse Grip Pushdown",
+          "notes": "Superset 5: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "5"
+        }
+      ]
+    },
+    {
+      "id": "legs",
+      "name": "Legs",
+      "durationMinutes": 60,
+      "notes": "Source duration: 45–60 minutes. Intensity methods apply to the last working set only (author reply to Adi, 17 Sep 2025). Warm-ups are explicit targets. Failure work, holds and intensity methods are described in exercise notes, not invented numeric targets. Supersets retain A/B order. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week. Cardio guidance: 20 minutes of HIIT, 3–4 times/week or adjusted to goals; separate from weights if possible, otherwise afterward. Warm up 2 min, then 8 rounds of 30s hard / 90s low–moderate, then cool down 2 min. Cardio is guidance, not extra strength days.",
+      "exercises": [
+        {
+          "canonicalId": "squat",
+          "name": "Squat",
+          "sourceName": "Squat",
+          "notes": "Final working set: on failure, pause 10–15s and continue to failure or the prescribed rep range. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 10,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 8,
+              "repsMax": 10,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "leg-press",
+          "name": "Leg Press",
+          "sourceName": "Leg Press",
+          "notes": "Final working set: reduce load after failure and continue to the prescribed range or failure; no drop percentage is specified. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "single-leg-extension",
+          "name": "Single Leg Extension",
+          "sourceName": "Single Leg Extension",
+          "notes": "Final working set: hold the contracted position on the last rep until failure. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "stiff-legged-deadlift",
+          "name": "Stiff Legged Deadlift",
+          "sourceName": "Stiff-Legged Deadlift",
+          "notes": "Superset 4: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "4"
+        },
+        {
+          "canonicalId": "seated-leg-curl",
+          "name": "Seated Leg Curl",
+          "sourceName": "Seated Leg Curl",
+          "notes": "Superset 4: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "4"
+        },
+        {
+          "canonicalId": "lying-leg-curl",
+          "name": "Lying Leg Curl",
+          "sourceName": "Lying Leg Curl",
+          "notes": "Final working set: forced reps with a partner/spotter; the source does not specify how many. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 15,
+              "repsMax": 15,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ]
+        },
+        {
+          "canonicalId": "standing-calf-raise",
+          "name": "Standing Calf Raise",
+          "sourceName": "Standing Calf Raise",
+          "notes": "Superset 6: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": 0,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "6"
+        },
+        {
+          "canonicalId": "seated-calf-raise",
+          "name": "Seated Calf Raise",
+          "sourceName": "Seated Calf Raise",
+          "notes": "Superset 6: perform A then B without rest; rest after B. Complete three working rounds. Do the listed warm-ups separately. Working-set / superset-round rest: weeks 1–2 = 120s; weeks 3–4 = 90s; weeks 5–6 = 60s; weeks 7–8 = 45s. Choose the current week’s rest manually; the app does not change timers by week.",
+          "sets": [
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": null,
+              "isWarmUp": true,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            },
+            {
+              "repsMin": 20,
+              "repsMax": 20,
+              "restSeconds": null,
+              "isWarmUp": false,
+              "loadMode": "external"
+            }
+          ],
+          "supersetGroup": "6"
+        }
+      ]
+    }
+  ],
+  "restByWeek": [
+    {
+      "fromWeek": 1,
+      "toWeek": 2,
+      "restSeconds": 120
+    },
+    {
+      "fromWeek": 3,
+      "toWeek": 4,
+      "restSeconds": 90
+    },
+    {
+      "fromWeek": 5,
+      "toWeek": 6,
+      "restSeconds": 60
+    },
+    {
+      "fromWeek": 7,
+      "toWeek": 8,
+      "restSeconds": 45
+    }
+  ]
+}

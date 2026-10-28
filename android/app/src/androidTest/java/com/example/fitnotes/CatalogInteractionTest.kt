@@ -19,7 +19,7 @@ class CatalogInteractionTest {
     private lateinit var model:FitNotesViewModel
     private val instrument get()=InstrumentationRegistry.getInstrumentation()
     private val db get()=model.photoRepository.database
-    private val manifest get()=CatalogValidator.manifest(instrument.targetContext.assets.open("catalog/manifest.json").bufferedReader().use{it.readText()})
+    private val manifest get()=CatalogValidator.manifest(instrument.targetContext.assets.open("catalog/"+CATALOG_MANIFEST_PATH).bufferedReader().use{it.readText()})
     @Before fun seed(){
         assumeTrue(instrument.targetContext.packageName=="com.example.fitnotes.preview.photos")
         File(instrument.targetContext.filesDir,"program-catalog").deleteRecursively()

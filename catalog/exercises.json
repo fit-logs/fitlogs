@@ -95,6 +95,311 @@
       "id": "dumbbell-floor-press",
       "name": "Dumbbell Floor Press",
       "equipment": "dumbbells"
+    },
+    {
+      "id": "incline-barbell-bench-press",
+      "name": "Incline Barbell Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-fly",
+      "name": "Dumbbell Fly",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "weighted-dip",
+      "name": "Weighted Dip",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "pec-deck",
+      "name": "Pec Deck",
+      "equipment": "machine"
+    },
+    {
+      "id": "cable-crossover",
+      "name": "Cable Crossover",
+      "equipment": "cable"
+    },
+    {
+      "id": "push-up",
+      "name": "Push Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "hanging-leg-raise",
+      "name": "Hanging Leg Raise",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "decline-sit-up",
+      "name": "Decline Sit Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "dumbbell-side-bend",
+      "name": "Dumbbell Side Bend",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "plank",
+      "name": "Plank",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "rope-cable-crunch",
+      "name": "Rope Cable Crunch",
+      "equipment": "cable"
+    },
+    {
+      "id": "neutral-grip-pull-up",
+      "name": "Neutral Grip Pull Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "barbell-row",
+      "name": "Barbell Row",
+      "equipment": "barbell"
+    },
+    {
+      "id": "reverse-grip-lat-pulldown",
+      "name": "Reverse Grip Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "straight-arm-pulldown",
+      "name": "Straight Arm Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "wide-grip-seated-cable-row",
+      "name": "Wide Grip Seated Cable Row",
+      "equipment": "cable"
+    },
+    {
+      "id": "rack-deadlift",
+      "name": "Rack Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "barbell-upright-row",
+      "name": "Barbell Upright Row",
+      "equipment": "barbell"
+    },
+    {
+      "id": "seated-dumbbell-lateral-raise",
+      "name": "Seated Dumbbell Lateral Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "seated-smith-shoulder-press",
+      "name": "Seated Smith Machine Shoulder Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "front-plate-raise",
+      "name": "Front Plate Raise",
+      "equipment": "weight plate"
+    },
+    {
+      "id": "rope-face-pull",
+      "name": "Rope Face Pull",
+      "equipment": "cable"
+    },
+    {
+      "id": "ez-bar-preacher-curl",
+      "name": "EZ Bar Preacher Curl",
+      "equipment": "ez bar"
+    },
+    {
+      "id": "close-grip-bench-press",
+      "name": "Close Grip Bench Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-hammer-curl",
+      "name": "Dumbbell Hammer Curl",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "overhead-rope-extension",
+      "name": "Overhead Rope Triceps Extension",
+      "equipment": "cable"
+    },
+    {
+      "id": "standing-cable-curl",
+      "name": "Standing Cable Curl",
+      "equipment": "cable"
+    },
+    {
+      "id": "reverse-grip-pushdown",
+      "name": "Reverse Grip Triceps Pushdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "single-leg-extension",
+      "name": "Single Leg Extension",
+      "equipment": "machine"
+    },
+    {
+      "id": "stiff-legged-deadlift",
+      "name": "Stiff Legged Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "seated-leg-curl",
+      "name": "Seated Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "lying-leg-curl",
+      "name": "Lying Leg Curl",
+      "equipment": "machine"
+    },
+    {
+      "id": "rope-triceps-pressdown",
+      "name": "Rope Triceps Pressdown",
+      "equipment": "cable"
+    },
+    {
+      "id": "standing-calf-raise",
+      "name": "Standing Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "seated-calf-raise",
+      "name": "Seated Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "machine-hack-squat",
+      "name": "Machine Hack Squat",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-lunge",
+      "name": "Dumbbell Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "leg-press-calf-raise",
+      "name": "Leg Press Calf Raise",
+      "equipment": "machine"
+    },
+    {
+      "id": "hammer-strength-chest-press",
+      "name": "Hammer Strength Chest Press",
+      "equipment": "machine"
+    },
+    {
+      "id": "barbell-curl",
+      "name": "Barbell Curl",
+      "equipment": "barbell"
+    },
+    {
+      "id": "rope-cable-hammer-curl",
+      "name": "Rope Cable Hammer Curl",
+      "equipment": "cable"
+    },
+    {
+      "id": "barbell-preacher-curl",
+      "name": "Barbell Preacher Curl",
+      "equipment": "barbell"
+    },
+    {
+      "id": "deadlift",
+      "name": "Deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "id": "pull-up",
+      "name": "Pull Up",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "hyperextension",
+      "name": "Hyperextension",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "seated-barbell-shoulder-press",
+      "name": "Seated Barbell Shoulder Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-front-raise",
+      "name": "Dumbbell Front Raise",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "reverse-pec-deck",
+      "name": "Reverse Pec Deck",
+      "equipment": "machine"
+    },
+    {
+      "id": "barbell-shrug",
+      "name": "Barbell Shrug",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dip",
+      "name": "Dip",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "seated-french-press",
+      "name": "Seated French Press",
+      "equipment": "barbell"
+    },
+    {
+      "id": "dumbbell-pullover",
+      "name": "Dumbbell Pullover",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "wide-grip-lat-pulldown",
+      "name": "Wide Grip Lat Pulldown",
+      "equipment": "cable"
+    },
+    {
+      "id": "dumbbell-rear-delt-fly",
+      "name": "Dumbbell Rear Delt Fly",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "dumbbell-shrug",
+      "name": "Dumbbell Shrug",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "single-arm-cable-lateral-raise",
+      "name": "Single Arm Cable Lateral Raise",
+      "equipment": "cable"
+    },
+    {
+      "id": "lying-leg-raise",
+      "name": "Lying Leg Raise",
+      "equipment": "bodyweight"
+    },
+    {
+      "id": "dumbbell-walking-lunge",
+      "name": "Dumbbell Walking Lunge",
+      "equipment": "dumbbells"
+    },
+    {
+      "id": "front-squat",
+      "name": "Front Squat",
+      "equipment": "barbell"
+    },
+    {
+      "id": "leg-extension",
+      "name": "Leg Extension",
+      "equipment": "machine"
+    },
+    {
+      "id": "dumbbell-side-lunge",
+      "name": "Dumbbell Side Lunge",
+      "equipment": "dumbbells"
     }
   ]
 }
