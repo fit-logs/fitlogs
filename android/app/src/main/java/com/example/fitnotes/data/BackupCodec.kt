@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.util.Locale
 
 data class Backup(
-    val version: Int = 14,
+    val version: Int = 15,
     val exportedAt: Long = System.currentTimeMillis(),
     val exercises: List<Exercise>,
     val workouts: List<Workout>,
@@ -118,7 +118,7 @@ object BackupCodec {
             MigratedBackupFields.upgradeLocal(root)
             require(root.string("format") == "fitnotes") { "This is not a FitNotes backup." }
             val version = root.integer("version")
-            require(version in 1..14) { "Unsupported backup version." }
+            require(version in 1..15) { "Unsupported backup version." }
             val keys = arrayOf("format", "version", "exportedAt", "exercises", "workouts", "entries", "sets")
             if (version == 1) root.keysExactly(*keys)
             else if (version < 4) root.keysExactly(*keys, "imports", "importedWorkouts", "importedSets", "bodyMeasurements")
@@ -131,7 +131,7 @@ object BackupCodec {
                 runLinks = if(version < 14) emptyList() else MigratedBackupFields.links(root),
                 loadProfiles=if(version>=13)LoadAdviceBackupJson.profiles(root) else emptyList(), setLoadContexts=if(version>=13)LoadAdviceBackupJson.contexts(root) else emptyList(),sessionLoadLocks=if(version>=13)LoadAdviceBackupJson.locks(root) else emptyList(),
                 programs = if(version >= 11) ProgramBackupJson.programs(root,version) else emptyList(), programDays = if(version >= 11) ProgramBackupJson.days(root) else emptyList(),
-                programSessions = if(version >= 11) ProgramBackupJson.sessions(root) else emptyList(), programSteps = if(version >= 11) ProgramBackupJson.steps(root) else emptyList(),
+                programSessions = if(version >= 11) ProgramBackupJson.sessions(root) else emptyList(), programSteps = if(version >= 11) ProgramBackupJson.steps(root,version) else emptyList(),
                 version = root.integer("version"),
                 exportedAt = root.long("exportedAt"),
                 exercises = root.objects("exercises", 20000).map {
@@ -221,7 +221,7 @@ object BackupCodec {
         backup.bodyProfile?.let(::validateBodyProfile)
         LoadAdviceBackupJson.validate(backup)
         ProgramBackupJson.validate(backup)
-        require(backup.version in 1..14) { "Unsupported backup version." }
+        require(backup.version in 1..15) { "Unsupported backup version." }
         if (backup.version < 3) require(backup.sets.all { it.distance == null && it.durationSeconds == null && it.comment.isEmpty() } &&
             backup.bodyMeasurements.none { it.time.isEmpty() }) { "These records require backup version 3." }
         if (backup.version == 1) require(backup.imports.isEmpty() && backup.importedWorkouts.isEmpty() &&

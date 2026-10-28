@@ -22,7 +22,7 @@ class RunningPrivateFixtureTest {
         val path=System.getenv("FITNOTES_RUNNING_FIXTURE");assumeTrue(path!=null)
         val file=File(path!!);fun digest()=MessageDigest.getInstance("SHA-256").digest(file.readBytes()).toList()
         val original=digest();val context=ApplicationProvider.getApplicationContext<Context>();val name="running-private-${System.nanoTime()}.db"
-        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(file).addMigrations(EXERCISE_MERGE_MIGRATION_9_10,BODY_PROFILE_MIGRATION_10_11,RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16).build()
+        val db=Room.databaseBuilder(context,FitDatabase::class.java,name).createFromFile(file).addMigrations(EXERCISE_MERGE_MIGRATION_9_10,BODY_PROFILE_MIGRATION_10_11,RUNNING_MIGRATION_11_12, *UNIFIED_MIGRATIONS_TO_16, COACH_MIGRATION_16_17).build()
         try {
             val snapshot=runningSnapshot(db);val rows=db.importedDao().sets().filter{isRunningName(it.exercise)}
             assertTrue("Fixture must contain the existing running records",rows.isNotEmpty())

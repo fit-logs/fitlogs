@@ -71,6 +71,7 @@ class WorkoutLifecycleRepository(private val db: FitDatabase, private val now: (
             db.dao().updateWorkout(w.copy(finished = true, historicalDraft = true, completedAt = null, durationSeconds = null,
                 durationUnknown = true, autoFinishedAt = time, autoFinishAcknowledged = false,
                 timingNote = "Abandoned empty session kept as an unsaved draft. No performed workout was invented."))
+            TrainingProgramRepository(db).discarded(w.id)
         } else {
             val end = actions.maxOrNull()?.let { action -> maxOf(action, minOf(time, hardEnd, action + STALE_GRACE_MILLIS)) }
             val duration = end?.let { if (w.resumeStartedAt != null) w.resumeBaseSeconds?.plus((it - anchor) / 1000.0) else (it - anchor) / 1000.0 }
@@ -105,6 +106,7 @@ class WorkoutLifecycleRepository(private val db: FitDatabase, private val now: (
             timingNote = "User-corrected timing. Unspecified timestamps/duration remain unknown.", autoFinishAcknowledged = true,
             resumeStartedAt = null, resumeBaseSeconds = null, staleSuppressedUntil = if (finished) null else now() + STALE_MAX_MILLIS, lastActionAt = if (finished) w.lastActionAt else now()))
         if (finished) db.trainingDao().timer()?.takeIf { it.workoutId == id }?.let { db.trainingDao().clearTimer() }
+        if(finished && !w.historicalDraft && db.dao().workoutEntries(id).any{db.dao().entrySets(it.id).isNotEmpty()}) TrainingProgramRepository(db).completeLinked(id)
     }
     suspend fun beginPast(input: WorkoutTimeInput, sourceKey: String = ""): Long = db.withTransaction {
         val t = parseWorkoutTiming(input, now())

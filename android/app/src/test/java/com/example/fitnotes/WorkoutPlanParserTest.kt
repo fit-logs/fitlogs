@@ -56,7 +56,7 @@ class WorkoutPlanParserTest {
         assertEquals(PlanWeight("0.5", "lb"), WorkoutPlanParser.parseWeight(".5 LB"))
     }
     @Test fun missingOldUnsupportedAndMultipleBlocksAreRejected() {
-        reject(text.replace("WORKOUT_PLAN_V2\n", ""), "start marker")
+        reject(text.replace("WORKOUT_PLAN_V2\n", ""), "Incomplete")
         reject(text.replace("END_WORKOUT_PLAN", ""), "END_WORKOUT_PLAN")
         reject(text.replace("WORKOUT_PLAN_V2", "WORKOUT_PLAN_V1"), "Unsupported")
         reject(text.replace("WORKOUT_PLAN_V2", "WORKOUT_PLAN_V99"), "Unsupported")
