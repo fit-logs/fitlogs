@@ -50,3 +50,20 @@ on scroll. Screenshots remain in the ignored
   uses the current completion checkbox and permits the existing last-action
   timestamp update. Physical-device smoothness still needs a
   check with the user's actual history; synthetic tests do not establish that.
+
+## Set completion follow-up
+
+Set completion no longer imposes a fixed one-second cooldown. The synchronous
+busy guard still prevents concurrent taps, and target saves remain idempotent
+in the database transaction. Automatic rest reads only the current workout's
+sets through an indexed join. Alarm and notification synchronization runs on IO
+instead of the UI thread. Full-history Room observers remain unchanged.
+
+New strength sets use editable draft defaults from the latest actual set in the
+exercise, then its plan target, then the matching previous workout. Notes and
+completion metadata are not copied. Explicitly clearing a field stays cleared.
+
+Regression coverage includes default precedence, unspecified/reps-only loads,
+assistance mode, and workout-scoped result queries. Local compilation passed;
+emulator checks were blocked by insufficient free disk space. No physical-device
+latency improvement has been measured.

@@ -42,8 +42,7 @@ class RestTimerController(private val context: Context, private val db: FitDatab
         val workoutId = db.dao().entry(target.entryId)?.workoutId ?: return
         if (db.dao().active()?.id != workoutId) return
         val run = db.planDao().runDetail(workoutId) ?: return
-        val entryIds = run.exercises.map { it.entry.id }.toSet()
-        val results = db.dao().sets().filter { it.entryId in entryIds }
+        val results = db.dao().workoutSets(workoutId)
         if (shouldRestAfter(run, target, results)) target.restSeconds?.takeIf { it > 0 }?.let { start(workoutId, it, targetId) }
     }
     suspend fun action(token: String, action: String) {
@@ -63,7 +62,7 @@ class RestTimerController(private val context: Context, private val db: FitDatab
         }
         sync(alertToken)
     }
-    suspend fun sync(alertToken:String?=null) {
+    suspend fun sync(alertToken:String?=null) = withContext(Dispatchers.IO) {
         syncMutex.withLock {
         val timer = db.withTransaction {
             val saved = dao.timer() ?: return@withTransaction null
@@ -80,14 +79,14 @@ class RestTimerController(private val context: Context, private val db: FitDatab
             preferences.edit().remove("scheduled-token").apply()
         }
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (timer == null) { manager.cancel(NOTIFICATION_ID); return }
+        if (timer == null) { manager.cancel(NOTIFICATION_ID); return@withLock }
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val expiration = actionIntent(timer, "expire")
         alarm.cancel(expiration)
         if (timer.running) { alarm.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, clock.elapsed() + timer.remaining(clock), expiration); preferences.edit().putString("scheduled-token",timer.token).apply() }
         val shouldAlert=timer.alerted && alertToken==timer.token && preferences.getString("last-alert-token",null)!=timer.token
         if(shouldAlert)preferences.edit().putString("last-alert-token",timer.token).apply()
-        if (dao.preferences()?.restAlerts != true || !NotificationManagerCompat.from(context).areNotificationsEnabled()) { manager.cancel(NOTIFICATION_ID); return }
+        if (dao.preferences()?.restAlerts != true || !NotificationManagerCompat.from(context).areNotificationsEnabled()) { manager.cancel(NOTIFICATION_ID); return@withLock }
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel("rest-progress", "Rest controls", NotificationManager.IMPORTANCE_LOW))
             manager.createNotificationChannel(NotificationChannel("rest-ready", "Rest finished", NotificationManager.IMPORTANCE_DEFAULT))
