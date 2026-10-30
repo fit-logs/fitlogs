@@ -110,6 +110,8 @@ interface FitDao {
     @Query("SELECT * FROM workouts ORDER BY id") suspend fun workouts(): List<Workout>
     @Query("SELECT * FROM workout_exercises ORDER BY position, id") suspend fun entries(): List<WorkoutExercise>
     @Query("SELECT * FROM workout_sets ORDER BY position, id") suspend fun sets(): List<WorkoutSet>
+    @Query("SELECT s.* FROM workout_sets s INNER JOIN workout_exercises e ON s.entryId = e.id WHERE e.workoutId = :workoutId ORDER BY s.position, s.id")
+    suspend fun workoutSets(workoutId: Long): List<WorkoutSet>
     @Query("SELECT * FROM workouts WHERE completedAt IS NULL AND finished = 0 AND historicalDraft = 0 LIMIT 1") suspend fun active(): Workout?
     @Query("UPDATE workouts SET lastActionAt = :now WHERE id = :id AND historicalDraft = 0 AND finished = 0 AND completedAt IS NULL") suspend fun touchWorkout(id: Long, now: Long)
     @Query("SELECT * FROM workouts WHERE id = :id") suspend fun workout(id: Long): Workout?

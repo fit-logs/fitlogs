@@ -338,8 +338,6 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun applyPlanProgression(planId: String) = reviewPlanWeights(planId)
     fun completeTarget(id: Long, weight: String, reps: String, note: String, mode: String, done: () -> Unit,actualRir:String?=null,actualRpe:String?=null) {
         if(busy.value||!completionReady.value)return
-        completionReady.value=false
-        viewModelScope.launch { kotlinx.coroutines.delay(1000);completionReady.value=true }
         change(null, done) { if (training.complete(id,weight,reps,note,mode,actualRir,actualRpe)) restController.afterCompletion(id) }
     }
     fun skipTarget(id: Long, skipped: Boolean) = change(null) { training.skip(id,skipped) }

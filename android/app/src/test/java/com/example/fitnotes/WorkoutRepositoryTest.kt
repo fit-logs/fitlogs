@@ -38,6 +38,20 @@ class WorkoutRepositoryTest {
         context.deleteDatabase(name)
     }
 
+    @Test fun workoutSetQueryExcludesOtherSessions() = runBlocking {
+        val first=repo.start()
+        repo.createExercise(first,"Press")
+        val entry=db.dao().workoutEntries(first).single()
+        repo.saveSet(entry.id,"30","8")
+        repo.finish(first)
+        val second=repo.start()
+        repo.createExercise(second,"Press")
+        val other=db.dao().workoutEntries(second).single()
+        repo.saveSet(other.id,"35","7")
+        assertEquals(listOf(entry.id),db.dao().workoutSets(first).map { it.entryId })
+        assertEquals(listOf(other.id),db.dao().workoutSets(second).map { it.entryId })
+    }
+
     @Test fun multiSelectIsAtomicOrderedAndIdempotent() = runBlocking {
         val workout = repo.start()
         val first = db.dao().insertExercise(Exercise(name = "One", nameKey = "one"))

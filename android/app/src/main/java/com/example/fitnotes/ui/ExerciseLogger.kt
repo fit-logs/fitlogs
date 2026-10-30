@@ -44,8 +44,8 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     var remove by remember { mutableStateOf(false) }
     var selectedSet by remember { mutableStateOf<NotebookSet?>(null) }
     var extra by remember { mutableStateOf(false) }
-    var extraWeight by rememberSaveable { mutableStateOf("") }
-    var extraReps by rememberSaveable { mutableStateOf("") }
+    var extraWeight by rememberSaveable { mutableStateOf<String?>(null) }
+    var extraReps by rememberSaveable { mutableStateOf<String?>(null) }
     var showNote by rememberSaveable { mutableStateOf(false) }
     var manualRest by remember { mutableStateOf(false) }
     val previous=remember(all,session,exercise){previousExerciseSessions(all,session,exercise)}
@@ -56,7 +56,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     val pending=targets?.let{pendingTargets(it,exercise.sets.mapNotNull{set->set.local})}.orEmpty()
     var currentId by rememberSaveable { mutableStateOf(pending.firstOrNull()?.id) }
     var focusId by remember { mutableStateOf<Long?>(null) }
-    val ready by model.completionReady.collectAsState()
+
     val listState=rememberLazyListState()
     val scope=rememberCoroutineScope()
     val loadModes=(targets?.ordered?.map{it.loadMode}.orEmpty()+exercise.sets.mapNotNull{it.local?.loadMode}).distinct()
@@ -116,7 +116,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                         val index=planned.ordered.indexOf(target)
                         val result=exercise.sets.firstOrNull{it.local?.targetId==target.id}
                         if(result!=null)LoggerResultRow(result,index+1,editable){selectedSet=result}
-                        else PendingSetRow(target,index+1,currentId==target.id,focusId==target.id,busy||!ready,!editable,
+                        else PendingSetRow(target,index+1,currentId==target.id,focusId==target.id,busy,!editable,
                             onSelect={currentId=target.id},onSkip={model.skipTarget(target.id,!target.skipped)},onApply={value->model.applyRemainingWeight(exercise.entryId!!,value)},onComplete={weight,reps->
                                 model.completeTarget(target.id,weight,reps,"",target.loadMode, done = {
                                     val next=pending.firstOrNull{it.id!=target.id};currentId=next?.id;focusId=next?.id
@@ -130,7 +130,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                     items(recorded,key={it.key}) { set -> LoggerResultRow(set,(targets?.ordered?.size ?: 0)+recorded.indexOf(set)+1,editable){selectedSet=set};HorizontalDivider() }
                     if(editable)item(key="set-entry") {
                         if(targets==null && exercise.entryId!=null && session.activity=="strength" && exercise.sets.none{it.cardio}) {
-                            QuickSetEntry(exercise,session.key,model,busy,options={weight,reps->extraWeight=weight;extraReps=reps;extra=true})
+                            QuickSetEntry(exercise,session.key,model,busy,setEntrySuggestion(exercise,emptyList(),previous.firstOrNull()?.second),options={weight,reps->extraWeight=weight;extraReps=reps;extra=true})
                         } else TextButton(onClick={extra=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),enabled=!busy){Text("Add set")}
                     }
                 }
@@ -138,7 +138,8 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
         }
 
     }
-    if(selectedSet!=null || extra)SetEditDialog(selectedSet,exercise,session,model,busy,targets!=null,targets?.ordered?.lastOrNull()?.loadMode ?: exercise.sets.lastOrNull()?.local?.loadMode ?: if(session.local!=null)LoadMode.EXTERNAL else LoadMode.UNKNOWN,extraWeight,extraReps,{selectedSet=null;extra=false})
+    val suggestion=setEntrySuggestion(exercise,targets?.ordered.orEmpty(),previous.firstOrNull()?.second)
+    if(selectedSet!=null || extra)SetEditDialog(selectedSet,exercise,session,model,busy,targets!=null,suggestion.mode,extraWeight ?: suggestion.weight,extraReps ?: suggestion.reps,{selectedSet=null;extra=false;extraWeight=null;extraReps=null})
     if(manualRest && session.local!=null) {
         var seconds by rememberSaveable{mutableStateOf("90")}
         AlertDialog(onDismissRequest={manualRest=false},title={Text("Rest timer")},text={OutlinedTextField(seconds,{seconds=it},label={Text("Seconds")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))},confirmButton={TextButton(onClick={model.startRest(session.local.workout.id,seconds.toInt());manualRest=false},enabled=seconds.toIntOrNull() in 1..7200){Text("Start")}},dismissButton={TextButton(onClick={manualRest=false}){Text("Cancel")}})
@@ -149,26 +150,28 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
 
 /** Draft values stay in the logger's existing per-exercise SaveableStateProvider. */
 @Composable
-private fun QuickSetEntry(exercise:NotebookExercise,sessionKey:String,model:FitNotesViewModel,busy:Boolean,options:(String,String)->Unit) {
-    var weight by rememberSaveable(sessionKey,exercise.key){mutableStateOf("")}
-    var reps by rememberSaveable(sessionKey,exercise.key){mutableStateOf("")}
-    val mode=exercise.sets.lastOrNull()?.local?.loadMode ?: LoadMode.EXTERNAL
+private fun QuickSetEntry(exercise:NotebookExercise,sessionKey:String,model:FitNotesViewModel,busy:Boolean,suggestion:SetEntrySuggestion,options:(String,String)->Unit) {
+    var weightDraft by rememberSaveable(sessionKey,exercise.key){mutableStateOf<String?>(null)}
+    val weight=weightDraft ?: suggestion.weight
+    var repsDraft by rememberSaveable(sessionKey,exercise.key){mutableStateOf<String?>(null)}
+    val reps=repsDraft ?: suggestion.reps
+    val mode=suggestion.mode
     val focus=LocalFocusManager.current
     val keyboard=LocalSoftwareKeyboardController.current
     val actualWeight=if(mode==LoadMode.REPS_ONLY)"" else weight
     val valid=runCatching { InputRules.parseSet(if(actualWeight.isBlank())"0" else actualWeight,reps) }.isSuccess
     fun complete() {
         if(!busy && valid) model.logStrength(exercise.entryId!!,actualWeight,reps,null,"",{
-            focus.clearFocus();keyboard?.hide()
+            weightDraft=null;repsDraft=null;focus.clearFocus();keyboard?.hide()
         },loadMode=mode)
     }
     Column(Modifier.fillMaxWidth().padding(top=12.dp).testTag("quick-set-entry"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            if(mode!=LoadMode.REPS_ONLY) OutlinedTextField(weight,{weight=it},singleLine=true,enabled=!busy,
+            if(mode!=LoadMode.REPS_ONLY) OutlinedTextField(weight,{weightDraft=it},singleLine=true,enabled=!busy,
                 label={Text(when(mode){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assistance kg";else->"kg"})},
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal,imeAction=ImeAction.Next),
                 modifier=Modifier.weight(1f).testTag("quick-weight"))
-            OutlinedTextField(reps,{reps=it},singleLine=true,enabled=!busy,label={Text("Reps")},
+            OutlinedTextField(reps,{repsDraft=it},singleLine=true,enabled=!busy,label={Text("Reps")},
                 keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number,imeAction=ImeAction.Done),
                 keyboardActions=KeyboardActions(onDone={complete()}),modifier=Modifier.weight(1f).testTag("quick-reps"))
         }
