@@ -33,6 +33,52 @@ class TrainingWorkflowTest {
         return (plans.save(PlanPreview(spec,exercises)) as PlanSaveResult.Saved).id
     }
     private suspend fun reject(block:suspend()->Unit){try{block();fail("Expected rejection")}catch(_:IllegalArgumentException){}}
+    @Test fun swappingBeforeLoggingKeepsPrescriptionAndSourcePlanButClearsExerciseSpecificValues()=runBlocking {
+        val source=plan();val workout=plans.start(source)
+        val original=db.dao().workoutEntries(workout).single()
+        val targets=db.trainingDao().entryTargets(original.id)
+        val planned=db.planDao().detail(source)
+        val replacement=repo.swapExercise(original.id,2)
+        assertNull(db.dao().entry(original.id))
+        assertEquals(2L,db.dao().entry(replacement)!!.exerciseId)
+        assertEquals(original.position,db.dao().entry(replacement)!!.position)
+        assertEquals("",db.dao().entry(replacement)!!.planNote)
+        assertEquals(targets.map { it.copy(entryId=replacement,weightValue=null,weightUnit=null,loadMode=LoadMode.UNKNOWN,rir=null,rpe=null) },db.trainingDao().entryTargets(replacement))
+        assertEquals(planned,db.planDao().detail(source))
+        assertTrue(db.dao().sets().isEmpty())
+    }
+    @Test fun swappingAfterLoggingRetainsActualsAndSupersetRounds()=runBlocking {
+        val workout=plans.start(plan(two=true,group=true))
+        val original=db.dao().workoutEntries(workout).first()
+        val targets=db.trainingDao().entryTargets(original.id)
+        training.complete(targets.first().id,"41","9","Actual",LoadMode.EXTERNAL)
+        val actual=db.dao().sets().single()
+        val replacement=repo.swapExercise(original.id,2)
+        assertEquals(actual,db.dao().sets().single())
+        assertEquals(original,db.dao().entry(original.id))
+        assertEquals(listOf(targets.first()),db.trainingDao().entryTargets(original.id))
+        assertEquals(replacement,db.trainingDao().target(targets.last().id)!!.entryId)
+        val run=db.planDao().runDetail(workout)!!
+        val sequence=plannedSequence(run)
+        assertEquals(listOf(0,0,1,1),sequence.map { it.position })
+        assertEquals(4,sequence.map { it.id }.distinct().size)
+        assertFalse(shouldRestAfter(run,targets.first(),db.dao().sets()))
+        db.close();open()
+        assertEquals(actual,db.dao().sets().single())
+        assertNotNull(db.dao().entry(replacement))
+    }
+    @Test fun invalidSwapIsAtomicAndUnplannedSetsAreNeverRelabelled()=runBlocking {
+        val workout=repo.start();repo.createExercise(workout,"Free press")
+        val old=db.dao().workoutEntries(workout).single()
+        repo.saveSet(old.id,"20","8")
+        val before=repo.backup()
+        reject { repo.swapExercise(old.id,Long.MAX_VALUE) }
+        reject { repo.swapExercise(old.id,old.exerciseId) }
+        assertEquals(before,repo.backup().copy(exportedAt=before.exportedAt))
+        val replacement=repo.swapExercise(old.id,2)
+        assertEquals(before.sets,db.dao().sets())
+        assertTrue(db.dao().entrySets(replacement).isEmpty())
+    }
     @Test fun outOfOrderCompletionSkipUndoExtraAndRepeatedSaveKeepTargetsSeparate()=runBlocking {
         val id=plan();val workout=plans.start(id);val rows=db.planDao().runTargets()
         assertTrue(training.complete(rows[1].id,"46","7","Actual",LoadMode.EXTERNAL));assertFalse(training.complete(rows[1].id,"999","99","Duplicate",LoadMode.EXTERNAL))

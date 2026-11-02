@@ -19,7 +19,7 @@ fun plannedSequence(run: PlanRunDetail): List<WorkoutSetTarget> {
         else if (!seen.add(group)) emptyList()
         else {
             val peers = entries.filter { it.entry.supersetGroup == group }
-            (0 until (peers.maxOfOrNull { it.ordered.size } ?: 0)).flatMap { round -> peers.mapNotNull { it.ordered.getOrNull(round) } }
+            peers.flatMap { it.ordered.map { target -> target.position } }.distinct().sorted().flatMap { round -> peers.mapNotNull { it.ordered.firstOrNull { target -> target.position == round } } }
         }
     }
 }
@@ -34,7 +34,7 @@ fun shouldRestAfter(run: PlanRunDetail, target: WorkoutSetTarget, results: List<
     val exercise = run.exercises.firstOrNull { it.entry.id == target.entryId } ?: return false
     val group = exercise.entry.supersetGroup
     return group.isBlank() || run.exercises.filter { it.entry.supersetGroup == group }.all { peer ->
-        peer.ordered.getOrNull(target.position)?.let { it.skipped || it.id in done } ?: true
+        peer.ordered.firstOrNull { it.position == target.position }?.let { it.skipped || it.id in done } ?: true
     }
 }
 

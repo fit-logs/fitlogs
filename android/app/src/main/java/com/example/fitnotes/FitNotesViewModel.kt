@@ -570,6 +570,11 @@ class FitNotesViewModel(application: Application) : AndroidViewModel(application
     fun duplicateSet(id: Long, done: () -> Unit = {}) = change(null, done) { repository.duplicateSet(id) }
     fun deleteSet(id: Long, done: () -> Unit = {}) = change(null, done) { deletedNotices.send(DeletedSetUndo(local=repository.deleteSet(id))) }
     fun saveExerciseNote(entryId:Long,note:String,done:()->Unit)=change(null,done){repository.saveExerciseNote(entryId,note)}
+    fun swapExercise(entryId: Long, exerciseId: Long, onReady: (Long) -> Unit) = change(null) {
+        val replacement = repository.swapExercise(entryId, exerciseId)
+        notebook.first { it.editingSessions.any { session -> session.exercises.any { exercise -> exercise.entryId == replacement } } }
+        onReady(replacement)
+    }
     fun removeExercise(id: Long, done: () -> Unit) = change("Exercise removed.", done) { repository.removeExercise(id) }
     fun saveDetails(id: Long, title: String, notes: String) = change("Session details saved.") { repository.saveDetails(id, title, notes) }
     fun finish(id: Long, done: () -> Unit) = change("Session finished.", done) {

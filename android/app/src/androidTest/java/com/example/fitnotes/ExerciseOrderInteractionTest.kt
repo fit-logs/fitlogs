@@ -57,6 +57,36 @@ class ExerciseOrderInteractionTest {
         ui.onNodeWithText("Reorder exercises").performClick()
         ui.onNodeWithTag("exercise-order-list").assertExists()
     }
+    @Test fun swapCancelSaveAndRecreateKeepPlansAndLoggedSets() {
+        val entry=runBlocking { db.dao().workoutEntries(workout)[1] }
+        val original=runBlocking { WorkoutRepository(db).backup() }
+        ui.onNodeWithText(names[1],substring=false).performClick()
+        ui.onNodeWithContentDescription("More actions").performClick()
+        ui.onNodeWithText("Swap exercise",substring=false).performClick()
+        ui.onNodeWithTag("exercise-search").performTextReplacement(addedName)
+        Espresso.closeSoftKeyboard()
+        ui.onNode(hasText(addedName,substring=false) and hasClickAction() and !hasSetTextAction()).performClick()
+        capture("exercise-swap-picker")
+        ui.onNodeWithContentDescription("Back").performClick()
+        assertEquals(original,runBlocking { WorkoutRepository(db).backup().copy(exportedAt=original.exportedAt) })
+        ui.onNodeWithContentDescription("More actions").performClick()
+        ui.onNodeWithText("Swap exercise",substring=false).performClick()
+        ui.onNodeWithTag("exercise-search").performTextReplacement(addedName)
+        Espresso.closeSoftKeyboard()
+        ui.onNode(hasText(addedName,substring=false) and hasClickAction() and !hasSetTextAction()).performClick()
+        Espresso.closeSoftKeyboard()
+        ui.onNodeWithText("Swap",substring=false).assertIsDisplayed().performClick()
+        ui.waitUntil(15000) { !model.busy.value && runBlocking { db.dao().entry(entry.id)==null } }
+        ui.onNodeWithText(addedName,substring=false).assertIsDisplayed()
+        capture("exercise-swap-logger")
+        val replacement=runBlocking { db.dao().workoutEntries(workout).single { it.exerciseId==5L } }
+        assertEquals(entry.position,replacement.position)
+        assertEquals(original.sets,runBlocking { db.dao().sets() })
+        assertEquals(original.plannedSets,runBlocking { WorkoutRepository(db).backup().plannedSets })
+        ui.activityRule.scenario.recreate()
+        ui.onNodeWithText(addedName,substring=false).assertIsDisplayed()
+        assertEquals(replacement,runBlocking { db.dao().entry(replacement.id) })
+    }
     @Test fun cancelSaveRecreateAndLogRetainTheRightTargetsAndActuals() {
         val entries = runBlocking { db.dao().workoutEntries(workout) }
         val before = runBlocking { WorkoutRepository(db).backup() }
