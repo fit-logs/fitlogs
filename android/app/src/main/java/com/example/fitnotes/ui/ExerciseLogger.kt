@@ -1,5 +1,6 @@
 package com.example.fitnotes.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -41,6 +42,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     onBack:()->Unit,onSwitch:(String)->Unit,onAdd:()->Unit,onEditWorkout:()->Unit,onHistory:(String)->Unit,onSavePast:()->Unit={}) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var switcher by remember { mutableStateOf(false) }
+    var swapping by rememberSaveable { mutableStateOf(false) }
     var remove by remember { mutableStateOf(false) }
     var selectedSet by remember { mutableStateOf<NotebookSet?>(null) }
     var extra by remember { mutableStateOf(false) }
@@ -61,6 +63,16 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
     val scope=rememberCoroutineScope()
     val loadModes=(targets?.ordered?.map{it.loadMode}.orEmpty()+exercise.sets.mapNotNull{it.local?.loadMode}).distinct()
     val loadLabel=when(loadModes.singleOrNull()){LoadMode.BODYWEIGHT->"Added kg";LoadMode.ASSISTANCE->"Assist kg";LoadMode.REPS_ONLY->"Load";else->"kg"}
+    BackHandler(enabled=swapping) { swapping=false }
+    if (swapping && exercise.entryId != null) {
+        ExercisePicker(data.exercises, setOfNotNull(exercise.canonicalId), emptyList(), emptyMap(), busy,
+            onCancel = { swapping = false },
+            onSelect = { ids -> ids.singleOrNull()?.let { id -> model.swapExercise(exercise.entryId,id) { replacement -> swapping=false;onSwitch("entry:$replacement") } } },
+            onCreate = {}, singleSelection = true, aliases = data.exerciseAliases, allowCreation = false,
+            title = "Swap exercise", actionLabel = "Swap",
+            description = if(exercise.sets.isNotEmpty()) "Logged sets stay under ${exercise.name}. Choose new weights for the replacement." else "Keep the sets and reps. Choose new weights.")
+        return
+    }
     Column(Modifier.fillMaxSize()) {
         NotebookBar(exercise.name,onBack,"Back to workout") {
             if(editable && exercise.entryId!=null)IconButton(onClick={showNote=!showNote}){Icon(Icons.Filled.Edit,"Exercise note")}
@@ -69,6 +81,7 @@ fun ExerciseLogger(session:NotebookSession,exercise:NotebookExercise,all:List<No
                 if(!editable)MenuAction("Edit workout"){close();onEditWorkout()}
                 if(session.local!=null&&!session.completed)MenuAction("Rest timer"){close();manualRest=true}
                 if(editable && exercise.entryId!=null)MenuAction("Exercise settings"){close();showNote=true}
+                if(editable && exercise.entryId!=null)MenuAction("Swap exercise"){close();swapping=true}
                 if(editable && exercise.entryId!=null)MenuAction("Remove exercise"){close();remove=true}
             }
         }

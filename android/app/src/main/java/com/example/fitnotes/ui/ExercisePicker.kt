@@ -1,5 +1,10 @@
 package com.example.fitnotes.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,12 +28,15 @@ import com.example.fitnotes.ui.theme.LocalAppearance
 
 @Composable
 fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<String>, categories: Map<String, String>, busy: Boolean,
-    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false, aliases: List<ExerciseAlias> = emptyList(), allowCreation: Boolean = true) {
+    onCancel: () -> Unit, onSelect: (List<Long>) -> Unit, onCreate: (String) -> Unit, singleSelection: Boolean = false, aliases: List<ExerciseAlias> = emptyList(), allowCreation: Boolean = true, title: String? = null, actionLabel: String? = null, description: String? = null) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(if (singleSelection || recent.none { key -> exercises.any { it.nameKey == key && it.id !in added } }) "All" else "Recent") }
     var selected by rememberSaveable(stateSaver = listSaver(save = { it }, restore = { it.toList() })) { mutableStateOf(emptyList<Long>()) }
     var creating by remember { mutableStateOf(false) }
     var customName by rememberSaveable { mutableStateOf("") }
+    val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
     val appearance = LocalAppearance.current
     val available = exercises.filter { it.id !in added }
     fun keys(exercise:Exercise)=listOf(exercise.nameKey)+aliases.filter{it.exerciseId==exercise.id}.map{it.nameKey}
@@ -43,11 +51,12 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
         }
     }.let { values->if(q.isNotBlank())values.sortedWith(compareByDescending<Exercise>{score(it)}.thenBy{it.nameKey}) else if(filter=="Recent")values.sortedBy{recent.indexOf(it.nameKey)} else values }
     Column(Modifier.fillMaxSize()) {
-        NotebookBar(if (singleSelection) "Resolve exercise" else "Add exercise", onCancel)
+        NotebookBar(title ?: if (singleSelection) "Resolve exercise" else "Add exercise", onCancel)
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!keyboardOpen) description?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             OutlinedTextField(query, { query = it.take(100); if (it.isNotBlank()) filter = "All" }, placeholder = { Text("Search exercises") }, leadingIcon = { Icon(Icons.Filled.Search, null) },
                 singleLine = true, modifier = Modifier.fillMaxWidth().testTag("exercise-search"), shape = MaterialTheme.shapes.small)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!keyboardOpen) Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Recent", "Favourites", "All").forEach { choice -> FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice) }) }
             }
         }
@@ -62,6 +71,7 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
             items(filtered, key = { it.id }) { exercise ->
                 val checked = exercise.id in selected
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(enabled = !busy, role = Role.Checkbox) {
+                    if (singleSelection && actionLabel != null) { focus.clearFocus(); keyboard?.hide() }
                     selected = if (checked) selected - exercise.id else if (singleSelection) listOf(exercise.id) else selected + exercise.id
                 }, verticalAlignment = Alignment.CenterVertically) {
                     Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer) { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { ExerciseSymbol() } }
@@ -82,7 +92,7 @@ fun ExercisePicker(exercises: List<Exercise>, added: Set<Long>, recent: List<Str
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 if(allowCreation) TextButton(onClick = { customName = query; creating = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Create custom exercise") }
                 Button(onClick = { onSelect(selected.toList()) }, enabled = selected.isNotEmpty() && !busy, shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text(if (singleSelection) "Use for strength plan" else if (selected.size == 1) "Add 1 exercise" else "Add ${selected.size} exercises")
+                    Text(actionLabel ?: if (singleSelection) "Use for strength plan" else if (selected.size == 1) "Add 1 exercise" else "Add ${selected.size} exercises")
                 }
             }
         }

@@ -247,6 +247,29 @@ class WorkoutRepository(val database: FitDatabase, private val restClock: RestCl
         val entry=requireNotNull(dao.entry(entryId)){"Exercise no longer exists."}
         dao.updateEntry(entry.copy(planNote=note.trim()))
     }
+    /** Replace only the remaining prescription; performed results keep their identity. */
+    suspend fun swapExercise(entryId: Long, exerciseId: Long): Long = database.withTransaction {
+        val old = requireNotNull(dao.entry(entryId)) { "Exercise no longer belongs to this workout." }
+        requireNotNull(dao.exercise(exerciseId)) { "Choose an existing exercise." }
+        require(old.exerciseId != exerciseId) { "Choose a different exercise." }
+        val workout = requireNotNull(dao.workout(old.workoutId))
+        require(workout.activityType == "strength") { "Swap exercises in a strength workout." }
+        val saved = dao.entrySets(entryId)
+        val entries = dao.workoutEntries(old.workoutId)
+        val position = old.position + if (saved.isEmpty()) 0 else 1
+        if (saved.isNotEmpty()) entries.filter { it.position >= position }.forEach { dao.updateEntry(it.copy(position = it.position + 1)) }
+        val replacement = dao.insertEntry(old.copy(id = 0, exerciseId = exerciseId, position = position, planNote = ""))
+        val completed = saved.mapNotNull { it.targetId }.toSet()
+        database.trainingDao().entryTargets(entryId).filter { it.id !in completed }.forEach { target ->
+            // Different movements/equipment do not share a safe working load.
+            database.trainingDao().updateTarget(target.copy(entryId = replacement, weightValue = null, weightUnit = null,
+                loadMode = LoadMode.UNKNOWN, rir = null, rpe = null))
+        }
+        if (saved.isEmpty()) dao.deleteEntry(entryId)
+        dao.touchWorkout(old.workoutId, wallClock())
+        replacement
+    }
+
     suspend fun removeExercise(id: Long) = database.withTransaction { dao.entry(id)?.let { dao.touchWorkout(it.workoutId, wallClock()) }; dao.deleteEntry(id) }
     suspend fun reorderExercises(workoutId: Long, entryIds: List<Long>) = database.withTransaction {
         requireNotNull(dao.workout(workoutId)) { "Session no longer exists." }
